@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BGC-QUAST Report</title>
+    <style>
+    {{ style_css }}
+    </style>
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<body>
+<div id="main"> <!-- Wrapper -->
+    <!-- Header with accent stripe + title -->
+    <header class="page-header">
+        <h1>BGC-QUAST Report</h1>
+
+        <div class="github-link">
+        <a href="https://github.com/gurevichlab/bgc-quast" target="_blank">
+            <img src="{{ github_logo }}" alt="GitHub" class="github-icon">
+            Visit the GitHub project page
+        </a>
+        </div>
+    </header>
+
+    <div id="runSummary" class="run-summary"></div>
+
+    <!-- Two-column layout: left - table+heatmap, right - plot+controls -->
+    <div id="reportLayout">
+        <div>
+            <div class="heatmap-controls">
+                <!-- Gradient legend -->
+                <div id="heatmapLegend">
+                    <canvas id="gradientHeatmap" width="300" height="10"></canvas>
+                    <div class="heatmap-legend-labels">
+                        <span>Smallest</span>
+                        <span>Median</span>
+                        <span>Largest</span>
+                    </div>
+                </div>
+
+                <!-- Heatmap toggle checkbox -->
+                <label>
+                    <input type="checkbox" id="heatmapToggle" checked> Show heatmap
+                </label>
+                <label>
+                    <input type="checkbox" id="heatmapIncludeRef"> Include reference
+                </label>
+
+
+            </div>
+
+            <div class="extended-btn-wrapper">
+                <button id="toggleProductBtn">Show stratification by product</button>
+                <button id="toggleCompletenessBtn">Show stratification by completeness</button>
+            </div>
+
+            <div id="reportTableContainer"></div>
+
+        </div>
+
+        <!-- The barplot -->
+        <div>
+            <div class="plot-and-controls">
+                <div class="chart-wrap">
+                    <div class="metric-tabs">
+                        <button class="metric-tab active" data-metric="bgcs">All BGCs</button>
+                        <button class="metric-tab" data-metric="fully">Full ref. BGCs</button>
+                        <button class="metric-tab" data-metric="partial">Partial ref. BGCs</button>
+                        <button class="metric-tab" data-metric="missed">Missed ref. BGCs</button>
+                        <button class="metric-tab" data-metric="unique">Unique BGCs</button>
+                        <button class="metric-tab" data-metric="pyplots">BGC overlap plots</button>
+                    </div>
+
+                    <div class="plot-flex-row">
+                        <div id="bgcLegend" class="plot-legend-column"></div>
+                        <canvas id="bgcBarPlot" width="700" height="600"></canvas>
+                    </div>
+
+                    <div id="pythonPlotsPanel" style="display:none">
+                    </div>
+
+                </div>
+
+                <div class="barplot-controls">
+                    <div class="barplot-mode">
+                        <label><input type="radio" name="barMode" value="total" id="barModeTotal" checked> Total</label>
+                        <label><input type="radio" name="barMode" value="showby" id="barModeShowBy"> Show by</label>
+                    </div>
+
+                    <fieldset id="completenessFilterGroup">
+                        <legend class="filter-legend">
+                            <span>completeness</span>
+                            <input type="checkbox" id="byCompleteness">
+                        </legend>
+                        <!-- JS fills in checkboxes here -->
+                    </fieldset>
+
+                    <!-- Dynamic product filters (NRP/PKS/RiPP/...) -->
+                    <fieldset id="typeFilterGroup">
+                        <legend class="filter-legend">
+                            <span>product</span>
+                            <input type="checkbox" id="byType">
+                        </legend>
+                        <!-- JS fills in checkboxes here -->
+                    </fieldset>
+
+                     <!-- Download button -->
+                    <button id="downloadPlotWithLegend">Download plot</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Data injected by Python -->
+    <script>
+        const reportData = {{ report_json }};
+        const reportMode = "{{ report_mode }}";
+        const reportMetadata = {{ metadata_json }};
+    </script>
+    <script>
+    {{ script_js }}
+    </script>
+</body>
+</html>
+

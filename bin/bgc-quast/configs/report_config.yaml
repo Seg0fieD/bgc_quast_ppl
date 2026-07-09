@@ -1,0 +1,139 @@
+# Report configuration file for BGC-QUAST
+# This file defines the structure and content of different report types
+
+basic_report:
+  metrics:
+    - name: "filtered_bgcs_by_length"
+      display_name: "# BGCs filtered by length"
+      description: "Number of BGCs shorter than the minimum length threshold that are excluded from the analysis"
+    - name: "total_bgc_count"
+      display_name: "# BGCs"
+      description: "Total number of predicted BGCs that passed the length threshold"
+    - name: "total_bgc_length"
+      display_name: "Total BGC length in bp"
+      description: "Sum of lengths of all BGCs in base pairs"
+    - name: "mean_bgc_length"
+      display_name: "Mean BGC length in bp"
+      description: "Average BGC length in base pairs"
+      precision: 1
+    - name: "mean_gene_per_bgc"
+      display_name: "Mean BGC length in genes"
+      description: "Average number of genes per BGC"
+      precision: 1
+
+  grouping_dimensions:
+    product_type:
+      include_total: true
+      order: ["Total", "NRPS", "PKS", "RiPP", "Terpene", "Saccharide", "Alkaloid",
+       "Hybrid"]
+    completeness:
+      include_total: true
+      order: ["Total", "Complete", "Incomplete", "Unknown completeness"]
+
+  grouping_combinations: [["product_type", "completeness"]]
+
+
+compare_to_reference:
+  metrics:
+    - name: "fully_recovered_bgcs_count"
+      display_name: "# full ref. BGCs"
+      description: "Number of reference BGCs with ≥95% of their length covered by at least one assembly BGC"
+    - name: "fully_recovered_single_contig_bgcs_count"
+      display_name: "# full ref. BGCs, single-contig"
+      description: "Number of reference BGCs with ≥95% of their length covered by a single contiguous assembly BGC"
+    - name: "fully_recovered_multi_contig_bgcs_count"
+      display_name: "# full ref. BGCs, multi-contig"
+      description: "Number of reference BGCs with ≥95% of their length covered by multiple disjoint assembly BGCs"
+    - name: "partially_recovered_bgcs_count"
+      display_name: "# partial ref. BGCs"
+      description: "Number of reference BGCs with 10–95% of their length covered by one or more assembly BGCs"
+    - name: "missed_bgcs_count"
+      display_name: "# missed ref. BGCs"
+      description: "Number of reference BGCs with <10% of their length covered by any assembly BGC"
+    - name: "recovery_rate"
+      display_name: "Ref. BGC recovery rate"
+      description: "Proportion of reference BGCs that are fully or partially recovered, regardless of product type"
+      precision: 2
+    - name: "misclassified_product_type_count"
+      display_name: "# product type mismatches to ref."
+      description: "Number of assembly BGCs mapped to reference BGCs but predicted with a different product type"
+    - name: "unmapped_assembly_bgcs_count"
+      display_name: "# unmapped BGCs to ref."
+      description: "Number of assembly BGCs that do not map to any reference BGC"
+
+  grouping_dimensions:
+    product_type:
+      include_total: true
+      order: ["Total", "NRPS", "PKS", "RiPP", "Terpene", "Saccharide", "Alkaloid",
+       "Hybrid"]
+    completeness:
+      include_total: true
+      order: ["Total", "Complete", "Incomplete", "Unknown completeness"]
+
+  grouping_combinations: [["product_type", "completeness"]]
+
+
+compare_tools:
+  metrics:
+    - name: "unique_bgcs"
+      display_name: "# unique BGCs"
+      description: "Number of BGCs detected by only one tool"
+    - name: "unique_recovery_rate"
+      display_name: "Unique BGC rate"
+      description: "Proportion of BGCs detected by only one tool out of all BGCs predicted by that tool"
+      precision: 2
+
+  grouping_dimensions:
+    product_type:
+      include_total: true
+      order: ["Total", "NRPS", "PKS", "RiPP", "Terpene", "Saccharide", "Alkaloid",
+       "Hybrid"]
+    completeness:
+      include_total: true
+      order: [ "Total", "Complete", "Incomplete", "Unknown completeness" ]
+
+  grouping_combinations: [ [ "product_type", "completeness" ] ]
+
+# these metrics are planned but not implemented yet
+compare_samples:
+  metrics:
+    - name: "bgc_diversity"
+      display_name: "BGC diversity"
+      description: "Number of unique BGC types in each sample"
+    - name: "sample_similarity"
+      display_name: "Sample similarity"
+      description: "Similarity between samples based on BGC content"
+    - name: "core_bgcs"
+      display_name: "# core BGCs"
+      description: "Number of BGCs present in all samples"
+    - name: "accessory_bgcs"
+      display_name: "# accessory BGCs"
+      description: "Number of BGCs present in some but not all samples"
+
+  grouping_dimensions:
+    product_type:
+      include_total: true
+      order: ["Total", "NRPS", "PKS", "RiPP", "Terpene", "Saccharide", "Alkaloid",
+       "Hybrid"]
+    sample_group:
+      include_total: true
+      order: ["Total", "group_A", "group_B", "group_C"]
+
+
+# Global settings
+output_settings:
+  decimal_places: 2
+  include_descriptions: true
+  show_empty_metrics: false
+
+# Formatting settings for different output types
+formatting:
+  txt:
+    column_width: 15
+    show_index: true
+  html:
+    table_class: "report-table"
+    include_css: true
+  tsv:
+    na_rep: "N/A"
+    float_format: "%.2f"

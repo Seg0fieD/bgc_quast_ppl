@@ -1,0 +1,10 @@
+name: bgc-quast
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python >=3.9,<3.14
+  - pandas
+  - biopython
+  - pyyaml

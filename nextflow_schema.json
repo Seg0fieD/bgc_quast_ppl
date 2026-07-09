@@ -1,0 +1,966 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/sego/bgc_quast_ppl/main/nextflow_schema.json",
+    "title": "bgc_quast_ppl pipeline parameters",
+    "description": "BGC-only pipeline: prep, annotation, BGC prediction, and bgc-quast analysis. Built on nf-core/funcscan 3.0.0.",
+    "type": "object",
+    "$defs": {
+        "input_output_options": {
+            "title": "Input/output options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define where the pipeline should find input data and save output data.",
+            "required": [
+                "input",
+                "outdir"
+            ],
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_input.json",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to comma-separated file containing sample names and paths to corresponding FASTA files, and optional annotation files.",
+                    "help_text": "Before running the pipeline, you will need to create a design file with information about the samples to be scanned by nf-core/funcscan, containing at a minimum sample names and paths to contigs. Use this parameter to specify its location. It has to be a two or four column comma-separated file with a header row (`sample,fasta` or `sample,fasta,protein,gbk`). See [usage docs](https://nf-co.re/funcscan/usage#samplesheet-input).",
+                    "fa_icon": "fas fa-file-csv"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "email": {
+                    "type": "string",
+                    "description": "Email address for completion summary.",
+                    "fa_icon": "fas fa-envelope",
+                    "help_text": "Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits. If set in your user config file (`~/.nextflow/config`) then you don't need to specify this on the command line for every run.",
+                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
+                }
+            }
+        },
+        "screening_type_activation": {
+            "title": "Screening type activation",
+            "type": "object",
+            "description": "These parameters influence which workflow (ARG, AMP and/or BGC) to activate.",
+            "default": "",
+            "properties": {
+                "run_bgc_screening": {
+                    "type": "boolean",
+                    "description": "Activate biosynthetic gene cluster screening tools.",
+                    "fa_icon": "fas fa-check-circle",
+                    "default": true
+                }
+            },
+            "fa_icon": "fa fa-list"
+        },
+        "annotation_general_options": {
+            "title": "Annotation: general options",
+            "type": "object",
+            "description": "These options influence the generation of annotation files required for downstream steps in ARG, AMP, and BGC workflows.",
+            "default": "",
+            "properties": {
+                "annotation_tool": {
+                    "type": "string",
+                    "default": "pyrodigal",
+                    "description": "Specify which annotation tool to use for some downstream tools.",
+                    "enum": [
+                        "prodigal",
+                        "pyrodigal",
+                        "prokka",
+                        "bakta"
+                    ],
+                    "fa_icon": "fas fa-edit"
+                },
+                "save_annotations": {
+                    "type": "boolean",
+                    "description": "Specify whether to save gene annotations in the results directory.",
+                    "fa_icon": "fas fa-save"
+                }
+            },
+            "fa_icon": "fas fa-file-signature",
+            "help_text": ""
+        },
+        "annotation_bakta": {
+            "title": "Annotation: BAKTA",
+            "type": "object",
+            "description": "BAKTA is a tool developed to annotate bacterial genomes and plasmids from both isolates and MAGs. More info: https://github.com/oschwengers/bakta",
+            "default": "",
+            "properties": {
+                "annotation_bakta_db": {
+                    "type": "string",
+                    "fa_icon": "fas fa-database",
+                    "description": "Specify a path to a local copy of a BAKTA database.",
+                    "help_text": "If a local copy of a BAKTA database exists, specify the path to that database which is prepared in a BAKTA format. Otherwise this will be downloaded for you.\n\nThe contents of the directory should have files such as `*.dmnd` in the top level."
+                },
+                "annotation_bakta_db_downloadtype": {
+                    "type": "string",
+                    "description": "Download full or light version of the Bakta database if not supplying own database.",
+                    "help_text": "If you want the pipeline to download the Bakta database for you, you can choose between the full (33.1 GB) and light (1.3 GB) version. The full version is generally recommended for best annotation results, because it contains all of these:\n\n- UPS: unique protein sequences identified via length and MD5 hash digests (100% coverage & 100% sequence identity)\n- IPS: identical protein sequences comprising seeds of UniProt's UniRef100 protein sequence clusters\n- PSC: protein sequences clusters comprising seeds of UniProt's UniRef90 protein sequence clusters\n- PSCC: protein sequences clusters of clusters comprising annotations of UniProt's UniRef50 protein sequence clusters\n\nIf download bandwidth, storage, memory, or run duration requirements become an issue, go for the light version (which only contains PSCCs) by modifying the `annotation_bakta_db_downloadtype` flag.\n\nMore details can be found in the [documentation](https://github.com/oschwengers/bakta#database)\n\n>  Modifies tool parameter(s):\n> - BAKTA_DBDOWNLOAD: `--type`",
+                    "fa_icon": "fas fa-database",
+                    "enum": [
+                        "full",
+                        "light"
+                    ],
+                    "default": "full"
+                },
+                "annotation_bakta_singlemode": {
+                    "type": "boolean",
+                    "description": "Use the default genome-length optimised mode (rather than the metagenome mode).",
+                    "help_text": "By default, Bakta's `--meta` mode is used in the pipeline to improve the gene prediction of highly fragmented metagenomes.\n\nBy specifying this parameter Bakta will instead use its default mode that is optimised for singular 'complete' genome sequences.\n\nMore details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--meta`",
+                    "fa_icon": "fas fa-dna"
+                },
+                "annotation_bakta_mincontiglen": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Specify the minimum contig size.",
+                    "help_text": "Specify the minimum contig size that would be annotated by BAKTA.\nIf run with '--annotation_bakta_compliant', the minimum contig length must be set to 200. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--min-contig-length`",
+                    "minimum": 1,
+                    "fa_icon": "fas fa-align-left"
+                },
+                "annotation_bakta_translationtable": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "Specify the genetic code translation table.",
+                    "help_text": "Specify the genetic code translation table used for translation of nucleotides to amino acids. \nAll possible genetic codes (1-25) used for gene annotation can be found [here](https://en.wikipedia.org/wiki/List_of_genetic_codes). More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--translation-table`",
+                    "minimum": 1,
+                    "maximum": 25,
+                    "fa_icon": "fas fa-border-all"
+                },
+                "annotation_bakta_gram": {
+                    "type": "string",
+                    "default": "?",
+                    "enum": [
+                        "+",
+                        "-",
+                        "?"
+                    ],
+                    "description": "Specify the type of bacteria to be annotated to detect signaling peptides.",
+                    "help_text": "Specify the type of bacteria expected in the input dataset for correct annotation of the signal peptide predictions. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--gram`",
+                    "fa_icon": "far fa-plus-square"
+                },
+                "annotation_bakta_complete": {
+                    "type": "boolean",
+                    "description": "Specify that all contigs are complete replicons.",
+                    "help_text": "This flag expects contigs that make up complete chromosomes and/or plasmids. By calling it, the user ensures that the contigs are complete replicons. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--complete`",
+                    "fa_icon": "far fa-circle"
+                },
+                "annotation_bakta_renamecontigheaders": {
+                    "type": "boolean",
+                    "description": "Changes the original contig headers.",
+                    "help_text": "This flag specifies that the contig headers should be rewritten. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--keep-contig-headers`",
+                    "fa_icon": "fas fa-remove-format"
+                },
+                "annotation_bakta_compliant": {
+                    "type": "boolean",
+                    "description": "Clean the result annotations to standardise them to Genbank/ENA conventions.",
+                    "help_text": "The resulting annotations are cleaned up to standardise them to Genbank/ENA/DDJB conventions. CDS without any attributed hits and those without gene symbols or product descriptions different from hypothetical will be marked as 'hypothetical'.\nWhen activated the `--min-contig-length` will be set to 200. More info can be found [here](https://github.com/oschwengers/bakta).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--compliant`",
+                    "fa_icon": "fas fa-check-circle"
+                },
+                "annotation_bakta_trna": {
+                    "type": "boolean",
+                    "description": "Activate tRNA detection & annotation.",
+                    "help_text": "This flag activates [tRNAscan-SE 2.0](http://lowelab.ucsc.edu/tRNAscan-SE/) that predicts tRNA genes. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-trna`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_tmrna": {
+                    "type": "boolean",
+                    "description": "Activate tmRNA detection & annotation.",
+                    "help_text": "This flag activates [Aragorn](http://www.ansikte.se/ARAGORN/) that predicts tmRNA genes. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-tmrna`\n`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_rrna": {
+                    "type": "boolean",
+                    "description": "Activate rRNA detection & annotation.",
+                    "help_text": "This flag activates [Infernal vs. Rfam rRNA covariance models](http://eddylab.org/infernal/) that predicts rRNA genes. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--rrna`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_ncrna": {
+                    "type": "boolean",
+                    "description": "Activate ncRNA detection & annotation.",
+                    "help_text": "This flag activates [Infernal vs. Rfam ncRNA covariance models](http://eddylab.org/infernal/) that predicts ncRNA genes.\nBAKTA distinguishes between ncRNA genes and (cis-regulatory) regions to enable the distinction of feature overlap detection.\nThis includes distinguishing between ncRNA gene types: sRNA, antisense, ribozyme and antitoxin. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--ncrna`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_ncrnaregion": {
+                    "type": "boolean",
+                    "description": "Activate ncRNA region detection & annotation.",
+                    "help_text": "This flag activates [Infernal vs. Rfam ncRNA covariance models](http://eddylab.org/infernal/) that predicts ncRNA cis-regulatory regions.\nBAKTA distinguishes between ncRNA genes and (cis-regulatory) regions to enable the distinction of feature overlap detection.\nThis including distinguishing between ncRNA (cis-regulatory) region types: riboswitch, thermoregulator, leader and frameshift element. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-ncrna-region`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_crispr": {
+                    "type": "boolean",
+                    "description": "Activate CRISPR array detection & annotation.",
+                    "help_text": "This flag activates [PILER-CR](https://www.drive5.com/pilercr/) that predicts CRISPR arrays. More details can be found in the [documentation](https://github.com/oschwengers/bakta/blob/main/README.md#usage).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-crispr`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_skipcds": {
+                    "type": "boolean",
+                    "description": "Skip CDS detection & annotation.",
+                    "help_text": "This flag skips CDS prediction that is done by [PYRODIGAL](https://github.com/althonos/pyrodigal) with which the distinct prediction for complete replicons and uncompleted contigs is done.\nFor more information on how BAKTA predicts CDS please refer to the BAKTA [documentation](https://github.com/oschwengers/bakta).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-cds`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_pseudo": {
+                    "type": "boolean",
+                    "description": "Activate pseudogene detection & annotation.",
+                    "help_text": "This flag activates the search for reference Phytochelatin Synthase genes (PCSs) using 'hypothetical' CDS as seed sequences, then aligns the translated PCSs against up-/downstream-elongated CDS regions. More details can be found in the BAKTA [documentation](https://github.com/oschwengers/bakta). \n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-pseudo`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_skipsorf": {
+                    "type": "boolean",
+                    "description": "Skip sORF detection & annotation.",
+                    "help_text": "Skip the prediction of sORFs from amino acids stretches as less than 30aa. For more info please refer to BAKTA [documentation](https://github.com/oschwengers/bakta).  All sORF without gene symbols or product descriptions different from hypothetical will be discarded, while only those identified hits exhibiting proper gene symbols or product descriptions different from hypothetical will still be included in the final annotation.\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-sorf`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_gap": {
+                    "type": "boolean",
+                    "description": "Activate gap detection & annotation.",
+                    "help_text": "Activates any gene annotation found within contig assembly gaps. More details can be found in the BAKTA [documentation](https://github.com/oschwengers/bakta). \n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-gap`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_ori": {
+                    "type": "boolean",
+                    "description": "Activate oriC/oriT detection & annotation.",
+                    "help_text": "Activates the BAKTA search for oriC/oriT genes by comparing results from Blast+ (generated by cov=0.8, id=0.8) and the [MOB-suite](https://github.com/phac-nml/mob-suite) of oriT & [DoriC](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6323995/) oriC/oriV sequences. Annotations of ori regions take into account overlapping Blast+ hits and are conducted based on a majority vote heuristic. Region edges may be fuzzy. For more info please refer to the BAKTA [documentation](https://github.com/oschwengers/bakta).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-ori`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "annotation_bakta_activate_plot": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-chart-pie",
+                    "description": "Activate generation of circular genome plots.",
+                    "help_text": "Activate this flag to generate genome plots (might be memory-intensive).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--skip-plot`"
+                },
+                "annotation_bakta_hmms": {
+                    "type": "string",
+                    "description": "Supply a path of an HMM file of trusted hidden markov models in HMMER format for CDS annotation",
+                    "help_text": "Bakta accepts user-provided trusted HMMs via `--hmms` in HMMER's text format. If set, Bakta will adhere to the *trusted cutoff* specified in the HMM header. In addition, a max. evalue threshold of 1e-6 is applied. For more info please refer to the BAKTA [documentation](https://github.com/oschwengers/bakta).\n\n>  Modifies tool parameter(s):\n> - BAKTA: `--hmms`",
+                    "fa_icon": "fa-regular fa-square-check"
+                }
+            },
+            "fa_icon": "fas fa-file-signature"
+        },
+        "annotation_prokka": {
+            "title": "Annotation: Prokka",
+            "type": "object",
+            "description": "Prokka annotates genomic sequences belonging to bacterial, archaeal and viral genomes. More info: https://github.com/tseemann/prokka",
+            "default": "",
+            "properties": {
+                "annotation_prokka_singlemode": {
+                    "type": "boolean",
+                    "description": "Use the default genome-length optimised mode (rather than the metagenome mode).",
+                    "help_text": "By default, Prokka's `--metagenome` mode is used in the pipeline to improve the gene prediction of highly fragmented metagenomes.\n\nBy specifying this parameter Prokka will instead use its default mode that is optimised for singular 'complete' genome sequences.\n\nFor more information, please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--metagenome`",
+                    "fa_icon": "fas fa-braille"
+                },
+                "annotation_prokka_rawproduct": {
+                    "type": "boolean",
+                    "description": "Suppress the default clean-up of the gene annotations.",
+                    "help_text": "By default, annotation in Prokka is carried out by alignment to other proteins in its database, or the databases the user provides via the tools `--proteins` flag. The resulting annotations are then cleaned up to standardise them to Genbank/ENA conventions.\n'Vague names' are set to 'hypothetical proteins', 'possible/probable/predicted' are set to 'putative' and 'EC/CPG and locus tag ids' are removed.\n\nBy supplying this flag you stop such clean up leaving the original annotation names.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\nThis flag suppresses this default behavior of Prokka (which is to perform the cleaning).\n\n> Modifies tool parameter(s):\n> - Prokka: `--rawproduct`",
+                    "fa_icon": "fab fa-product-hunt"
+                },
+                "annotation_prokka_kingdom": {
+                    "type": "string",
+                    "default": "Bacteria",
+                    "fa_icon": "fas fa-crown",
+                    "description": "Specify the kingdom that the input represents.",
+                    "help_text": "Specifies the kingdom that the input sample is derived from and/or you wish to screen for\n\n> \u26a0\ufe0f Prokka cannot annotate Eukaryotes.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--kingdom`",
+                    "enum": [
+                        "Archaea",
+                        "Bacteria",
+                        "Mitochondria",
+                        "Viruses"
+                    ]
+                },
+                "annotation_prokka_gcode": {
+                    "type": "integer",
+                    "default": 11,
+                    "minimum": 0,
+                    "maximum": 25,
+                    "description": "Specify the translation table used to annotate the sequences.",
+                    "help_text": "Specify the translation table used to annotate the sequences. All possible genetic codes (1-25) used for gene annotation can be found [here](https://en.wikipedia.org/wiki/List_of_genetic_codes). This flag is required if the flag `--kingdom` is assigned.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--gcode`",
+                    "fa_icon": "fas fa-border-all"
+                },
+                "annotation_prokka_mincontiglen": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum contig size required for annotation (bp).",
+                    "help_text": "Specify the minimum contig lengths to carry out annotations on. The Prokka developers recommend that this should be \u2265 200 bp, if you plan to submit such annotations to NCBI.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--mincontiglen`",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "annotation_prokka_evalue": {
+                    "type": "number",
+                    "default": 1e-06,
+                    "description": "E-value cut-off.",
+                    "help_text": "Specifiy the maximum E-value used for filtering the alignment hits.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--evalue`",
+                    "fa_icon": "fas fa-sort-amount-down"
+                },
+                "annotation_prokka_coverage": {
+                    "type": "integer",
+                    "default": 80,
+                    "description": "Set the assigned minimum coverage.",
+                    "help_text": "Specify the minimum coverage percent of the annotated genome. This must be set between 0-100.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--coverage`",
+                    "fa_icon": "fas fa-align-right",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "annotation_prokka_cdsrnaolap": {
+                    "type": "boolean",
+                    "description": "Allow transfer RNA (trRNA) to overlap coding sequences (CDS).",
+                    "help_text": "Allow transfer RNA (trRNA) to overlap coding sequences (CDS). Transfer RNAs are short stretches of nucleotide sequences that link mRNA and the amino acid sequence of proteins. Their presence helps in the annotation of the sequences, because each trRNA can only be attached to one type of amino acid.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--cdsrnaolap`",
+                    "fa_icon": "fas fa-align-justify"
+                },
+                "annotation_prokka_rnammer": {
+                    "type": "boolean",
+                    "description": "Use RNAmmer for rRNA prediction.",
+                    "help_text": "Activates [RNAmmer](https://services.healthtech.dtu.dk/service.php?RNAmmer-1.2) instead of the Prokka default [Barrnap](https://github.com/tseemann/barrnap) for rRNA prediction during the annotation process. RNAmmer classifies ribosomal RNA genes in genome sequences by using two levels of Hidden Markov Models. Barrnap uses the nhmmer tool that includes HMMER 3.1 for HMM searching in RNA:DNA style.\n\nFor more information please check the Prokka [documentation](https://github.com/tseemann/prokka).\n\n> Modifies tool parameter(s):\n> - Prokka: `--rnammer`",
+                    "fa_icon": "fas fa-cogs"
+                },
+                "annotation_prokka_compliant": {
+                    "type": "boolean",
+                    "fa_icon": "far fa-check-circle",
+                    "description": "Force contig name to Genbank/ENA/DDJB naming rules.",
+                    "help_text": "Force the contig headers to conform to the Genbank/ENA/DDJB contig header standards. This is activated in combination with `--centre [X]` when contig headers supplied by the user are non-conforming and therefore need to be renamed before Prokka can start annotation. This flag activates  `--genes --mincontiglen 200`. For more information please check the Prokka [documentation](https://github.com/tseemann/prokka). \n\n> Modifies tool parameter(s):\n> - Prokka: `--compliant`",
+                    "default": true
+                },
+                "annotation_prokka_addgenes": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-dna",
+                    "description": "Add the gene features for each CDS hit.",
+                    "help_text": "For every CDS annotated, this flag adds the gene that encodes for that CDS region. For more information please check the Prokka [documentation](https://github.com/tseemann/prokka). \n\n> Modifies tool parameter(s):\n> - Prokka: `--addgenes`"
+                },
+                "annotation_prokka_retaincontigheaders": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-font",
+                    "help_text": "This parameter allows prokka to retain the original contig names by activating `PROKKA`'s  `--force` flag. If this parameter is set to `false` it activates `PROKKA`'s flags `--locus-tag PROKKA --centre CENTER` so the locus tags (contig names) will be PROKKA_# and the center tag will be CENTER. By default `PROKKA` changes contig headers to avoid errors that might rise due to long contig headers, so this must be turned on if the user has short contig names that should be retained by `PROKKA`. \n\n> Modifies tool parameter(s):\n> - Prokka: `--locus-tag PROKKA --centre CENTER`\n> - Prokka: `--force`",
+                    "description": "Retains contig names."
+                }
+            },
+            "fa_icon": "fas fa-file-signature"
+        },
+        "annotation_prodigal": {
+            "title": "Annotation: Prodigal",
+            "type": "object",
+            "description": "Prodigal is a protein-coding gene prediction tool developed to run on bacterial and archaeal genomes. More info: https://github.com/hyattpd/prodigal/wiki",
+            "default": "",
+            "properties": {
+                "annotation_prodigal_singlemode": {
+                    "type": "boolean",
+                    "description": "Specify whether to use Prodigal's single-genome mode for long sequences.",
+                    "help_text": "By default Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, nf-core/funcscan will run with the `meta` mode by default. Providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s): \n> -PRODIGAL: `-p`",
+                    "fa_icon": "far fa-circle"
+                },
+                "annotation_prodigal_closed": {
+                    "type": "boolean",
+                    "description": "Does not allow partial genes on contig edges.",
+                    "help_text": "Suppresses partial genes from being on contig edge, resulting in closed ends. Should only be activated for genomes where it is sure the first and last bases of the sequence(s) do not fall inside a gene. Run together with `-p normal` (former `-p single`) .\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s):\n> - PRODIGAL: `-c`",
+                    "fa_icon": "fas fa-arrows-alt-h"
+                },
+                "annotation_prodigal_transtable": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "Specifies the translation table used for gene annotation.",
+                    "help_text": "Specifies which translation table should be used for seqeunce annotation. All possible genetic code translation tables can be found [here](https://en.wikipedia.org/wiki/List_of_genetic_codes). The default is set at 11, which is used for standard Bacteria/Archeae.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s):\n> - PRODIGAL: `-g`",
+                    "fa_icon": "fas fa-border-all"
+                },
+                "annotation_prodigal_forcenonsd": {
+                    "type": "boolean",
+                    "description": "Forces Prodigal to scan for motifs.",
+                    "help_text": "Forces PRODIGAL to a full scan for motifs rather than activating the Shine-Dalgarno RBS finder, the default scanner for PRODIGAL to train for motifs.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s):\n> - PRODIGAL: `-n`",
+                    "fa_icon": "fas fa-barcode"
+                }
+            },
+            "fa_icon": "fas fa-file-signature"
+        },
+        "annotation_pyrodigal": {
+            "title": "Annotation: Pyrodigal",
+            "type": "object",
+            "description": "Pyrodigal is a resource-optimized wrapper around Prodigal, producing protein-coding gene predictions of bacterial and archaeal genomes. Read more at the Pyrodigal GitHub repository (https://github.com/althonos/pyrodigal) or its documentation (https://pyrodigal.readthedocs.io).",
+            "default": "",
+            "properties": {
+                "annotation_pyrodigal_singlemode": {
+                    "type": "boolean",
+                    "fa_icon": "far fa-circle",
+                    "description": "Specify whether to use Pyrodigal's single-genome mode for long sequences.",
+                    "help_text": "By default Pyrodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, nf-core/funcscan will run with the `meta` mode by default, but providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s): \n> - PYRODIGAL: `-p`"
+                },
+                "annotation_pyrodigal_closed": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-arrows-alt-h",
+                    "description": "Does not allow partial genes on contig edges.",
+                    "help_text": "Suppresses partial genes from being on contig edge, resulting in closed ends. Should only be activated for genomes where it is sure the first and last bases of the sequence(s) do not fall inside a gene. Run together with `-p single` .\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s):\n> - PYRODIGAL: `-c`"
+                },
+                "annotation_pyrodigal_transtable": {
+                    "type": "integer",
+                    "default": 11,
+                    "fa_icon": "fas fa-border-all",
+                    "description": "Specifies the translation table used for gene annotation.",
+                    "help_text": "Specifies which translation table should be used for seqeunce annotation. All possible genetic code translation tables can be found [here](https://en.wikipedia.org/wiki/List_of_genetic_codes). The default is set at 11, which is used for standard Bacteria/Archeae.\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s):\n> - PYRODIGAL: `-g`"
+                },
+                "annotation_pyrodigal_forcenonsd": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-barcode",
+                    "description": "Forces Pyrodigal to scan for motifs.",
+                    "help_text": "Forces Pyrodigal to a full scan for motifs rather than activating the Shine-Dalgarno RBS finder, the default scanner for Pyrodigal to train for motifs.\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s):\n> - PYRODIGAL: `-n`"
+                },
+                "annotation_pyrodigal_usespecialstopcharacter": {
+                    "type": "boolean",
+                    "fa_icon": "fa fa-star-of-life",
+                    "description": "This forces Pyrodigal to append asterisks (`*`) as stop codon indicators. Do not use when running AMP workflow.",
+                    "help_text": "Some downstream tools like AMPlify cannot process sequences containing non-sequence characters like the stop codon indicator `*`. Thus, this flag is deactivated by default. Activate this flag to revert the behaviour and have Pyrodigal append `*` as stop codon indicator to annotated sequences.\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s):\n> - PYRODIGAL: `--no-stop-codon`"
+                }
+            },
+            "fa_icon": "fas fa-file-signature"
+        },
+        "database_downloading_options": {
+            "title": "Database downloading options",
+            "type": "object",
+            "description": "General options for database downloading",
+            "default": "",
+            "properties": {
+                "save_db": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-save",
+                    "description": "Specify whether to save pipeline-downloaded databases in your results directory.",
+                    "help_text": "While nf-core/funcscan can download databases for you, often these are very large and can significantly slow-down pipeline runtime if the databases have to be downloaded every run.\n\nSpecifying `--save_db` will save the pipeline-downloaded databases in your results directory. This applies to: AMRFinderPlus, antiSMASH, Bakta, CARD (for RGI), DeepARG, DeepBGC, and DRAMP (for AMPcombi2).\n\nYou can then move the resulting directories/files to a central cache directory of your choice for re-use in the future.\n\nIf you do not specify these flags, the database files will remain in your `work/` directory and will be deleted if `cleanup = true` is specified in your config, or if you run `nextflow clean`.\n"
+                }
+            },
+            "fa_icon": "fas fa-database"
+        },
+        "bgc_general_options": {
+            "title": "BGC: general options",
+            "type": "object",
+            "description": "These parameters influence general BGC settings like minimum input sequence length.",
+            "default": "",
+            "fa_icon": "fas fa-angle-double-right",
+            "properties": {
+                "bgc_mincontiglength": {
+                    "type": "integer",
+                    "default": 3000,
+                    "fa_icon": "fas fa-ruler-horizontal",
+                    "description": "Specify the minimum length of contigs that go into BGC screening.",
+                    "help_text": "Specify the minimum length of contigs that go into BGC screening.\n\nIf BGC screening is turned on, nf-core/funcscan will generate for each input sample a second FASTA file of only contigs that are longer than the specified minimum length.\nThis is due to an (approximate) 'biological' minimum length that nucleotide sequences would need to have to code for a valid BGC (e.g. not on the edge of a contig), as well as to speeding up BGC screening sections of the pipeline by screening only meaningful contigs.\n\nNote this only affects BGCs. For ARG and AMPs no filtering is performed and all contigs are screened."
+                },
+                "bgc_savefilteredcontigs": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-save",
+                    "description": "Specify to save the length-filtered (unannotated) FASTAs used for BGC screening."
+                }
+            }
+        },
+        "bgc_antismash": {
+            "title": "BGC: antiSMASH",
+            "type": "object",
+            "description": "Biosynthetic gene cluster detection. More info: https://docs.antismash.secondarymetabolites.org",
+            "default": "",
+            "properties": {
+                "bgc_skip_antismash": {
+                    "type": "boolean",
+                    "description": "Skip antiSMASH during the BGC screening.",
+                    "fa_icon": "fas fa-ban"
+                },
+                "bgc_antismash_db": {
+                    "type": "string",
+                    "description": "Path to user-defined local antiSMASH database.",
+                    "fa_icon": "fas fa-database",
+                    "help_text": "It is recommend to pre-download the antiSMASH databases to your machine and pass the path of it to this parameter, as this can take a long time to download - particularly when running lots of pipeline runs.\n\nThe contents of the database directory should include directories such as `as-js/`, `clusterblast/`, `clustercompare/` etc. in the top level.\n\nSee the pipeline [documentation](https://nf-co.re/funcscan/usage#antismash-1) for details on how to download this."
+                },
+                "bgc_antismash_contigminlength": {
+                    "type": "integer",
+                    "default": 3000,
+                    "description": "Minimum length a contig must have to be screened with antiSMASH.",
+                    "fa_icon": "fas fa-align-center",
+                    "help_text": "This specifies the minimum length that a contig must have for the contig to be screened by antiSMASH.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\nThis will only apply to samples that are screened with antiSMASH (i.e., those samples that have not been removed by `--bgc_antismash_sampleminlength`).\n\nYou may wish to increase this value compared to that of `--bgc_antismash_sampleminlength`, in cases where you wish to screen higher-quality (i.e. longer) contigs, or speed up runs by not screening lower quality/less informative contigs.\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--minlength`"
+                },
+                "bgc_antismash_cbgeneral": {
+                    "type": "boolean",
+                    "description": "Turn on clusterblast comparison against database of antiSMASH-predicted clusters.",
+                    "help_text": "Compare identified clusters against a database of antiSMASH-predicted clusters using the clusterblast algorithm.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--cb-general`",
+                    "fa_icon": "fab fa-affiliatetheme"
+                },
+                "bgc_antismash_cbknownclusters": {
+                    "type": "boolean",
+                    "description": "Turn on clusterblast comparison against known gene clusters from the MIBiG database.",
+                    "fa_icon": "fas fa-puzzle-piece",
+                    "help_text": "This will turn on comparing identified clusters against known gene clusters from the MIBiG database using the clusterblast algorithm.\n\n[MIBiG](https://mibig.secondarymetabolites.org/) is a curated database of experimentally characterised gene clusters and with rich associated metadata.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--cb-knownclusters`"
+                },
+                "bgc_antismash_cbsubclusters": {
+                    "type": "boolean",
+                    "description": "Turn on clusterblast comparison against known subclusters responsible for synthesising precursors.",
+                    "fa_icon": "fas fa-adjust",
+                    "help_text": "Turn on additional screening for operons involved in the biosynthesis of early secondary metabolites components using the clusterblast algorithm.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--cb-subclusters`"
+                },
+                "bgc_antismash_ccmibig": {
+                    "type": "boolean",
+                    "description": "Turn on ClusterCompare comparison against known gene clusters from the MIBiG database.",
+                    "fa_icon": "fab fa-affiliatetheme",
+                    "help_text": "Turn on comparison of detected genes against the MIBiG database using the ClusterCompare algorithm - an alternative to clusterblast.\n\nNote there will not be a dedicated ClusterCompare output in the antiSMASH results directory, but is present in the HTML.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--cc-mibig`"
+                },
+                "bgc_antismash_smcogtrees": {
+                    "type": "boolean",
+                    "description": "Generate phylogenetic trees of secondary metabolite group orthologs.",
+                    "fa_icon": "fas fa-tree",
+                    "help_text": "Turning this on will activate the generation of additional functional and phylogenetic analysis of genes, via comparison against databases of protein orthologs.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--cb-smcog-trees`"
+                },
+                "bgc_antismash_hmmdetectionstrictness": {
+                    "type": "string",
+                    "default": "relaxed",
+                    "description": "Defines which level of strictness to use for HMM-based cluster detection.",
+                    "help_text": "Levels of strictness correspond to screening different groups of 'how well-defined' clusters are. For example, `loose` will include screening for 'poorly defined' clusters (e.g. saccharides), `relaxed` for partially present clusters (e.g. certain types of NRPS), whereas `strict` will screen for well-defined clusters such as Ketosynthases.\n\nYou can see the rules for the levels of strictness [here](https://github.com/antismash/antismash/tree/master/antismash/detection/hmm_detection/cluster_rules).\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--hmmdetection-strictness`",
+                    "fa_icon": "fas fa-search",
+                    "enum": [
+                        "relaxed",
+                        "strict",
+                        "loose"
+                    ]
+                },
+                "bgc_antismash_pfam2go": {
+                    "type": "boolean",
+                    "description": "Run Pfam to Gene Ontology mapping module.",
+                    "help_text": "This maps the proteins to Pfam database to annotate BGC modules with functional information based on the protein families they contain. For more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--pfam2go`",
+                    "fa_icon": "fas fa-search"
+                },
+                "bgc_antismash_rre": {
+                    "type": "boolean",
+                    "description": "Run RREFinder precision mode on all RiPP gene clusters.",
+                    "help_text": "This enables the prediction of regulatory elements on the BGC that help in the control of protein expression. For more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--rre`",
+                    "fa_icon": "fas fa-search"
+                },
+                "bgc_antismash_taxon": {
+                    "type": "string",
+                    "default": "bacteria",
+                    "description": "Specify which taxonomic classification of input sequence to use.",
+                    "help_text": "This specifies which set of secondary metabolites to screen for, based on the taxon type the secondary metabolites are from.\n\nThis will run different pipelines depending on whether the input sequences are from bacteria or fungi.\n\nFor more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--taxon`",
+                    "fa_icon": "fas fa-bacteria",
+                    "enum": [
+                        "bacteria",
+                        "fungi"
+                    ]
+                },
+                "bgc_antismash_tfbs": {
+                    "type": "boolean",
+                    "description": "Run TFBS finder on all gene clusters.",
+                    "help_text": "This enables the prediction of transcription factor binding sites which control the gene expression. For more information see the antiSMASH [documentation](https://docs.antismash.secondarymetabolites.org/).\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--tfbs`",
+                    "fa_icon": "fas fa-search"
+                },
+                "bgc_antismash_minimal": {
+                    "type": "boolean",
+                    "description": "Run antiSMASH in minimal mode (skip extra analyses; faster). Default. Does not use a smaller database.",
+                    "help_text": "Turns on antiSMASH --minimal, which only runs core BGC detection and skips the extra analysis modules. This is the default. Controls analysis depth, not database size.\n\n> Modifies tool parameter(s):\n> - antiSMASH: `--minimal`",
+                    "fa_icon": "fas fa-forward"
+                },
+                "bgc_antismash_full": {
+                    "type": "boolean",
+                    "description": "Run antiSMASH full analysis instead of the default minimal mode.",
+                    "help_text": "Turns OFF antiSMASH --minimal so all extra analysis modules run. Minimal is the default; set this flag only when you want the full analysis. Cannot be combined with --bgc_antismash_minimal.\n\n> Modifies tool parameter(s):\n> - antiSMASH: (omits `--minimal`)",
+                    "fa_icon": "fas fa-forward"
+                }
+            },
+            "fa_icon": "fas fa-angle-double-right"
+        },
+        "bgc_deepbgc": {
+            "title": "BGC: DeepBGC",
+            "type": "object",
+            "description": "A deep learning genome-mining strategy for biosynthetic gene cluster prediction. More info: https://github.com/Merck/deepbgc/tree/master/deepbgc",
+            "default": "",
+            "properties": {
+                "bgc_skip_deepbgc": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-ban",
+                    "description": "Skip DeepBGC during the BGC screening."
+                },
+                "bgc_deepbgc_db": {
+                    "type": "string",
+                    "fa_icon": "fas fa-database",
+                    "description": "Path to local DeepBGC database folder.",
+                    "help_text": "The contents of the database directory should include directories such as `common`, `0.1.0` in the top level.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: environment variable `DEEPBGC_DOWNLOADS_DIR`"
+                },
+                "bgc_deepbgc_score": {
+                    "type": "number",
+                    "default": 0.5,
+                    "description": "Average protein-wise DeepBGC score threshold for extracting BGC regions from Pfam sequences.",
+                    "fa_icon": "fas fa-list-ol",
+                    "help_text": "The DeepBGC score threshold for extracting BGC regions from Pfam sequences based on average protein-wise value.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--score`"
+                },
+                "bgc_deepbgc_prodigalsinglemode": {
+                    "type": "boolean",
+                    "description": "Run DeepBGC's internal Prodigal step in `single` mode to restrict detecting genes to long contigs",
+                    "help_text": "By default DeepBGC's Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, nf-core/funcscan will run with the `meta` mode by default, but providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--prodigal-meta-mode`",
+                    "fa_icon": "fas fa-compress-alt"
+                },
+                "bgc_deepbgc_mergemaxproteingap": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Merge detected BGCs within given number of proteins.",
+                    "fa_icon": "fas fa-angle-double-up",
+                    "help_text": "Merge detected BGCs within given number of proteins.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--merge-max-protein-gap`"
+                },
+                "bgc_deepbgc_mergemaxnuclgap": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Merge detected BGCs within given number of nucleotides.",
+                    "fa_icon": "fas fa-angle-double-up",
+                    "help_text": "Merge detected BGCs within given number of nucleotides.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> - DeepBGC: `--merge-max-nucl-gap`"
+                },
+                "bgc_deepbgc_minnucl": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum BGC nucleotide length.",
+                    "fa_icon": "fas fa-angle-double-down",
+                    "help_text": "Minimum length a BGC must have (in bp) to be reported as detected.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--min-nucl`"
+                },
+                "bgc_deepbgc_minproteins": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum number of proteins in a BGC.",
+                    "fa_icon": "fas fa-angle-double-down",
+                    "help_text": "Minimum number of proteins in a BGC must have to be reported as 'detected'.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--min-proteins`"
+                },
+                "bgc_deepbgc_mindomains": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum number of protein domains in a BGC.",
+                    "fa_icon": "fas fa-minus-square",
+                    "help_text": "Minimum number of domains a BGC must have to be reported as 'detected'.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--min-domains`"
+                },
+                "bgc_deepbgc_minbiodomains": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Minimum number of known biosynthetic (as defined by antiSMASH) protein domains in a BGC.",
+                    "fa_icon": "fas fa-minus-square",
+                    "help_text": "Minimum number of biosynthetic protein domains a BGC must have to be reported as 'detected'. This is based on antiSMASH definitions.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--min-bio-domains`"
+                },
+                "bgc_deepbgc_classifierscore": {
+                    "type": "number",
+                    "default": 0.5,
+                    "description": "DeepBGC classification score threshold for assigning classes to BGCs.",
+                    "fa_icon": "fas fa-sort-amount-down",
+                    "help_text": "DeepBGC classification score threshold for assigning classes to BGCs.\n\nFor more information see the DeepBGC [documentation](https://github.com/Merck/deepbgc).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--classifier-score`"
+                }
+            },
+            "fa_icon": "fas fa-angle-double-right"
+        },
+        "bgc_gecco": {
+            "title": "BGC: GECCO",
+            "type": "object",
+            "description": "Biosynthetic gene cluster detection using Conditional Random Fields (CRFs). More info: https://gecco.embl.de",
+            "default": "",
+            "properties": {
+                "bgc_skip_gecco": {
+                    "type": "boolean",
+                    "description": "Skip GECCO during the BGC screening.",
+                    "fa_icon": "fas fa-ban"
+                },
+                "bgc_gecco_mask": {
+                    "type": "boolean",
+                    "description": "Enable unknown region masking to prevent genes from stretching across unknown nucleotides.",
+                    "fa_icon": "fas fa-mask",
+                    "help_text": "Enable unknown region masking to prevent genes from stretching across unknown nucleotides during ORF detection based on P(y)rodigal.\n\nFor more information see the GECCO [documentation](https://github.com/zellerlab/GECCO).\n\n> Modifies tool parameter(s):\n> - GECCO: `--mask`"
+                },
+                "bgc_gecco_cds": {
+                    "type": "integer",
+                    "default": 3,
+                    "description": "The minimum number of coding sequences a valid cluster must contain.",
+                    "fa_icon": "fas fa-align-right",
+                    "help_text": "Specify the number of consecutive genes a hit must have to be considered as part of a possible BGC region during BGC extraction.\n\nFor more information see the GECCO [documentation](https://github.com/zellerlab/GECCO).\n\n> Modifies tool parameter(s):\n> - GECCO: `--cds`"
+                },
+                "bgc_gecco_pfilter": {
+                    "type": "number",
+                    "description": "The p-value cutoff for protein domains to be included.",
+                    "fa_icon": "fas fa-filter",
+                    "default": 1e-09,
+                    "help_text": "For more information see the GECCO [documentation](https://github.com/zellerlab/GECCO).\n\n> Modifies tool parameter(s):\n> - GECCO: `--pfilter`"
+                },
+                "bgc_gecco_threshold": {
+                    "type": "number",
+                    "default": 0.8,
+                    "description": "The probability threshold for cluster detection.",
+                    "fa_icon": "fas fa-angle-double-up",
+                    "help_text": "Specify the minimum probability a predicted gene must have to be considered as part of a BGC during BGC extraction.\n\nReducing this value may increase number and length of hits, but will reduce the accuracy of the predictions.\n\nFor more information see the GECCO [documentation](https://github.com/zellerlab/GECCO).\n\n> Modifies tool parameter(s):\n> - GECCO: `--threshold`"
+                },
+                "bgc_gecco_edgedistance": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "The minimum number of annotated genes that must separate a cluster from the edge.",
+                    "help_text": "The minimum number of annotated genes that must separate a possible BGC cluster from the edge. Edge clusters will still be included if they are longer. A lower number will increase the number of false positives on small contigs. Used during BGC extraction.\n\nFor more information see the GECCO [documentation](https://github.com/zellerlab/GECCO).\n\n> Modifies tool parameter(s):\n> - GECCO: `--edge-distance`",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                }
+            },
+            "fa_icon": "fas fa-angle-double-right"
+        },
+        "institutional_config_options": {
+            "title": "Institutional config options",
+            "type": "object",
+            "fa_icon": "fas fa-university",
+            "description": "Parameters used to describe centralised config profiles. These should not be edited.",
+            "help_text": "The centralised nf-core configuration profiles use a handful of pipeline parameters to describe themselves. This information is then printed to the Nextflow log when you run a pipeline. You should not need to change these values when you run a pipeline.",
+            "properties": {
+                "custom_config_version": {
+                    "type": "string",
+                    "description": "Git commit id for Institutional configs.",
+                    "default": "master",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "custom_config_base": {
+                    "type": "string",
+                    "description": "Base directory for Institutional configs.",
+                    "default": "https://raw.githubusercontent.com/nf-core/configs/master",
+                    "hidden": true,
+                    "help_text": "If you're running offline, Nextflow will not be able to fetch the institutional config files from the internet. If you don't need them, then this is not a problem. If you do need them, you should download the files from the repo and tell Nextflow where to find them with this parameter.",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_name": {
+                    "type": "string",
+                    "description": "Institutional config name.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_description": {
+                    "type": "string",
+                    "description": "Institutional config description.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_contact": {
+                    "type": "string",
+                    "description": "Institutional config contact information.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_url": {
+                    "type": "string",
+                    "description": "Institutional config URL link.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                }
+            }
+        },
+        "generic_options": {
+            "title": "Generic options",
+            "type": "object",
+            "fa_icon": "fas fa-file-import",
+            "description": "Less common options for the pipeline, typically set in a config file.",
+            "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
+            "properties": {
+                "version": {
+                    "type": "boolean",
+                    "description": "Display version and exit.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "publish_dir_mode": {
+                    "type": "string",
+                    "default": "copy",
+                    "description": "Method used to save pipeline results to output directory.",
+                    "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
+                    "fa_icon": "fas fa-copy",
+                    "enum": [
+                        "symlink",
+                        "rellink",
+                        "link",
+                        "copy",
+                        "copyNoFollow",
+                        "move"
+                    ],
+                    "hidden": true
+                },
+                "email_on_fail": {
+                    "type": "string",
+                    "description": "Email address for completion summary, only when pipeline fails.",
+                    "fa_icon": "fas fa-exclamation-triangle",
+                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$",
+                    "help_text": "An email address to send a summary email to when the pipeline is completed - ONLY sent if the pipeline does not exit successfully.",
+                    "hidden": true
+                },
+                "plaintext_email": {
+                    "type": "boolean",
+                    "description": "Send plain-text email instead of HTML.",
+                    "fa_icon": "fas fa-remove-format",
+                    "hidden": true
+                },
+                "monochrome_logs": {
+                    "type": "boolean",
+                    "description": "Do not use coloured log outputs.",
+                    "fa_icon": "fas fa-palette",
+                    "hidden": true
+                },
+                "hook_url": {
+                    "type": "string",
+                    "description": "Incoming hook URL for messaging service",
+                    "fa_icon": "fas fa-people-group",
+                    "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
+                    "hidden": true
+                },
+                "validate_params": {
+                    "type": "boolean",
+                    "description": "Boolean whether to validate parameters against the schema at runtime",
+                    "default": true,
+                    "fa_icon": "fas fa-check-square",
+                    "hidden": true
+                },
+                "pipelines_testdata_base_path": {
+                    "type": "string",
+                    "fa_icon": "far fa-check-circle",
+                    "description": "Base URL or local path to location of pipeline test dataset files",
+                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
+                    "hidden": true
+                },
+                "trace_report_suffix": {
+                    "type": "string",
+                    "fa_icon": "far calendar",
+                    "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
+                    "hidden": true
+                }
+            }
+        },
+        "max_resource_options": {
+            "title": "Max resource options",
+            "type": "object",
+            "fa_icon": "fas fa-microchip",
+            "description": "Set the top-end limit for compute resources used by any single job.",
+            "help_text": "Each job requests resources by label. These three values cap those requests so jobs never ask for more than your machine has. Raise them if you have a bigger machine.",
+            "properties": {
+                "max_cpus": {
+                    "type": "integer",
+                    "default": 2,
+                    "fa_icon": "fas fa-microchip",
+                    "description": "Maximum number of CPUs any single job may use.",
+                    "minimum": 1
+                },
+                "max_memory": {
+                    "type": "string",
+                    "default": "8.GB",
+                    "fa_icon": "fas fa-memory",
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Maximum memory any single job may use. Example: '8.GB'."
+                },
+                "max_time": {
+                    "type": "string",
+                    "default": "24.h",
+                    "fa_icon": "far fa-clock",
+                    "pattern": "^(\\d+\\.?\\s*(s|m|h|d|day)\\s*)+$",
+                    "description": "Maximum time any single job may run. Example: '24.h'."
+                }
+            }
+        },
+        "bgc_quast": {
+            "title": "BGC-QUAST: MODE",
+            "type": "object",
+            "description": "Options for the final bgc-quast analysis step. The QUAST output directory and BGC prediction paths are wired in code; only override them if needed.",
+            "default": "",
+            "fa_icon": "fas fa-chart-bar",
+            "properties": {
+                "bgc_quast_mode": {
+                    "type": "string",
+                    "description": "Which bgc-quast comparison mode to run.",
+                    "help_text": "Passed to bgc-quast --mode. compare-samples: one report per tool across samples. compare-tools: per-sample, tools joined. compare-to-reference: each query vs one shared reference (turns on QUAST + reference lane). auto: placeholder, errors on purpose.",
+                    "enum": [
+                        "compare-tools",
+                        "compare-to-reference",
+                        "compare-samples",
+                        "auto"
+                    ],
+                    "fa_icon": "fas fa-list"
+                },
+                "bgc_quast_quastdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Optional path to a pre-made QUAST output directory. Only needed to override the directory the pipeline produces.",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "bgc_quast_edge_distance": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Distance (bp) from a contig edge used to label a BGC as complete or partial.",
+                    "help_text": "Passed to bgc-quast --edge-distance. This is a labelling threshold for completeness, not a contig filter.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "bgc_quast_min_bgc_length": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Minimum BGC length (bp) to keep. 0 means no minimum.",
+                    "help_text": "Passed to bgc-quast --min-bgc-length.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "bgc_quast_merge_distance": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Merge nearby BGCs if the gap between them is at or below this distance (bp). 0 turns merging off.",
+                    "help_text": "Passed to bgc-quast --merge-distance.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
+                },
+                "bgc_quast_overlap_fraction": {
+                    "type": "number",
+                    "default": 0.9,
+                    "description": "BGC overlap threshold as a fraction between 0 and 1. Used in compare-tools mode.",
+                    "help_text": "Passed to bgc-quast --overlap-fraction.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "bgc_quast_output_bgcs": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Write BGCs predicted by all tools into one combined GenBank file. Used in compare-tools mode and needs a genome.",
+                    "help_text": "Passed to bgc-quast --output-bgcs.",
+                    "fa_icon": "fas fa-file-export"
+                },
+                "bgc_quast_debug": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Keep bgc-quast intermediate files for debugging.",
+                    "help_text": "Passed to bgc-quast --debug.",
+                    "fa_icon": "fas fa-bug"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/screening_type_activation"
+        },
+        {
+            "$ref": "#/$defs/annotation_general_options"
+        },
+        {
+            "$ref": "#/$defs/annotation_bakta"
+        },
+        {
+            "$ref": "#/$defs/annotation_prokka"
+        },
+        {
+            "$ref": "#/$defs/annotation_prodigal"
+        },
+        {
+            "$ref": "#/$defs/annotation_pyrodigal"
+        },
+        {
+            "$ref": "#/$defs/database_downloading_options"
+        },
+        {
+            "$ref": "#/$defs/bgc_general_options"
+        },
+        {
+            "$ref": "#/$defs/bgc_antismash"
+        },
+        {
+            "$ref": "#/$defs/bgc_deepbgc"
+        },
+        {
+            "$ref": "#/$defs/bgc_gecco"
+        },
+        {
+            "$ref": "#/$defs/bgc_quast"
+        },
+        {
+            "$ref": "#/$defs/institutional_config_options"
+        },
+        {
+            "$ref": "#/$defs/generic_options"
+        },
+        {
+            "$ref": "#/$defs/max_resource_options"
+        }
+    ]
+}

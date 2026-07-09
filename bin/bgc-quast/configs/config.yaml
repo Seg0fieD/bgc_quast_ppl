@@ -1,0 +1,18 @@
+default_output_dir_root: bgc-quast-results
+symlink_to_latest: latest
+
+report_txt: report.txt
+report_tsv: report.tsv
+report_html: report.html
+bgc_annotations_basename: bgcs.gbk
+
+product_yamls:
+  antismash_product_mapping: "antismash_class_mapping.yaml"
+  gecco_product_mapping: "gecco_class_mapping.yaml"
+  deepbgc_product_mapping: "deepbgc_class_mapping.yaml"
+
+merge_distance: 0
+min_bgc_length: 0
+bgc_completeness_margin: 100
+allowed_gap_for_fragmented_recovery: 100
+compare_tools_overlap_threshold: 0.9

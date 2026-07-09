@@ -1,0 +1,316 @@
+"""Unified report formatters for different output formats."""
+
+from pathlib import Path
+
+import pandas as pd
+import json
+import math
+import base64
+from src.reporting.report_config import ReportConfig
+from src.reporting.report_data import ReportData
+
+
+class DataFrameTableBuilder:
+    """Builds pivot tables from ReportData for formatting."""
+
+    def __init__(self, config: ReportConfig):
+        self.config = config
+
+    def build_pivot_table(self, data: ReportData) -> pd.DataFrame:
+        """
+        Build a pivot table from ReportData using metrics as rows, files as columns, and grouping dimensions.
+        """
+
+        df = data.metrics_df.copy()
+
+        # Preserve the input order of file_label as it appears in the original df
+        # (pd.unique preserves first-seen order)
+        file_order = list(pd.unique(df["file_label"]))
+
+        # Create hierarchical row labels and sort keys
+        df["row_label"], df["sort_key"] = zip(
+            *[self._create_row_label_and_sort_key(row) for _, row in df.iterrows()]
+        )
+
+        # Sort the dataframe by the sort keys
+        df = df.sort_values("sort_key").drop("sort_key", axis=1)
+
+        # Always use file_label as columns
+        pivot_table = df.pivot_table(
+            index="row_label",
+            columns=["file_label", "Genome mining tool"] if "file_label" in df.columns else None,
+            values="value",
+            aggfunc="first",
+            sort=False,
+        )
+
+        pivot_table.index.name = None
+        pivot_table = pivot_table.fillna(0)
+
+        # Reorder MultiIndex columns by file_label order (keep tool order as-is)
+        rank = {lbl: i for i, lbl in enumerate(file_order)}
+        cols_sorted = sorted(pivot_table.columns, key=lambda c: (rank.get(c[0], 10 ** 9), str(c[1])))
+        pivot_table = pivot_table.reindex(columns=cols_sorted)
+
+        return pivot_table
+
+    def _create_row_label_and_sort_key(self, row: pd.Series) -> tuple[str, tuple]:
+        """Create hierarchical row labels and sort keys from metric names and grouping columns,
+        respecting config order."""
+        exclude = {
+            "metric_name",
+            "value",
+            "file_label",
+            "row_label",
+            "sort_key",
+            "Genome mining tool",
+        }
+
+        # Use grouping_combinations from config if present, else all grouping columns
+        grouping_combinations = self.config.grouping_combinations
+        if grouping_combinations:
+            # Use the first combination for ordering/grouping
+            grouping_dims = grouping_combinations[0]
+        else:
+            grouping_dims = [col for col in row.index if col not in exclude]
+
+        metric_display = self._get_metric_display_name(row["metric_name"])
+
+        # Start with metric order
+        metric_order = self._get_metric_order(row["metric_name"])
+
+        # Determine grouping category and build sort key
+        grouping_parts = []
+        non_total_values = []
+
+        for group_dim in grouping_dims:
+            if group_dim in row and pd.notna(row[group_dim]):
+                value = str(row[group_dim])
+                grouping_parts.append(value)
+                non_total_values.append((group_dim, value))
+
+        # Determine the grouping category for sorting
+        if not non_total_values:
+            # This is a total row
+            grouping_category = 0
+            sort_key_parts = [metric_order, grouping_category]
+        elif len(non_total_values) == 1:
+            # Single dimension grouping
+            dim_name, dim_value = non_total_values[0]
+            grouping_category = 1
+            dim_order = self._get_dimension_value_order(dim_name, dim_value)
+            # For single dimensions, we want them ordered by their position in grouping_dims
+            dim_position = (
+                grouping_dims.index(dim_name) if dim_name in grouping_dims else 999
+            )
+            sort_key_parts = [metric_order, grouping_category, dim_position, dim_order]
+        else:
+            # Multi-dimension grouping
+            grouping_category = 2
+            # Sort by the values in the order of grouping_dims
+            dim_sort_parts = []
+            for group_dim in grouping_dims:
+                found_value = None
+                for dim_name, dim_value in non_total_values:
+                    if dim_name == group_dim:
+                        found_value = dim_value
+                        break
+
+                if found_value:
+                    dim_order = self._get_dimension_value_order(group_dim, found_value)
+                    dim_sort_parts.append(dim_order)
+                else:
+                    dim_sort_parts.append(float("inf"))
+
+            sort_key_parts = [metric_order, grouping_category] + dim_sort_parts
+
+        # Create the label
+        if grouping_parts:
+            grouping_text = ", ".join(grouping_parts)
+            grouping_text = grouping_text.replace("Complete", "complete")
+            grouping_text = grouping_text.replace("Incomplete", "incomplete")
+            grouping_text = grouping_text.replace("Unknown completeness", "unknown completeness")
+            grouping_text = grouping_text.replace("Unknown product", "unknown")
+            grouping_text = grouping_text.replace("Other", "other")
+            grouping_text = grouping_text.replace("Terpene", "terpene")
+            grouping_text = grouping_text.replace("Alkaloid", "alkaloid")
+            grouping_text = grouping_text.replace("Saccharide", "saccharide")
+            grouping_text = grouping_text.replace("Hybrid", "hybrid")
+            label = f"{metric_display} ({grouping_text})"
+        else:
+            label = metric_display
+
+        return label, tuple(sort_key_parts)
+
+    def _get_metric_order(self, metric_name: str) -> int:
+        """Get the order index for a metric based on config."""
+        for i, metric_config in enumerate(self.config.metrics):
+            if metric_config.name == metric_name:
+                return i
+        return len(self.config.metrics)  # Unknown metrics go last
+
+    def _get_dimension_value_order(self, dimension_name: str, value: str) -> int:
+        """Get the order index for a dimension value based on config."""
+        if dimension_name in self.config.grouping_dimensions:
+            dimension_config = self.config.grouping_dimensions[dimension_name]
+            if value in dimension_config.order:
+                return dimension_config.order.index(value)
+            else:
+                # Unknown values go after known ones
+                return len(dimension_config.order)
+        return 0  # Default order if dimension not configured
+
+    def _get_metric_display_name(self, metric_name: str) -> str:
+        """Get display name for a metric."""
+        for metric_config in self.config.metrics:
+            if metric_config.name == metric_name:
+                return metric_config.display_name
+        return metric_name  # Fallback to original name
+
+
+class ReportFormatter:
+    """Unified report formatter that can output to multiple formats."""
+
+    def __init__(self, config: ReportConfig):
+        self.config = config
+        self.table_builder = DataFrameTableBuilder(config)
+        self._metric_config_by_display_name = {
+            metric.display_name: metric for metric in config.metrics
+        }
+
+    def _get_metric_precision(self, row_label: str) -> int | None:
+        """Get configured precision for a rendered row label."""
+        base_label = row_label.split(" (", 1)[0]  #FIXME: don't rely on the display name and ad hoc logic; let's keep the true metric config name in the table (as a hidden column)
+        metric_config = self._metric_config_by_display_name.get(base_label)
+        if metric_config is None:
+            return None
+        return metric_config.precision
+
+    def _format_cell_value(self, row_label: str, value) -> str:
+        """Format a single report cell according to metric precision."""
+        if value is None:
+            return "0"
+        precision = self._get_metric_precision(row_label)
+        if isinstance(value, float):
+            if math.isnan(value):
+                return "0"
+            if precision is not None:
+                return f"{value:.{precision}f}"
+            if value.is_integer():
+                return str(int(value))
+        return str(value)
+
+    def _prepare_pivot_table(self, data: ReportData):
+        """Build pivot table and (if compare-to-reference) move ref first + patch ref metrics."""
+        pivot_table = self.table_builder.build_pivot_table(data)
+
+        ref_label = None
+        if isinstance(getattr(data, "metadata", None), dict):
+            ref_label = data.metadata.get("reference_file_label")
+
+        if not ref_label:
+            return pivot_table
+
+        cols = list(pivot_table.columns)
+
+        def _is_ref(col):
+            file_label = col[0] if isinstance(col, tuple) else col
+            return file_label == ref_label
+
+        ref_cols = [c for c in cols if _is_ref(c)]
+        if not ref_cols:
+            return pivot_table
+
+        other_cols = [c for c in cols if not _is_ref(c)]
+        pivot_table = pivot_table.reindex(columns=ref_cols + other_cols)
+
+        # Patch reference metrics (only first ref col)
+        ref_col = ref_cols[0]
+        for idx in pivot_table.index:
+            metric = idx[0] if isinstance(idx, tuple) else idx
+
+            if metric.startswith("Ref. BGC recovery rate"):
+                pivot_table.at[idx, ref_col] = 1
+
+            elif metric.startswith("# full ref. BGCs, single-contig"):
+                bgc_metric = metric.replace("# full ref. BGCs, single-contig", "# BGCs")
+                bgc_idx = (bgc_metric,) + idx[1:] if isinstance(idx, tuple) else bgc_metric
+                if bgc_idx in pivot_table.index:
+                    pivot_table.at[idx, ref_col] = pivot_table.at[bgc_idx, ref_col]
+
+            elif metric.startswith("# full ref. BGCs"):
+                bgc_metric = metric.replace("# full ref. BGCs", "# BGCs")
+                bgc_idx = (bgc_metric,) + idx[1:] if isinstance(idx, tuple) else bgc_metric
+                if bgc_idx in pivot_table.index:
+                    pivot_table.at[idx, ref_col] = pivot_table.at[bgc_idx, ref_col]
+
+        return pivot_table
+
+    def _prepare_formatted_table(self, data: ReportData) -> pd.DataFrame:
+        """Prepare pivot table with all values formatted as strings for output."""
+        pivot_table = self._prepare_pivot_table(data)
+        formatted_table = pivot_table.copy().astype(object)
+
+        for row_label in pivot_table.index:
+            formatted_table.loc[row_label] = [
+                self._format_cell_value(str(row_label), value)
+                for value in pivot_table.loc[row_label]
+            ]
+
+        return formatted_table
+
+    def write_txt(self, data: ReportData, output_path: Path) -> None:
+        """Format and save report as plain text table."""
+        formatted_table = self._prepare_formatted_table(data)
+        output_path.write_text(formatted_table.to_string(sparsify=False), encoding="utf-8")
+
+    def write_tsv(self, data: ReportData, output_path: Path) -> None:
+        """Format and save report as TSV."""
+        formatted_table = self._prepare_formatted_table(data)
+        formatted_table.to_csv(output_path, sep="\t")
+
+    def write_html(self, data: ReportData, output_path: Path) -> None:
+        """Format and save report as HTML with basic styling."""
+        def file_to_base64(path: Path) -> str:
+            return base64.b64encode(path.read_bytes()).decode("utf-8")
+
+        mode = data.running_mode.value
+        formatted_table = self._prepare_formatted_table(data)
+
+        file_labels = ["file_label"]
+        mining_tools = ["Genome mining tool"]
+        for file_label, mining_tool in formatted_table.columns:
+            file_labels.append(str(file_label))
+            mining_tools.append(str(mining_tool))
+
+        rows = [file_labels, mining_tools]
+        for idx, row in formatted_table.iterrows():
+            rows.append([str(idx)] + row.tolist())
+
+        # Collect metadata for modes ---
+        metadata_json = json.dumps(data.metadata, ensure_ascii=False)
+        # Load the assets and inject JSON
+        asset_dir = Path(__file__).resolve().parent.parent / "html_report"
+        logo_path = asset_dir / "github-mark-white.svg"
+        logo_b64 = file_to_base64(logo_path)
+        logo_mime = "image/svg+xml"
+        logo_data_uri = f"data:{logo_mime};base64,{logo_b64}"
+
+        template = (asset_dir / "report_template.html").read_text(encoding="utf-8")
+        style_css = (asset_dir / "report.css").read_text(encoding="utf-8")
+        script_js = (asset_dir / "build_report.js").read_text(encoding="utf-8")
+
+        data_json = json.dumps(rows, ensure_ascii=False)
+        html_filled = (
+            template
+            .replace("{{ style_css }}", style_css)
+            .replace("{{ script_js }}", script_js)
+            .replace("{{ report_json }}", data_json)
+            .replace("{{ report_mode }}", mode)
+            .replace("{{ metadata_json }}", metadata_json)
+            .replace("{{ github_logo }}", logo_data_uri)
+        )
+
+        # Write final HTML
+        output_path.write_text(html_filled, encoding="utf-8")
+
