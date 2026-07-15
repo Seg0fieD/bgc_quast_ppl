@@ -112,6 +112,19 @@ workflow BGCQUAST_COMPARISON {
         ch_bgcquast_in = per_tool(antismash_json, ref_antismash_json, 'antismash')
             .mix(per_tool(deepbgc_tsv, ref_deepbgc_tsv, 'deepbgc'))
             .mix(per_tool(gecco_clusters, ref_gecco_clusters, 'gecco'))
+
+        // Fail if no comparison was produced. An empty channel here means the reference
+        // or all query samples yielded no usable predictions, so QUAST and bgc-quast
+        // never ran; stop with a clear message instead of reporting a false success.
+        ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
+            error(
+                "[bgc_quast_ppl] compare-to-reference produced no comparisons.\n" +
+                "  The reference or all query samples yielded no usable BGC predictions,\n" +
+                "  so QUAST and bgc-quast never ran.\n" +
+                "  Check that the reference genome passes the contig-length filter, is\n" +
+                "  annotated, and produces antiSMASH/DeepBGC/GECCO output."
+            )
+        }
     }
     else {
         // TODO: auto mode undecided. Decide how to infer the mode from inputs, then implement.
