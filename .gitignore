@@ -13,6 +13,7 @@ results_prev/
 test_all/
 test_genome_bgc_quast_assembly/
 err_handling_tests/
+tmp_test
 
 # Local cloned repo / notes
 funcscan_cloned_repo/
