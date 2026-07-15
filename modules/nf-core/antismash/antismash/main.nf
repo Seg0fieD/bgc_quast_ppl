@@ -11,13 +11,13 @@ process ANTISMASH_ANTISMASH {
     path gff
 
     output:
-    tuple val(meta), path("${prefix}/{css,images,js}")                    , emit: html_accessory_files
+    tuple val(meta), path("${prefix}/{css,images,js}")                    , emit: html_accessory_files      , optional: true
+    tuple val(meta), path("${prefix}/index.html")                         , emit: html                      , optional: true
+    tuple val(meta), path("${prefix}/regions.js")                         , emit: json_sideloading          , optional: true
     tuple val(meta), path("${prefix}/*.gbk")                              , emit: gbk_input
     tuple val(meta), path("${prefix}/*.json")                             , emit: json_results
     tuple val(meta), path("${prefix}/*.log")                              , emit: log
     tuple val(meta), path("${prefix}/*.zip")                              , emit: zip
-    tuple val(meta), path("${prefix}/index.html")                         , emit: html
-    tuple val(meta), path("${prefix}/regions.js")                         , emit: json_sideloading
     tuple val(meta), path("${prefix}/clusterblast/*_c*.txt")              , emit: clusterblast_file          , optional: true
     tuple val(meta), path("${prefix}/knownclusterblast/region*/ctg*.html"), emit: knownclusterblast_html     , optional: true
     tuple val(meta), path("${prefix}/knownclusterblast/")                 , emit: knownclusterblast_dir      , optional: true
