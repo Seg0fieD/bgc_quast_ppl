@@ -8,6 +8,7 @@ work/
 # Local config / local test data
 local.config
 db/
+results*
 results_prev/
 test_all/
 test_genome_bgc_quast_assembly/
