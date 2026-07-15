@@ -37,6 +37,9 @@ workflow NFCORE_BGC_QUAST_PPL {
     BGC_QUAST_PPL (
         samplesheet
     )
+
+    emit:
+    bgcquast_runs = BGC_QUAST_PPL.out.bgcquast_runs
 }
 
 /*
@@ -76,7 +79,8 @@ workflow {
         params.plaintext_email,
         params.outdir,
         params.monochrome_logs,
-        params.hook_url
+        params.hook_url,
+        NFCORE_BGC_QUAST_PPL.out.bgcquast_runs
     )
 }
 
