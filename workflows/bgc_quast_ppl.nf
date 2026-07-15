@@ -39,6 +39,7 @@ workflow BGC_QUAST_PPL {
     main:
 
     ch_versions = Channel.empty()
+    ch_bgcquast_run_count = Channel.value(0)
 
     // compare-samples: note when the run has just one sample (bgc-quast accepts n=1).
     if (params.bgc_quast_mode == 'compare-samples') {
@@ -230,6 +231,7 @@ workflow BGC_QUAST_PPL {
             ch_ref_name,
         )
         ch_versions = ch_versions.mix(BGCQUAST_COMPARISON.out.versions)
+        ch_bgcquast_run_count = BGCQUAST_COMPARISON.out.results.count()
     }
 
     //
@@ -247,5 +249,6 @@ workflow BGC_QUAST_PPL {
         .set { ch_collated_versions }
 
     emit:
-    versions = ch_versions // channel: [ path(versions.yml) ]
+    versions     = ch_versions                          // channel: [ path(versions.yml) ]
+    bgcquast_runs = ch_bgcquast_run_count                // channel: val(Integer) number of bgc-quast runs
 }
