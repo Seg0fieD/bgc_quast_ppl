@@ -110,6 +110,7 @@ workflow PIPELINE_COMPLETION {
     outdir          //    path: Path to output directory where results will be published
     monochrome_logs // boolean: Disable ANSI colour codes in log output
     hook_url        //  string: hook URL for notifications
+    bgcquast_runs   // channel: val(Integer) number of bgc-quast runs that produced results
 
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
@@ -134,10 +135,15 @@ workflow PIPELINE_COMPLETION {
         if (hook_url) {
             imNotification(summary_params, hook_url)
         }
+
+        // Only guard a run that Nextflow itself considered successful.
+        if (workflow.success) {
+            checkComparisonRan(bgcquast_runs, outdir)
+        }
     }
 
     workflow.onError {
-        log.error("Pipeline failed. Please refer to troubleshooting docs: https://nf-co.re/docs/usage/troubleshooting")
+        explainPipelineError()
     }
 }
 
@@ -196,7 +202,7 @@ def validateReferenceSamplesheet(input) {
 
 //
 // antiSMASH minimal vs full. Minimal is the default (runs when neither flag is given).
-// Full runs only when explicitly requested. Passing BOTH flags is an error.
+// Full runs only when explicitly requested. Passing BOTH flags throws an error.
 //
 def validateAntismashMode() {
     def cli = workflow.commandLine ?: ''
@@ -310,6 +316,136 @@ def validatePreRunEnvironment(input) {
         error("[bgc_quast_ppl] Cannot start. Please fix:\n${msg}")
     }
 }
+
+// On failure, print a short message on which step failed and how to fix it.
+// Full raw error shown only with --bgc_quast_debug.
+//
+def explainPipelineError() {
+    try {
+        def report = (workflow.errorReport ?: '') + '\n' + (workflow.errorMessage ?: '')
+
+        // Name of the step that failed (last ':' segment, trailing "(sample)" removed).
+        def leaf = ''
+        def pm = (report =~ /Process `([^`]+)`/)
+        if (pm.find()) {
+            def full = pm.group(1).replaceAll(/\s*\(.*\)$/, '')
+            leaf = full.tokenize(':')[-1]
+        }
+
+        // For each step: the process name to match, a friendly name, known error
+        // signatures with specific fixes, and a general message if nothing matches.
+        def tools = [
+            [
+                process   : 'ANTISMASH_ANTISMASH',
+                name      : 'antiSMASH',
+                signatures: [
+                    [ match: 'Modules failing prerequisites',
+                    hint : 'antiSMASH could not load its database. The path/directory in --bgc_antismash_db is missing files or is not a version 8 database. \n  This pipeline runs antiSMASH v8, which needs a matching antiSMASH v8 database. Set --bgc_antismash_db to a v8 database folder.' ],
+                    [ match: 'No matching database in location',
+                    hint : 'antiSMASH could not load its database. The path/directory in --bgc_antismash_db is missing files or is not a version 8 database. \n  This pipeline runs antiSMASH v8, which needs a matching antiSMASH v8 database. Set --bgc_antismash_db to a v8 database folder.' ],
+                    [ match: 'too short',
+                    hint : 'No contig in this sample was long enough for antiSMASH to scan. Use a longer or better assembly, or \n  set --bgc_mincontiglength lower so shorter contigs pass the length filter.' ],
+                    [ match: 'Missing output file',
+                    hint : 'antiSMASH finished but found no BGCs in this sample. With no clusters to show, it did not write its HTML result files, \n  but the pipeline still requires them. Fix: mark the antiSMASH HTML outputs as optional in the antiSMASH module so a no-cluster result is allowed.' ],
+                ],
+                generic   : 'antiSMASH failed. Check that --bgc_antismash_db points to an appropriate antiSMASH v8 database and that the input contigs are long enough to scan.',
+            ],
+            [
+                process   : 'DEEPBGC',
+                name      : 'DeepBGC',
+                signatures: [
+                    [ match: 'DEEPBGC_DOWNLOADS_DIR',
+                    hint : 'DeepBGC could not find its model files. Set --bgc_deepbgc_db to the folder or path that holds the downloaded DeepBGC database.' ],
+                    [ match: 'DeepBGC models directory does not exist',
+                    hint : 'DeepBGC could not find its model files. Set --bgc_deepbgc_db to the folder or path that holds the downloaded DeepBGC database.' ],
+            
+                ],
+                generic   : 'DeepBGC failed. Check that --bgc_deepbgc_db points to the downloaded DeepBGC database folder.',
+            ],
+            [
+                process   : 'GECCO',
+                name      : 'GECCO',
+                signatures: [],
+                generic   : 'GECCO failed. Check that the sample was annotated and has predicted genes to scan.',
+            ],
+            [
+                process   : 'QUAST',
+                name      : 'QUAST',
+                signatures: [],
+                generic   : 'QUAST failed. Check the query contigs and the reference genome given in the samplesheet.',
+            ],
+            [
+                process   : 'BGCQUAST',
+                name      : 'bgc-quast',
+                signatures: [],
+                generic   : 'bgc-quast failed. Check that the prediction files, the query FASTA, and the QUAST output folder all reached this step.',
+            ],
+        ]
+
+        def hit = tools.find { leaf == it.process || leaf.startsWith(it.process) }
+
+        def banner = "=".multiply(100)
+
+        if (hit) {
+            def sig    = hit.signatures.find { report.contains(it.match) }
+            def detail = sig ? sig.hint : hit.generic
+            log.error(
+                "\n${banner}\n" +
+                "[bgc_quast_ppl] The ${hit.name} step failed.\n\n" +
+                "  ${detail}\n" +
+                "${banner}"
+            )
+        }
+        else {
+            log.error(
+                "\n${banner}\n" +
+                "[bgc_quast_ppl] The pipeline stopped with an error.\n\n" +
+                "  See the message above, and open the failing task's .command.err\n" +
+                "  file for the full details.\n" +
+                "${banner}"
+            )
+        }
+
+        if (params.bgc_quast_debug && report.trim()) {
+            log.error("[bgc_quast_ppl] --bgc_quast_debug: full error report below:\n${report.trim()}")
+        }
+
+        log.error("Please refer to troubleshooting docs: https://nf-co.re/docs/usage/troubleshooting")
+    }
+    catch (Exception e) {
+        log.error("[bgc_quast_ppl] error handler failed: ${e}")
+    }
+}
+
+//
+// Warn when a run reports success but bgc-quast produced no comparison output.
+//
+def checkComparisonRan(run_count, outdir) {
+    try {
+        def count_ok = (run_count ?: 0) > 0
+
+        def mode_dir = params.bgc_quast_mode.replaceAll('-', '_')
+        def out_dir  = file("${outdir}/bgc_quast/${mode_dir}")
+        def folder_ok = out_dir.exists() && out_dir.list() && out_dir.list().size() > 0
+
+        if (!count_ok && !folder_ok) {
+            def banner = "=".multiply(100)
+            log.warn(
+                "\n${banner}\n" +
+                "[bgc_quast_ppl] The run finished without errors, but NO BGC comparison was produced.\n\n" +
+                "  bgc-quast did not run, usually because every sample was dropped before prediction\n" +
+                "  (for example all contigs were shorter than ${params.bgc_mincontiglength} bp, or annotation\n" +
+                "  produced no genes). This is NOT a successful comparison, despite the message above.\n\n" +
+                "  Check the warnings above, use longer or better assemblies, or lower --bgc_mincontiglength.\n" +
+                "${banner}"
+            )
+        }
+    }
+    catch (Exception e) {
+        log.warn("[bgc_quast_ppl] completion check failed: ${e}")
+    }
+}
+        
 
 //
 // Validate channels from input samplesheet
