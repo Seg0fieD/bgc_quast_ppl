@@ -115,6 +115,9 @@ workflow PIPELINE_COMPLETION {
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
 
+    // Capture the workflow handle; it is null inside the onComplete closure.
+    def wf = workflow
+
     //
     // Completion email and summary
     //
@@ -131,14 +134,18 @@ workflow PIPELINE_COMPLETION {
             )
         }
 
-        completionSummary(monochrome_logs)
-        if (hook_url) {
-            imNotification(summary_params, hook_url)
+        // Show the nf-core summary on a real error or when bgc-quast ran.
+        // Otherwise replace the misleading success line with a failure notice.
+        def comparison_ran = comparisonProduced(outdir)
+        if (wf.errorMessage || comparison_ran) {
+            completionSummary(monochrome_logs)
+        }
+        else {
+            reportNoComparison(monochrome_logs)
         }
 
-        // Only guard a run that Nextflow itself considered successful.
-        if (workflow.success) {
-            checkComparisonRan(bgcquast_runs, outdir)
+        if (hook_url) {
+            imNotification(summary_params, hook_url)
         }
     }
 
@@ -215,7 +222,7 @@ def validateAntismashMode() {
 }
 
 //
-// Error Handling: Pre-run environment checks. 
+// Error Handling: Pre-run environment checks.
 //   problems -> block the run (collected > display together > then halt)
 //   warnings -> printed, run continues
 //
@@ -280,7 +287,7 @@ def validatePreRunEnvironment(input) {
         }
     }
 
-    // Docker running (only when the docker engine is active) 
+    // Docker running (only when the docker engine is active)
     if (workflow.containerEngine == 'docker') {
         try {
             def p = ['docker', 'info'].execute()
@@ -317,6 +324,7 @@ def validatePreRunEnvironment(input) {
     }
 }
 
+//
 // On failure, print a short message on which step failed and how to fix it.
 // Full raw error shown only with --bgc_quast_debug.
 //
@@ -332,8 +340,7 @@ def explainPipelineError() {
             leaf = full.tokenize(':')[-1]
         }
 
-        // For each step: the process name to match, a friendly name, known error
-        // signatures with specific fixes, and a general message if nothing matches.
+        // Per step: process name to match, friendly name, known signatures, generic fallback.
         def tools = [
             [
                 process   : 'ANTISMASH_ANTISMASH',
@@ -358,7 +365,6 @@ def explainPipelineError() {
                     hint : 'DeepBGC could not find its model files. Set --bgc_deepbgc_db to the folder or path that holds the downloaded DeepBGC database.' ],
                     [ match: 'DeepBGC models directory does not exist',
                     hint : 'DeepBGC could not find its model files. Set --bgc_deepbgc_db to the folder or path that holds the downloaded DeepBGC database.' ],
-            
                 ],
                 generic   : 'DeepBGC failed. Check that --bgc_deepbgc_db points to the downloaded DeepBGC database folder.',
             ],
@@ -418,34 +424,37 @@ def explainPipelineError() {
 }
 
 //
-// Warn when a run reports success but bgc-quast produced no comparison output.
+// True if bgc-quast produced a comparison folder. Reads the folder, not a channel.
 //
-def checkComparisonRan(run_count, outdir) {
+def comparisonProduced(outdir) {
     try {
-        def count_ok = (run_count ?: 0) > 0
-
         def mode_dir = params.bgc_quast_mode.replaceAll('-', '_')
         def out_dir  = file("${outdir}/bgc_quast/${mode_dir}")
-        def folder_ok = out_dir.exists() && out_dir.list() && out_dir.list().size() > 0
-
-        if (!count_ok && !folder_ok) {
-            def banner = "=".multiply(100)
-            log.warn(
-                "\n${banner}\n" +
-                "[bgc_quast_ppl] The run finished without errors, but NO BGC comparison was produced.\n\n" +
-                "  bgc-quast did not run, usually because every sample was dropped before prediction\n" +
-                "  (for example all contigs were shorter than ${params.bgc_mincontiglength} bp, or annotation\n" +
-                "  produced no genes). This is NOT a successful comparison, despite the message above.\n\n" +
-                "  Check the warnings above, use longer or better assemblies, or lower --bgc_mincontiglength.\n" +
-                "${banner}"
-            )
-        }
+        return out_dir.exists() && out_dir.list() && out_dir.list().size() > 0
     }
     catch (Exception e) {
         log.warn("[bgc_quast_ppl] completion check failed: ${e}")
+        return true
     }
 }
-        
+
+//
+// Run ended clean but bgc-quast never ran. Print a red failure notice.
+//
+def reportNoComparison(monochrome_logs) {
+    def red    = monochrome_logs ? '' : "\033[1;31m"
+    def reset  = monochrome_logs ? '' : "\033[0m"
+    def banner = "=".multiply(100)
+    log.error(
+        "${red}\n${banner}\n" +
+        "[bgc_quast_ppl] Pipeline did NOT complete successfully.\n\n" +
+        "  No BGC comparison was produced. bgc-quast never ran, usually because every\n" +
+        "  sample was dropped before prediction (for example all contigs were shorter than\n" +
+        "  ${params.bgc_mincontiglength} bp, or annotation produced no genes).\n\n" +
+        "  Use longer or better assemblies, or lower --bgc_mincontiglength, then run again.\n" +
+        "${banner}${reset}"
+    )
+}
 
 //
 // Validate channels from input samplesheet
