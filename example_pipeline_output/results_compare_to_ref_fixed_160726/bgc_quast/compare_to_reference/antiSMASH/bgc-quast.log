@@ -1,0 +1,26 @@
+BGC-QUAST version: 1.0.0
+
+Started with command: bgc-quast.py /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/assembly_10.json /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/assembly_20.json --genome /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/renamed/assembly_10.fasta /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/renamed/assembly_20.fasta --quast-output-dir /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/quast --reference-mining-result /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/reference.json --reference-genome /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/reference_long.fasta --names assembly_10,assembly_20 --threads 2 --output-dir /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/bgcquast_out --mode compare-to-reference --edge-distance 100 --min-bgc-length 0 --merge-distance 0 --ref-name reference
+
+System information:
+  OS: Linux-6.17.0-40-generic-x86_64-with-glibc2.39
+  Python version: 3.12
+  CPUs number: 4
+
+Started: 2026-07-16 14:43:45
+
+Logging to /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/bgcquast_out/bgc-quast.log
+WARNING: Could not match input file '/home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/reference.json' to genome label 'reference_long' (quite common e.g., for DeepBGC genome mining results). Since only one genome was provided, using it as fallback (forced matching).
+Mode COMPARE_REFERENCE selected
+The running mode is set to: RunningMode.COMPARE_TO_REFERENCE
+RESULTS:
+  Text report is saved to /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/bgcquast_out/report.txt
+  HTML report is saved to /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/bgcquast_out/report.html
+  TSV report is saved to /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/bgcquast_out/report.tsv
+  Log is saved to /home/segofied/Documents/bgc_quast_ppl/work/d2/b9e81cbbfe739ed49ab349d0794809/bgcquast_out/bgc-quast.log
+
+Finished: 2026-07-16 14:43:45
+Elapsed time: 0:00:00.226184
+WARNINGs: 2
+
+Thank you for using BGC-QUAST!

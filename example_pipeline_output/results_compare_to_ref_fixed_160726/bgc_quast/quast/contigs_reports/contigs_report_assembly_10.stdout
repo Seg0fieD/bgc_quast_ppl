@@ -1,0 +1,83 @@
+Aligning contigs to reference...
+	Aligning contigs to the reference
+Filtering alignments...
+Parsing coords...
+Loading reference...
+	Loaded [NC_003888.3]
+	Total Regions: 1
+	Total Region Length: 1000000
+Analyzing contigs...
+CONTIG: CONTIG_1 (99810bp)
+Best alignment score: 99810.0 (LEN: 99810, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 1 99810 | 1 99810 | 99810 99810 | 100.0 | NC_003888.3 CONTIG_1
+
+CONTIG: CONTIG_2 (100176bp)
+Best alignment score: 100176.0 (LEN: 100176, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 99811 199986 | 1 100176 | 100176 100176 | 100.0 | NC_003888.3 CONTIG_2
+
+CONTIG: CONTIG_3 (100826bp)
+Best alignment score: 100826.0 (LEN: 100826, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 199987 300812 | 1 100826 | 100826 100826 | 100.0 | NC_003888.3 CONTIG_3
+
+CONTIG: CONTIG_4 (100281bp)
+Best alignment score: 100281.0 (LEN: 100281, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 300813 401093 | 1 100281 | 100281 100281 | 100.0 | NC_003888.3 CONTIG_4
+
+CONTIG: CONTIG_5 (99307bp)
+Best alignment score: 99307.0 (LEN: 99307, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 401094 500400 | 1 99307 | 99307 99307 | 100.0 | NC_003888.3 CONTIG_5
+
+CONTIG: CONTIG_6 (99532bp)
+Best alignment score: 99532.0 (LEN: 99532, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 500401 599932 | 1 99532 | 99532 99532 | 100.0 | NC_003888.3 CONTIG_6
+
+CONTIG: CONTIG_7 (100657bp)
+Best alignment score: 100657.0 (LEN: 100657, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 599933 700589 | 1 100657 | 100657 100657 | 100.0 | NC_003888.3 CONTIG_7
+
+CONTIG: CONTIG_8 (100957bp)
+Best alignment score: 100957.0 (LEN: 100957, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 700590 801546 | 1 100957 | 100957 100957 | 100.0 | NC_003888.3 CONTIG_8
+
+CONTIG: CONTIG_9 (99285bp)
+Best alignment score: 99285.0 (LEN: 99285, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 801547 900831 | 1 99285 | 99285 99285 | 100.0 | NC_003888.3 CONTIG_9
+
+CONTIG: CONTIG_10 (99169bp)
+Best alignment score: 99169.0 (LEN: 99169, IDY: 100.00), Total number of alignments: 1
+		One align captures most of this contig: 900832 1000000 | 1 99169 | 99169 99169 | 100.0 | NC_003888.3 CONTIG_10
+
+Analyzing coverage...
+Writing SNPs into /home/segofied/Documents/bgc_quast_ppl/work/ce/05727c03833a512fe738f850227cad/quast/contigs_reports/minimap_output/assembly_10.used_snps
+
+Analysis is finished!
+Founded SNPs were written into /home/segofied/Documents/bgc_quast_ppl/work/ce/05727c03833a512fe738f850227cad/quast/contigs_reports/minimap_output/assembly_10.used_snps
+
+Results:
+	Local Misassemblies: 0
+	Misassemblies: 0
+		Relocations: 0
+		Translocations: 0
+		Inversions: 0
+	Scaffold gap extensive misassemblies: 0
+	Scaffold gap local misassemblies: 0
+	Misassembled Contigs: 0
+	Misassembled Contig Bases: 0
+	Misassemblies Inter-Contig Overlap ("Extra" Aligned Bases): 0
+Unaligned Contigs: 0 + 0 part
+Half Unaligned Contigs with Misassemblies: 0
+Unaligned Bases in Fully and Partially Unaligned Contigs: 0
+
+Ambiguously Mapped Contigs: 0
+Total Bases in Ambiguously Mapped Contigs: 0
+"Extra" Aligned Bases in Ambiguously Mapped Contigs: 0
+Note that --allow-ambiguity option was set to "one" and only first alignment per each of these contigs was used (there is no "extra" aligned bases).
+
+	Covered Bases in Reference: 1000000
+	Raw Aligned Bases in Assembly: 1000000
+	Total Aligned Bases in Assembly (with "Extras"): 1000000
+
+	SNPs: 0
+	Insertions: 0
+	Deletions: 0
+
