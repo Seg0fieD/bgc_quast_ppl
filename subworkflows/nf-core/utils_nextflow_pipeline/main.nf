@@ -1,7 +1,3 @@
-//
-// Subworkflow with functionality that may be useful for any Nextflow pipeline
-//
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     SUBWORKFLOW DEFINITION

@@ -22,7 +22,7 @@ workflow ANNOTATION {
     ch_versions = Channel.empty()
 
     if (params.annotation_tool == "pyrodigal" || (params.annotation_tool == "prodigal" && params.run_bgc_screening == true && (!params.bgc_skip_antismash || !params.bgc_skip_deepbgc || !params.bgc_skip_gecco))) {
-        // Most BGC tools need Pyrodigal because Prodigal's GBK format is incompatible with them.
+        // BGC tools need Pyrodigal; Prodigal's GBK format is incompatible.
 
         if (params.annotation_tool == "prodigal" && params.run_bgc_screening == true && (!params.bgc_skip_antismash || !params.bgc_skip_deepbgc || !params.bgc_skip_gecco)) {
             log.warn("[bgc_quast_ppl] Switching annotation tool to: Pyrodigal. Prodigal GBK annotations are incompatible with antiSMASH, DeepBGC, and GECCO. To use Prodigal, skip those tools or provide a pre-annotated GBK file in the samplesheet.")

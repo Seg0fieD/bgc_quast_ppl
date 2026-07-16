@@ -1,26 +1,18 @@
-//
-// Subworkflow that uses the nf-schema plugin to validate parameters and render the parameter summary
-//
-
 include { paramsSummaryLog   } from 'plugin/nf-schema'
 include { validateParameters } from 'plugin/nf-schema'
 
 workflow UTILS_NFSCHEMA_PLUGIN {
 
-    take:
-    input_workflow      // workflow: the workflow object used by nf-schema to get metadata from the workflow
+    ttake:
+    input_workflow      // workflow: object nf-schema reads metadata from
     validate_params     // boolean:  validate the parameters
-    parameters_schema   // string:   path to the parameters JSON schema.
-                        //           this has to be the same as the schema given to `validation.parametersSchema`
-                        //           when this input is empty it will automatically use the configured schema or
-                        //           "${projectDir}/nextflow_schema.json" as default. This input should not be empty
-                        //           for meta pipelines
-
+    parameters_schema   // string:   path to the params JSON schema; must match validation.parametersSchema.
+                        //           empty = use the configured schema or "${projectDir}/nextflow_schema.json".
+                        //           should not be empty for meta pipelines
     main:
 
     //
-    // Print parameter summary to stdout. This will display the parameters
-    // that differ from the default given in the JSON schema
+    // Print parameter summary that differ from the default given in the JSON schema
     //
     if(parameters_schema) {
         log.info paramsSummaryLog(input_workflow, parameters_schema:parameters_schema)
@@ -29,8 +21,7 @@ workflow UTILS_NFSCHEMA_PLUGIN {
     }
 
     //
-    // Validate the parameters using nextflow_schema.json or the schema
-    // given via the validation.parametersSchema configuration option
+    // Validate params against nextflow_schema.json (or validation.parametersSchema).
     //
     if(validate_params) {
         if(parameters_schema) {

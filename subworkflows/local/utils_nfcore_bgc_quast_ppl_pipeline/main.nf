@@ -81,7 +81,6 @@ workflow PIPELINE_INITIALISATION {
 
     //
     // Pre-run environment checks: paths, databases, Docker.
-    // Collects all blocking problems and reports them together.
     //
     validatePreRunEnvironment(input)
 
@@ -134,8 +133,7 @@ workflow PIPELINE_COMPLETION {
             )
         }
 
-        // Show the nf-core summary on a real error or when bgc-quast ran.
-        // Otherwise replace the misleading success line with a failure notice.
+        // Show the standard summary on error or when bgc-quast ran; otherwise flag the false success.
         def comparison_ran = comparisonProduced(outdir)
         if (wf.errorMessage || comparison_ran) {
             completionSummary(monochrome_logs)
@@ -165,9 +163,10 @@ workflow PIPELINE_COMPLETION {
 //
 def validateInputParameters() {
 }
+
 //
 // compare-to-reference samplesheet check: sample/fasta/type present, no empty cells,
-// exactly one reference row (type r/R). Simple comma split (no quoted-comma support).
+// exactly one reference row (type r/R)
 //
 def validateReferenceSamplesheet(input) {
     def lines = file(input).readLines().findAll { it.trim() }
@@ -208,8 +207,7 @@ def validateReferenceSamplesheet(input) {
 }
 
 //
-// antiSMASH minimal vs full. Minimal is the default (runs when neither flag is given).
-// Full runs only when explicitly requested. Passing BOTH flags throws an error.
+// Minimal mode is the default; --bgc_antismash_full switches to full analysis mode. Passing both throws errors.
 //
 def validateAntismashMode() {
     def cli = workflow.commandLine ?: ''
@@ -222,9 +220,7 @@ def validateAntismashMode() {
 }
 
 //
-// Error Handling: Pre-run environment checks.
-//   problems -> block the run (collected > display together > then halt)
-//   warnings -> printed, run continues
+// Pre-run environment checks. problems -> collected, then halt. warnings -> printed, continue.
 //
 def validatePreRunEnvironment(input) {
     def problems = []
@@ -325,14 +321,13 @@ def validatePreRunEnvironment(input) {
 }
 
 //
-// On failure, print a short message on which step failed and how to fix it.
-// Full raw error shown only with --bgc_quast_debug.
+// On failure, report which step failed and how to fix it. Raw error only with --bgc_quast_debug.
 //
 def explainPipelineError() {
     try {
         def report = (workflow.errorReport ?: '') + '\n' + (workflow.errorMessage ?: '')
 
-        // Name of the step that failed (last ':' segment, trailing "(sample)" removed).
+        // Failed step name: last ':' segment, trailing "(sample)" removed.
         def leaf = ''
         def pm = (report =~ /Process `([^`]+)`/)
         if (pm.find()) {
@@ -340,7 +335,7 @@ def explainPipelineError() {
             leaf = full.tokenize(':')[-1]
         }
 
-        // Per step: process name to match, friendly name, known signatures, generic fallback.
+        // Per step: process to match, display name, known error signatures, generic fallback.
         def tools = [
             [
                 process   : 'ANTISMASH_ANTISMASH',
@@ -424,7 +419,7 @@ def explainPipelineError() {
 }
 
 //
-// True if bgc-quast produced a comparison folder. Reads the folder, not a channel.
+// True if bgc-quast produced a comparison folder. Checks the output dir, not a channel.
 //
 def comparisonProduced(outdir) {
     try {

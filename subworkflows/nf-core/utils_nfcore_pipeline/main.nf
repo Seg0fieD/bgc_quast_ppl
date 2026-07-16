@@ -1,7 +1,3 @@
-//
-// Subworkflow with utility functions specific to the nf-core pipeline template
-//
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     SUBWORKFLOW DEFINITION
