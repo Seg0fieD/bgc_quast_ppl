@@ -2,17 +2,14 @@ process BGCQUAST {
     tag "${meta.id}"
     label 'process_low'
 
-    // bgc-quast has no biocontainer and is not a packaged tool. It is run in place from
-    // bin/bgc-quast/ (option 1). conda provides its Python deps (see bin/bgc-quast/environment.yml).
+    // Run in place from bin/bgc-quast/; no biocontainer exists.
     conda "${projectDir}/bin/bgc-quast/environment.yml"
 
     input:
     tuple val(meta), path(mining_results), path(genome), path(quast_dir), path(reference_mining), path(reference_genome)
 
     output:
-    // bgc-quast writes report.html/tsv/txt and bgc-quast.log straight into the output dir.
-    // We give it a fixed internal dir and publish its CONTENTS, so the final folder name is
-    // decided only by publishDir (conf/modules.config) -> bgc_quast/<mode>/<meta.leaf>.
+    // Final published folder is set by publishDir (conf/modules.config).
     tuple val(meta), path("bgcquast_out/*")          , emit: results
     tuple val(meta), path("bgcquast_out/report.tsv") , optional: true, emit: tsv
     tuple val(meta), path("bgcquast_out/report.html"), optional: true, emit: html
@@ -23,13 +20,9 @@ process BGCQUAST {
 
     script:
     def args = task.ext.args ?: ''
-    // --names is wired from the subworkflow (which tools/samples are present), carried on meta.
-    def names_arg            = meta.bgcquast_names    ? "--names ${meta.bgcquast_names}"                    : ''
-    // File-dependent flags are built here from staged inputs; flat tuning flags come via ext.args (modules.config).
+    def names_arg = meta.bgcquast_names ? "--names ${meta.bgcquast_names}" : ''
     def genome_list = genome ? (genome instanceof List ? genome : [genome]) : []
-    // bgc-quast matches each --genome file to its mining result BY FILENAME LABEL.
-    // The prepped query FASTA is named "<id>_long.fasta", so strip "_long" and symlink to
-    // "<id>.fasta" so the genome label matches the mining-result label.
+    // Symlink "<id>_long.fasta" to "<id>.fasta" so --genome matches the mining-result label.
     def genome_renames = genome_list.collect { "ln -sf \$WORKDIR/${it.name} \$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join('\n    ')
     def genome_arg     = genome_list ? "--genome " + genome_list.collect { "\$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join(' ') : ''
     def quast_arg            = quast_dir        ? "--quast-output-dir \$WORKDIR/${quast_dir}"               : ''
@@ -37,9 +30,7 @@ process BGCQUAST {
     def reference_genome_arg = reference_genome ? "--reference-genome \$WORKDIR/${reference_genome}"        : ''
 
     """
-    # Capture the task dir, then run the tool from its own folder so its `from src.*`
-    # imports and any bundled-config reads resolve. All staged paths and the output are
-    # given as absolute paths because we change directory.
+    # Run from bin/bgc-quast/ so `from src.*` imports resolve; staged paths passed as absolute.
     WORKDIR=\$PWD
     mkdir -p \$WORKDIR/bgcquast_out
     mkdir -p \$WORKDIR/renamed
