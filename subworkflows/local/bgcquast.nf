@@ -79,39 +79,61 @@ workflow BGCQUAST_COMPARISON {
             }
     }
     else if (mode == 'compare-to-reference') {
-        // QUAST per query (its contigs vs the reference) -- unless the user supplies their own dir.
+        // Single reference genome file, reused by QUAST and every per-tool bgc-quast run.
+        ch_ref_genome_file = ref_genome.map { meta, g -> g }.first()
+
+        // All query genomes ordered by sample id, as one value: [ids, genomes].
+        // QUAST processes the genomes in this order and --labels are applied positionally,
+        // so each coords file is named after the sample id -- matching the mining-result
+        // label that bgc-quast uses to look up QUAST results.
+        ch_query_ordered = genomes
+            .map { meta, g -> [meta.id, g] }
+            .toSortedList { a, b -> a[0] <=> b[0] }
+            .map { rows -> [rows.collect { it[0] }, rows.collect { it[1] }] }
+
+        // ONE QUAST run over all query genomes vs the single reference,
+        // unless the user supplies their own QUAST output dir.
         if (params.bgc_quast_quastdir) {
-            def user_quast = file(params.bgc_quast_quastdir, checkIfExists: true)
-            ch_quast_dir = genomes.map { meta, g -> [meta, user_quast] } // same dir attached to each query
+            ch_quast_dir = Channel.value(file(params.bgc_quast_quastdir, checkIfExists: true))
         }
         else {
-            ch_quast_in = genomes.join(ref_genome) // [meta, query_contigs, ref_genome]
+            def ch_quast_in = ch_query_ordered.combine(ch_ref_genome_file)
 
             QUAST(
-                ch_quast_in.map { meta, q, _r -> [meta, q] },
-                ch_quast_in.map { meta, _q, r -> [meta, r] },
-                ch_quast_in.map { meta, _q, _r -> [meta, []] },
+                ch_quast_in.map { ids, gs, _r -> [[id: 'quast', labels: ids.join(',')], gs] },
+                ch_quast_in.map { ids, _gs, r -> [[id: 'quast'], r] },
+                Channel.value([[id: 'quast'], []]),
             )
             // QUAST version flows via its `topic: versions` channel; not mixed here.
-            ch_quast_dir = QUAST.out.results // [meta, dir]
+            ch_quast_dir = QUAST.out.results.map { meta, dir -> dir }.first()
         }
 
-        // Per (sample, tool): join query pred + reference pred + QUAST dir + genomes, all on sample id.
-        // leaf = "<sample id>/<tool>" so the 3 tool reports per sample go to separate folders.
-        def per_tool = { qch, rch, tool ->
-            qch.join(rch)              // [meta, qfile, rfile]
-                .join(ch_quast_dir)    // + qdir
-                .join(genomes)         // + genome
-                .join(ref_genome)      // + ref_genome
-                .combine(ref_name)     // + rid (single value)
-                .map { meta, qfile, rfile, qdir, genome, refgenome, rid ->
-                    [meta + [bgcquast_names: meta.id, ref_name: rid, leaf: "${meta.id}/${proper[tool]}"], [qfile], genome, qdir, rfile, refgenome]
+        // One bgc-quast run per tool: collect that tool's query predictions across all
+        // samples into ordered lists, then pair with the single reference prediction,
+        // the reference genome, and the one QUAST dir. leaf = proper-case tool name.
+        def per_tool_ref = { qch, rch, tool ->
+            qch.join(genomes)
+                .map { meta, qfile, genome -> [meta.id, qfile, genome] }
+                .toSortedList { a, b -> a[0] <=> b[0] }
+                .filter { rows -> rows.size() > 0 }
+                .map { rows ->
+                    [rows.collect { it[0] }, rows.collect { it[1] }, rows.collect { it[2] }]
+                }
+                .combine(rch.map { meta, f -> f })
+                .combine(ch_ref_genome_file)
+                .combine(ch_quast_dir)
+                .combine(ref_name)
+                .map { names, files, gens, rfile, rgen, qdir, rid ->
+                    [
+                        [id: "compare_to_reference_${tool}", bgcquast_names: names.join(','), ref_name: rid, leaf: proper[tool]],
+                        files, gens, qdir, rfile, rgen,
+                    ]
                 }
         }
 
-        ch_bgcquast_in = per_tool(antismash_json, ref_antismash_json, 'antismash')
-            .mix(per_tool(deepbgc_tsv, ref_deepbgc_tsv, 'deepbgc'))
-            .mix(per_tool(gecco_clusters, ref_gecco_clusters, 'gecco'))
+        ch_bgcquast_in = per_tool_ref(antismash_json, ref_antismash_json, 'antismash')
+            .mix(per_tool_ref(deepbgc_tsv,    ref_deepbgc_tsv,    'deepbgc'))
+            .mix(per_tool_ref(gecco_clusters, ref_gecco_clusters, 'gecco'))
 
         // Fail if no comparison was produced. An empty channel here means the reference
         // or all query samples yielded no usable predictions, so QUAST and bgc-quast

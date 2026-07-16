@@ -27,7 +27,11 @@ process BGCQUAST {
     def names_arg            = meta.bgcquast_names    ? "--names ${meta.bgcquast_names}"                    : ''
     // File-dependent flags are built here from staged inputs; flat tuning flags come via ext.args (modules.config).
     def genome_list = genome ? (genome instanceof List ? genome : [genome]) : []
-    def genome_arg  = genome_list ? "--genome " + genome_list.collect { "\$WORKDIR/${it}" }.join(' ')       : ''
+    // bgc-quast matches each --genome file to its mining result BY FILENAME LABEL.
+    // The prepped query FASTA is named "<id>_long.fasta", so strip "_long" and symlink to
+    // "<id>.fasta" so the genome label matches the mining-result label.
+    def genome_renames = genome_list.collect { "ln -sf \$WORKDIR/${it.name} \$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join('\n    ')
+    def genome_arg     = genome_list ? "--genome " + genome_list.collect { "\$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join(' ') : ''
     def quast_arg            = quast_dir        ? "--quast-output-dir \$WORKDIR/${quast_dir}"               : ''
     def reference_mining_arg = reference_mining ? "--reference-mining-result \$WORKDIR/${reference_mining}" : ''
     def reference_genome_arg = reference_genome ? "--reference-genome \$WORKDIR/${reference_genome}"        : ''
@@ -38,6 +42,8 @@ process BGCQUAST {
     # given as absolute paths because we change directory.
     WORKDIR=\$PWD
     mkdir -p \$WORKDIR/bgcquast_out
+    mkdir -p \$WORKDIR/renamed
+    ${genome_renames}
 
     cd ${projectDir}/bin/bgc-quast
 

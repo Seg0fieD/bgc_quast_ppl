@@ -224,10 +224,10 @@ workflow BGC_QUAST_PPL {
             ch_pred_db.query,
             ch_pred_ge.query,
             ch_long_fastas.query,
-            fan_to_queries(ch_pred_as.reference),
-            fan_to_queries(ch_pred_db.reference),
-            fan_to_queries(ch_pred_ge.reference),
-            fan_to_queries(ch_long_fastas.reference),
+            ch_pred_as.reference,
+            ch_pred_db.reference,
+            ch_pred_ge.reference,
+            ch_long_fastas.reference,
             ch_ref_name,
         )
         ch_versions = ch_versions.mix(BGCQUAST_COMPARISON.out.versions)
