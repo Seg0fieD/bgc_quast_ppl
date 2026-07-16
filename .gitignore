@@ -15,7 +15,6 @@ example_test_data/test_genome
 example_test_data/test_genome_bgc_quast_assembly
 
 # example_pipeline_outputs 
-example_pipeline_output/results_compare_to_ref_fixed_160726
 example_pipeline_output/results_prev
 
 # Local cloned repo / notes
