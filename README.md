@@ -2,7 +2,7 @@
 
 A Nextflow pipeline for **biosynthetic gene cluster (BGC) prediction and comparison**.
 
-It takes one or more genome assemblies, predicts BGCs with three tools (**antiSMASH**, **DeepBGC**, **GECCO**), and then compares the results with **bgc-quast**. Built on the [nf-core/funcscan](https://github.com/nf-core/funcscan) 3.0.0 framework.
+It takes one or more genome assemblies, predicts BGCs with three tools (**antiSMASH**, **DeepBGC**, **GECCO**), and then compares the results with **bgc-quast**. Heavily inspired from [nf-core/funcscan](https://github.com/nf-core/funcscan) 3.0.0 framework.
 
 ```
 samplesheet  →  prep  →  annotation  →  BGC prediction  →  bgc-quast  →  results
