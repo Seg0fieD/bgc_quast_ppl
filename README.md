@@ -57,8 +57,8 @@ These are downloaded using each tool's own standard download command. The exact 
 Once downloaded, note the full path to each, for example:
 
 ```
-/home/you/bgc_quast_ppl/db/antismash_db_v8
-/home/you/bgc_quast_ppl/db/deepbgc_db
+~/bgc_quast_ppl/db/antismash_db_v8
+~/bgc_quast_ppl/db/deepbgc_db
 ```
 
 You will pass these paths on the command line (shown below).
@@ -81,8 +81,8 @@ The `type` column is not needed. A two-column sheet is enough:
 
 ```csv
 sample,fasta
-assembly_10,/home/you/bgc_quast_ppl/data/assembly_10.fasta.gz
-assembly_20,/home/you/bgc_quast_ppl/data/assembly_20.fasta.gz
+assembly_10,~/bgc_quast_ppl/data/assembly_10.fasta.gz
+assembly_20,~/bgc_quast_ppl/data/assembly_20.fasta.gz
 ```
 
 ### For compare-to-reference
@@ -91,9 +91,9 @@ You must include the `type` column, with **exactly one** reference row (`r`) and
 
 ```csv
 sample,fasta,type
-assembly_10,/home/you/bgc_quast_ppl/data/assembly_10.fasta.gz,q
-assembly_20,/home/you/bgc_quast_ppl/data/assembly_20.fasta.gz,q
-reference,/home/you/bgc_quast_ppl/data/reference.fasta.gz,r
+assembly_10,~/bgc_quast_ppl/data/assembly_10.fasta.gz,q
+assembly_20,~/bgc_quast_ppl/data/assembly_20.fasta.gz,q
+reference,~/bgc_quast_ppl/data/reference.fasta.gz,r
 ```
 
 The reference row's `sample` name (here `reference`) is used as the reference label in the bgc-quast report.
@@ -126,8 +126,8 @@ nextflow run . \
   --input data/samplesheet.csv \
   --outdir results \
   --bgc_quast_mode compare-samples \
-  --bgc_antismash_db /home/you/bgc_quast_ppl/db/antismash_db_v8 \
-  --bgc_deepbgc_db /home/you/bgc_quast_ppl/db/deepbgc_db \
+  --bgc_antismash_db ~/bgc_quast_ppl/db/antismash_db_v8 \
+  --bgc_deepbgc_db ~/bgc_quast_ppl/db/deepbgc_db \
   --max_cpus 4 \
   --max_memory 24.GB
 ```
@@ -152,8 +152,8 @@ nextflow run . \
   --input data/samplesheet_ref.csv \
   --outdir results \
   --bgc_quast_mode compare-to-reference \
-  --bgc_antismash_db /home/you/bgc_quast_ppl/db/antismash_db_v8 \
-  --bgc_deepbgc_db /home/you/bgc_quast_ppl/db/deepbgc_db \
+  --bgc_antismash_db ~/bgc_quast_ppl/db/antismash_db_v8 \
+  --bgc_deepbgc_db ~/bgc_quast_ppl/db/deepbgc_db \
   --max_cpus 4 \
   --max_memory 24.GB
 ```
