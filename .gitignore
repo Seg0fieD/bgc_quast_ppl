@@ -12,6 +12,7 @@ db/
 # example test data
 example_test_data/test_genome_BSubs
 example_test_data/test_genome
+example_test_data/test_genome_bgc_quast_assembly
 
 # example_pipeline_outputs 
 example_pipeline_output/results_compare_to_ref_fixed_160726
