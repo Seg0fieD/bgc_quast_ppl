@@ -1,6 +1,6 @@
 {
     "name": "bgc_quast_ppl",
-    "homePage": "NOT YET DECIDED! :(",
+    "homePage": "https://github.com/Seg0fieD/bgc_quast_ppl",
     "repos": {
         "https://github.com/nf-core/modules.git": {
             "modules": {
