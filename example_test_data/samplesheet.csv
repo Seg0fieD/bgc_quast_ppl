@@ -1,0 +1,4 @@
+sample,fasta,type
+assembly_10,~/bgc_quast_ppl/example_test_data/assembly_10.fasta.gz,q
+assembly_20,~/bgc_quast_ppl/example_test_data/assembly_20.fasta.gz,q
+reference,~/bgc_quast_ppl/example_test_data/reference.fasta.gz,r
