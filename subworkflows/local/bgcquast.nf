@@ -104,7 +104,8 @@ workflow BGCQUAST_COMPARISON {
                 ch_quast_in.map { ids, _gs, r -> [[id: 'quast'], r] },
                 Channel.value([[id: 'quast'], []]),
             )
-            // QUAST version flows via its `topic: versions` channel; not mixed here.
+            // QUAST version flows 
+            ch_versions  = ch_versions.mix(QUAST.out.versions)
             ch_quast_dir = QUAST.out.results.map { meta, dir -> dir }.first()
         }
 
