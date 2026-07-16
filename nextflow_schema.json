@@ -1,8 +1,8 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/sego/bgc_quast_ppl/main/nextflow_schema.json",
+    "$id": "https://raw.githubusercontent.com/Seg0fieD/bgc_quast_ppl/main/nextflow_schema.json",
     "title": "bgc_quast_ppl pipeline parameters",
-    "description": "BGC-only pipeline: prep, annotation, BGC prediction, and bgc-quast analysis. Built on nf-core/funcscan 3.0.0.",
+    "description": "BGC-only pipeline: prep, annotation, BGC prediction, and bgc-quast analysis.",
     "type": "object",
     "$defs": {
         "input_output_options": {
@@ -22,8 +22,8 @@
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
-                    "description": "Path to comma-separated file containing sample names and paths to corresponding FASTA files, and optional annotation files.",
-                    "help_text": "Before running the pipeline, you will need to create a design file with information about the samples to be scanned by nf-core/funcscan, containing at a minimum sample names and paths to contigs. Use this parameter to specify its location. It has to be a two or four column comma-separated file with a header row (`sample,fasta` or `sample,fasta,protein,gbk`). See [usage docs](https://nf-co.re/funcscan/usage#samplesheet-input).",
+                    "description": "Path to comma-separated file containing sample names and paths to their FASTA files.",
+                    "help_text": "Before running the pipeline, create a samplesheet with information about the genomes to screen. It is a comma-separated file with a header row. The `sample` and `fasta` columns are always required. In compare-to-reference mode, also add a `type` column (`q`/`Q` for query, `r`/`R` for the single reference). See the pipeline README for details and example samplesheets.",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {
@@ -346,7 +346,7 @@
                 "annotation_prodigal_singlemode": {
                     "type": "boolean",
                     "description": "Specify whether to use Prodigal's single-genome mode for long sequences.",
-                    "help_text": "By default Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, nf-core/funcscan will run with the `meta` mode by default. Providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s): \n> -PRODIGAL: `-p`",
+                    "help_text": "By default Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, this pipeline will run with the `meta` mode by default. Providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s): \n> -PRODIGAL: `-p`",
                     "fa_icon": "far fa-circle"
                 },
                 "annotation_prodigal_closed": {
@@ -381,7 +381,7 @@
                     "type": "boolean",
                     "fa_icon": "far fa-circle",
                     "description": "Specify whether to use Pyrodigal's single-genome mode for long sequences.",
-                    "help_text": "By default Pyrodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, nf-core/funcscan will run with the `meta` mode by default, but providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s): \n> - PYRODIGAL: `-p`"
+                    "help_text": "By default Pyrodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, this pipeline will run with the `meta` mode by default, but providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Pyrodigal [documentation](https://pyrodigal.readthedocs.io).\n\n> Modifies tool parameter(s): \n> - PYRODIGAL: `-p`"
                 },
                 "annotation_pyrodigal_closed": {
                     "type": "boolean",
@@ -421,7 +421,7 @@
                     "type": "boolean",
                     "fa_icon": "fas fa-save",
                     "description": "Specify whether to save pipeline-downloaded databases in your results directory.",
-                    "help_text": "While nf-core/funcscan can download databases for you, often these are very large and can significantly slow-down pipeline runtime if the databases have to be downloaded every run.\n\nSpecifying `--save_db` will save the pipeline-downloaded databases in your results directory. This applies to: AMRFinderPlus, antiSMASH, Bakta, CARD (for RGI), DeepARG, DeepBGC, and DRAMP (for AMPcombi2).\n\nYou can then move the resulting directories/files to a central cache directory of your choice for re-use in the future.\n\nIf you do not specify these flags, the database files will remain in your `work/` directory and will be deleted if `cleanup = true` is specified in your config, or if you run `nextflow clean`.\n"
+                    "help_text": "This pipeline can download databases for you, but these are often very large and can significantly slow down runtime if downloaded every run.\n\nSpecifying `--save_db` will save the pipeline-downloaded databases in your results directory. This applies to: antiSMASH and DeepBGC.\n\nYou can then move the resulting directories/files to a central cache directory of your choice for re-use in the future.\n\nIf you do not specify this flag, the database files will remain in your `work/` directory and will be deleted if `cleanup = true` is specified in your config, or if you run `nextflow clean`.\n"
                 }
             },
             "fa_icon": "fas fa-database"
@@ -438,7 +438,7 @@
                     "default": 3000,
                     "fa_icon": "fas fa-ruler-horizontal",
                     "description": "Specify the minimum length of contigs that go into BGC screening.",
-                    "help_text": "Specify the minimum length of contigs that go into BGC screening.\n\nIf BGC screening is turned on, nf-core/funcscan will generate for each input sample a second FASTA file of only contigs that are longer than the specified minimum length.\nThis is due to an (approximate) 'biological' minimum length that nucleotide sequences would need to have to code for a valid BGC (e.g. not on the edge of a contig), as well as to speeding up BGC screening sections of the pipeline by screening only meaningful contigs.\n\nNote this only affects BGCs. For ARG and AMPs no filtering is performed and all contigs are screened."
+                    "help_text": "Specify the minimum length of contigs that go into BGC screening.\n\nIf BGC screening is turned on, this pipeline will generate for each input sample a second FASTA file of only contigs that are longer than the specified minimum length.\nThis is due to an (approximate) 'biological' minimum length that nucleotide sequences would need to have to code for a valid BGC (e.g. not on the edge of a contig), as well as to speeding up BGC screening by screening only meaningful contigs."
                 },
                 "bgc_savefilteredcontigs": {
                     "type": "boolean",
@@ -462,7 +462,7 @@
                     "type": "string",
                     "description": "Path to user-defined local antiSMASH database.",
                     "fa_icon": "fas fa-database",
-                    "help_text": "It is recommend to pre-download the antiSMASH databases to your machine and pass the path of it to this parameter, as this can take a long time to download - particularly when running lots of pipeline runs.\n\nThe contents of the database directory should include directories such as `as-js/`, `clusterblast/`, `clustercompare/` etc. in the top level.\n\nSee the pipeline [documentation](https://nf-co.re/funcscan/usage#antismash-1) for details on how to download this."
+                    "help_text": "It is recommend to pre-download the antiSMASH databases to your machine and pass the path of it to this parameter, as this can take a long time to download - particularly when running lots of pipeline runs.\n\nThe contents of the database directory should include directories such as `as-js/`, `clusterblast/`, `clustercompare/` etc. in the top level. This must be an antiSMASH v8 database.\n\nSee the pipeline [README](https://github.com/Seg0fieD/bgc_quast_ppl) for details on how to download this."
                 },
                 "bgc_antismash_contigminlength": {
                     "type": "integer",
@@ -584,7 +584,7 @@
                 "bgc_deepbgc_prodigalsinglemode": {
                     "type": "boolean",
                     "description": "Run DeepBGC's internal Prodigal step in `single` mode to restrict detecting genes to long contigs",
-                    "help_text": "By default DeepBGC's Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, nf-core/funcscan will run with the `meta` mode by default, but providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--prodigal-meta-mode`",
+                    "help_text": "By default DeepBGC's Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, this pipeline will run with the `meta` mode by default, but providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s)\n> -  DeepBGC: `--prodigal-meta-mode`",
                     "fa_icon": "fas fa-compress-alt"
                 },
                 "bgc_deepbgc_mergemaxproteingap": {

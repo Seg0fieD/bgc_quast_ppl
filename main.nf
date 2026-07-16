@@ -4,7 +4,6 @@
     bgc_quast_ppl
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     BGC-only pipeline: prep -> annotation -> BGC prediction -> bgc-quast
-    Built on nf-core/funcscan 3.0.0 scaffolding.
 ----------------------------------------------------------------------------------------
 */
 
