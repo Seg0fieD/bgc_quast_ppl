@@ -4,10 +4,9 @@ A Nextflow pipeline for **biosynthetic gene cluster (BGC) prediction and compari
 
 It takes one or more genome assemblies, predicts BGCs with three tools (**antiSMASH**, **DeepBGC**, **GECCO**), and then compares the results with **bgc-quast**. Heavily inspired from [nf-core/funcscan](https://github.com/nf-core/funcscan) 3.0.0 framework.
 
-```
-samplesheet  →  prep  →  annotation  →  BGC prediction  →  bgc-quast  →  results
-                                                  (+ QUAST, in compare-to-reference mode)
-```
+<p align="center">
+  <img src="docs/images/pipeline_diagram.png" alt="bgc_quast_ppl pipeline diagram/DAG" width="100%">
+</p>
 
 ---
 
@@ -15,7 +14,7 @@ samplesheet  →  prep  →  annotation  →  BGC prediction  →  bgc-quast  �
 
 | Requirement | Notes |
 |---|---|
-| **Nextflow 25.10.5** | This exact version. Do **not** use 26.04 (it breaks this pipeline). |
+| **Nextflow 25.10.5** | This exact version. For now the pipeline **doesn't** Run on the latest version of the Nextflow which is 26.04 (it breaks this pipeline). |
 | **Docker** | Must be installed and running. All tools run inside containers, so you don't install antiSMASH/DeepBGC/GECCO yourself. |
 | **antiSMASH database (v8)** | Downloaded once, stored locally. See section 3. |
 | **DeepBGC database** | Downloaded once, stored locally. See section 3. |
