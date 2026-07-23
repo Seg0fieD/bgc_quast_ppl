@@ -14,7 +14,7 @@ It takes one or more genome assemblies, predicts BGCs with three tools (**antiSM
 
 | Requirement | Notes |
 |---|---|
-| **Nextflow 25.10.5** | This exact version. For now the pipeline **doesn't** Run on the latest version of the Nextflow which is 26.04 (it breaks this pipeline). |
+| **Nextflow 25.10.5** | This exact version. For now the pipeline **doesn't** Run on the latest version of the Nextflow which is 26.04. |
 | **Docker** | Must be installed and running. All tools run inside containers, so you don't install antiSMASH/DeepBGC/GECCO yourself. |
 | **antiSMASH database (v8)** | Downloaded once, stored locally. See section 3. |
 | **DeepBGC database** | Downloaded once, stored locally. See section 3. |
