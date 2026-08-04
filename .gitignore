@@ -7,8 +7,9 @@ work/
 
 # Local config / local test data
 local.config
-db/
+db/*
 
+tmp_test/
 # example test data
 example_test_data/test_genome_BSubs
 example_test_data/test_genome
@@ -16,9 +17,13 @@ example_test_data/test_genome_bgc_quast_assembly
 
 # example_pipeline_outputs 
 example_pipeline_output/results_prev
+example_pipeline_output/results_compare_to_ref_fixed_160726/bgc
+example_pipeline_output/results_compare_to_ref_fixed_160726/pipeline_info
 
 # Local cloned repo / notes
 todo_text/
 
 # Diagrams if you do not want to commit them
-Diagram/
+Diagram
+
+null/
