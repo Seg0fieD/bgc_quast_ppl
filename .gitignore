@@ -2,6 +2,8 @@
 .nextflow.log*
 .nextflow/
 
+.DS_Store*
+
 # Nextflow work directory
 work/
 
