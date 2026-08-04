@@ -17,6 +17,12 @@ include { imNotification          } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NFCORE_PIPELINE   } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NEXTFLOW_PIPELINE } from '../../nf-core/utils_nextflow_pipeline'
 
+// ANSI pink for validation error messages.
+def pink(msg) {
+    def esc = "\033"
+    return "${esc}[95m${msg}${esc}[0m"
+}
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     SUBWORKFLOW TO INITIALISE PIPELINE
@@ -47,6 +53,35 @@ workflow PIPELINE_INITIALISATION {
     )
 
     //
+    // Custom validation for pipeline parameters
+    //
+    validateInputParameters()
+
+    //
+    // antiSMASH: minimal and full are mutually exclusive.
+    //
+    validateAntismashMode()
+
+    //
+    // All-modes samplesheet content check. Runs before nf-schema so our per-sample
+    // messages fire first. Returns the sheet to parse (normalised if any sample name
+    // was auto-filled from its filename).
+    //
+    def sheet = validateSamplesheetContent(input)
+
+    //
+    // Compare-to-reference: enforce the type column and a single reference row.
+    //
+    if (params.bgc_quast_mode == 'compare-to-reference') {
+        validateReferenceSamplesheet(sheet)
+    }
+
+    //
+    // Pre-run environment checks: paths, databases, Docker.
+    //
+    validatePreRunEnvironment(input)
+
+    //
     // Validate parameters and generate parameter summary to stdout
     //
     UTILS_NFSCHEMA_PLUGIN(
@@ -63,31 +98,9 @@ workflow PIPELINE_INITIALISATION {
     )
 
     //
-    // Custom validation for pipeline parameters
-    //
-    validateInputParameters()
-
-    //
-    // antiSMASH: minimal and full are mutually exclusive.
-    //
-    validateAntismashMode()
-
-    //
-    // Compare-to-reference: enforce samplesheet shape correction
-    //
-    if (params.bgc_quast_mode == 'compare-to-reference') {
-        validateReferenceSamplesheet(input)
-    }
-
-    //
-    // Pre-run environment checks: paths, databases, Docker.
-    //
-    validatePreRunEnvironment(input)
-
-    //
     // Create channel from input file provided through params.input
     //
-    Channel.fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
+    Channel.fromList(samplesheetToList(sheet, "${projectDir}/assets/schema_input.json"))
         .set { ch_samplesheet }
 
     emit:
@@ -165,44 +178,119 @@ def validateInputParameters() {
 }
 
 //
-// compare-to-reference samplesheet check: sample/fasta/type present, no empty cells,
-// exactly one reference row (type r/R)
+// All-modes samplesheet content check. Runs before schema parsing so it can report
+// clear, per-sample messages. Auto-names rows with a blank sample column and returns
+// the samplesheet path to use for parsing (a normalised temp file if any name was added).
 //
-def validateReferenceSamplesheet(input) {
+def validateSamplesheetContent(input) {
     def lines = file(input).readLines().findAll { it.trim() }
     if (lines.size() < 2) {
-        error("[bgc_quast_ppl] compare-to-reference: samplesheet has no data rows.")
+        error(pink("[bgc_quast_ppl] The input samplesheet is empty. Please provide at least one sample."))
     }
 
-    def header = lines[0].split(',', -1).collect { it.trim() }
-    ['sample', 'fasta', 'type'].each { col ->
-        if (!header.contains(col)) {
-            error("[bgc_quast_ppl] compare-to-reference needs a '${col}' column. Found: ${header.join(', ')}")
-        }
+    def header    = lines[0].split(',', -1).collect { it.trim() }
+    def ref_mode  = params.bgc_quast_mode == 'compare-to-reference'
+
+    // The first two columns must be sample,fasta in order. A mismatch usually means the
+    // columns are jumbled. The type column (compare-to-reference) is checked separately.
+    def expected = ['sample', 'fasta']
+    if (header.size() < expected.size() || header[0..1] != expected) {
+        error(pink("[bgc_quast_ppl] Samplesheet columns are out of order or missing. Use: sample,fasta,type (type only in compare-to-reference)."))
     }
 
     def si = header.indexOf('sample')
     def fi = header.indexOf('fasta')
     def ti = header.indexOf('type')
+
+    def rewritten = false
+    def out_lines = [lines[0]]
+    def seen      = [] as Set
+
+    lines[1..-1].eachWithIndex { line, idx ->
+        def cells = line.split(',', -1).collect { it.trim() }
+        def name  = si < cells.size() ? cells[si] : ''
+        def path  = fi < cells.size() ? cells[fi] : ''
+        def type  = (ti >= 0 && ti < cells.size()) ? cells[ti].toLowerCase() : ''
+
+        // Sample name given but no path.
+        if (name && !path) {
+            error(pink("[bgc_quast_ppl] Sample or reference '${name}' has no path mentioned. Please add the correct file path or directory location for that sample or reference."))
+        }
+
+        // User-typed name: reject duplicates so samples are not silently cross-wired.
+        if (name && seen.contains(name)) {
+            error(pink("[bgc_quast_ppl] Duplicate sample name '${name}' in the samplesheet. Sample names must be unique."))
+        }
+
+        // No sample name: auto-name from the filename, with a _query/_ref suffix by type
+        // in compare-to-reference mode (no suffix in the other modes). A numeric suffix is
+        // added if the generated name clashes with one already seen.
+        if (!name && path) {
+            def base   = file(path).name.replaceFirst(/\.(fasta|fas|fna|fa)(\.gz)?$/, '')
+            def suffix = ref_mode ? (type == 'r' ? '_ref' : '_query') : ''
+            def cand   = "${base}${suffix}"
+            def n      = 2
+            while (seen.contains(cand)) {
+                cand = "${base}${suffix}_${n}"
+                n++
+            }
+            name = cand
+            cells[si] = name
+            log.info("[bgc_quast_ppl] No sample name given for ${path}; using '${name}' from the filename.")
+            rewritten = true
+        }
+
+        seen << name
+
+        // Path present: check the file exists, with a per-sample/reference message.
+        if (path && !(path ==~ /^(https?|ftp):\/\/.*/)) {
+            def expanded = path.startsWith('~') ? path.replaceFirst('~', System.getProperty('user.home')) : path
+            if (!file(expanded).exists()) {
+                def role = (ref_mode && type == 'r') ? 'reference' : 'sample'
+                error(pink("[bgc_quast_ppl] The path for ${role} '${name}' does not exist: ${path}. Please check the file path or directory location."))
+            }
+        }
+
+        out_lines << cells.join(',')
+    }
+
+    // Only write a new file if a name was auto-filled; otherwise use the original.
+    if (rewritten) {
+        def tmp = File.createTempFile('bgc_quast_ppl_samplesheet_', '.csv')
+        tmp.deleteOnExit()
+        tmp.text = out_lines.join('\n') + '\n'
+        return tmp.absolutePath
+    }
+    return input
+}
+
+//
+// compare-to-reference type-column check: type present, valid values, exactly one reference.
+// Content and empty-cell checks are handled upstream in validateSamplesheetContent.
+//
+def validateReferenceSamplesheet(input) {
+    def lines  = file(input).readLines().findAll { it.trim() }
+    def header = lines[0].split(',', -1).collect { it.trim() }
+
+    if (!header.contains('type')) {
+        error(pink("[bgc_quast_ppl] compare-to-reference needs a 'type' column in the samplesheet. Please add it and restart the run."))
+    }
+
+    def ti        = header.indexOf('type')
     def ref_count = 0
 
     lines[1..-1].eachWithIndex { line, idx ->
         def cells  = line.split(',', -1)
         def rownum = idx + 2
-        [si, fi, ti].each { ci ->
-            if (ci >= cells.size() || cells[ci].trim() == '') {
-                error("[bgc_quast_ppl] compare-to-reference: empty cell in row ${rownum}. sample, fasta and type must all be filled.")
-            }
-        }
-        def t = cells[ti].trim().toLowerCase()
+        def t      = cells[ti].trim().toLowerCase()
         if (!(t in ['q', 'r'])) {
-            error("[bgc_quast_ppl] compare-to-reference: row ${rownum} type='${cells[ti].trim()}' is invalid. Use q/Q (query) or r/R (reference).")
+            error(pink("[bgc_quast_ppl] compare-to-reference: row ${rownum} type='${cells[ti].trim()}' is invalid. Use q/Q (query) or r/R (reference)."))
         }
         if (t == 'r') { ref_count++ }
     }
 
     if (ref_count != 1) {
-        error("[bgc_quast_ppl] compare-to-reference needs exactly one reference row (type r/R). Found ${ref_count}.")
+        error(pink("[bgc_quast_ppl] compare-to-reference needs exactly one reference row (type r/R). Found ${ref_count}."))
     }
 }
 
@@ -215,7 +303,7 @@ def validateAntismashMode() {
     def full_typed    = cli.contains('--bgc_antismash_full')
 
     if (minimal_typed && full_typed) {
-        error("[bgc_quast_ppl] --bgc_antismash_minimal and --bgc_antismash_full cannot both be set. Minimal is the default; pass --bgc_antismash_full only if you want the full analysis.")
+        error(pink("[bgc_quast_ppl] --bgc_antismash_minimal and --bgc_antismash_full cannot both be set. Minimal is the default; pass --bgc_antismash_full only if you want the full analysis."))
     }
 }
 
@@ -316,7 +404,7 @@ def validatePreRunEnvironment(input) {
     // Print all blocking problems together, then halt
     if (problems) {
         def msg = problems.collect { " - ${it}" }.join('\n')
-        error("[bgc_quast_ppl] Cannot start. Please fix:\n${msg}")
+        error(pink("[bgc_quast_ppl] Cannot start. Please fix:\n${msg}"))
     }
 }
 
@@ -408,13 +496,13 @@ def explainPipelineError() {
         }
 
         if (params.bgc_quast_debug && report.trim()) {
-            log.error("[bgc_quast_ppl] --bgc_quast_debug: full error report below:\n${report.trim()}")
+            log.error(pink("[bgc_quast_ppl] --bgc_quast_debug: full error report below:\n${report.trim()}"))
         }
 
         log.error("Please refer to troubleshooting docs: https://nf-co.re/docs/usage/troubleshooting")
     }
     catch (Exception e) {
-        log.error("[bgc_quast_ppl] error handler failed: ${e}")
+        log.error(pink("[bgc_quast_ppl] error handler failed: ${e}"))
     }
 }
 

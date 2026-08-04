@@ -3,7 +3,7 @@ include { validateParameters } from 'plugin/nf-schema'
 
 workflow UTILS_NFSCHEMA_PLUGIN {
 
-    ttake:
+    take:
     input_workflow      // workflow: object nf-schema reads metadata from
     validate_params     // boolean:  validate the parameters
     parameters_schema   // string:   path to the params JSON schema; must match validation.parametersSchema.
