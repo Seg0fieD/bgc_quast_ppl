@@ -1,0 +1,113 @@
+file_label                                    assembly_10 assembly_10 assembly_10
+Genome mining tool                                DeepBGC       GECCO   antiSMASH
+# BGCs filtered by length                               0           0           0
+# BGCs                                                 37           6           6
+# BGCs (NRPS)                                           1           1           1
+# BGCs (PKS)                                            9           1           1
+# BGCs (RiPP)                                           3           2           2
+# BGCs (terpene)                                        2           1           2
+# BGCs (saccharide)                                     1           0           0
+# BGCs (hybrid)                                         2           0           0
+# BGCs (unknown)                                       19           1           0
+# BGCs (complete)                                      31           5           2
+# BGCs (incomplete)                                     6           1           4
+# BGCs (NRPS, complete)                                 0           1           0
+# BGCs (NRPS, incomplete)                               1           0           1
+# BGCs (PKS, complete)                                  7           0           0
+# BGCs (PKS, incomplete)                                2           1           1
+# BGCs (RiPP, complete)                                 2           2           1
+# BGCs (RiPP, incomplete)                               1           0           1
+# BGCs (terpene, complete)                              1           1           1
+# BGCs (terpene, incomplete)                            1           0           1
+# BGCs (saccharide, complete)                           1           0           0
+# BGCs (hybrid, complete)                               2           0           0
+# BGCs (unknown, complete)                             18           1           0
+# BGCs (unknown, incomplete)                            1           0           0
+Total BGC length in bp                             390315      146483      175725
+Total BGC length in bp (NRPS)                       37111       40549       51925
+Total BGC length in bp (PKS)                        68089       19843       39844
+Total BGC length in bp (RiPP)                       22925       23878       34522
+Total BGC length in bp (terpene)                    29892       21182       49434
+Total BGC length in bp (saccharide)                 27939           0           0
+Total BGC length in bp (hybrid)                     13640           0           0
+Total BGC length in bp (unknown)                   190719       41031           0
+Total BGC length in bp (complete)                  228054      126640       52437
+Total BGC length in bp (incomplete)                162261       19843      123288
+Total BGC length in bp (NRPS, complete)                 0       40549           0
+Total BGC length in bp (NRPS, incomplete)           37111           0       51925
+Total BGC length in bp (PKS, complete)              30257           0           0
+Total BGC length in bp (PKS, incomplete)            37832       19843       39844
+Total BGC length in bp (RiPP, complete)             19156       23878       24559
+Total BGC length in bp (RiPP, incomplete)            3769           0        9963
+Total BGC length in bp (terpene, complete)            885       21182       27878
+Total BGC length in bp (terpene, incomplete)        29007           0       21556
+Total BGC length in bp (saccharide, complete)       27939           0           0
+Total BGC length in bp (hybrid, complete)           13640           0           0
+Total BGC length in bp (unknown, complete)         136177       41031           0
+Total BGC length in bp (unknown, incomplete)        54542           0           0
+Mean BGC length in bp                             10549.1     24413.8     29287.5
+Mean BGC length in bp (NRPS)                      37111.0     40549.0     51925.0
+Mean BGC length in bp (PKS)                        7565.4     19843.0     39844.0
+Mean BGC length in bp (RiPP)                       7641.7     11939.0     17261.0
+Mean BGC length in bp (terpene)                   14946.0     21182.0     24717.0
+Mean BGC length in bp (saccharide)                27939.0         0.0         0.0
+Mean BGC length in bp (hybrid)                     6820.0         0.0         0.0
+Mean BGC length in bp (unknown)                   10037.8     41031.0         0.0
+Mean BGC length in bp (complete)                   7356.6     25328.0     26218.5
+Mean BGC length in bp (incomplete)                27043.5     19843.0     30822.0
+Mean BGC length in bp (NRPS, complete)                0.0     40549.0         0.0
+Mean BGC length in bp (NRPS, incomplete)          37111.0         0.0     51925.0
+Mean BGC length in bp (PKS, complete)              4322.4         0.0         0.0
+Mean BGC length in bp (PKS, incomplete)           18916.0     19843.0     39844.0
+Mean BGC length in bp (RiPP, complete)             9578.0     11939.0     24559.0
+Mean BGC length in bp (RiPP, incomplete)           3769.0         0.0      9963.0
+Mean BGC length in bp (terpene, complete)           885.0     21182.0     27878.0
+Mean BGC length in bp (terpene, incomplete)       29007.0         0.0     21556.0
+Mean BGC length in bp (saccharide, complete)      27939.0         0.0         0.0
+Mean BGC length in bp (hybrid, complete)           6820.0         0.0         0.0
+Mean BGC length in bp (unknown, complete)          7565.4     41031.0         0.0
+Mean BGC length in bp (unknown, incomplete)       54542.0         0.0         0.0
+# unique BGCs                                          24           1           6
+# unique BGCs (NRPS)                                    0           0           1
+# unique BGCs (PKS)                                     7           0           1
+# unique BGCs (RiPP)                                    1           0           2
+# unique BGCs (terpene)                                 2           0           2
+# unique BGCs (saccharide)                              1           0           0
+# unique BGCs (hybrid)                                  1           0           0
+# unique BGCs (unknown)                                12           1           0
+# unique BGCs (complete)                               21           1           2
+# unique BGCs (incomplete)                              3           0           4
+# unique BGCs (NRPS, complete)                          0           0           0
+# unique BGCs (NRPS, incomplete)                        0           0           1
+# unique BGCs (PKS, complete)                           6           0           0
+# unique BGCs (PKS, incomplete)                         1           0           1
+# unique BGCs (RiPP, complete)                          1           0           1
+# unique BGCs (RiPP, incomplete)                        0           0           1
+# unique BGCs (terpene, complete)                       1           0           1
+# unique BGCs (terpene, incomplete)                     1           0           1
+# unique BGCs (saccharide, complete)                    1           0           0
+# unique BGCs (hybrid, complete)                        1           0           0
+# unique BGCs (unknown, complete)                      11           1           0
+# unique BGCs (unknown, incomplete)                     1           0           0
+Unique BGC rate                                      0.65        0.17        1.00
+Unique BGC rate (NRPS)                               0.00        0.00        1.00
+Unique BGC rate (PKS)                                0.78        0.00        1.00
+Unique BGC rate (RiPP)                               0.33        0.00        1.00
+Unique BGC rate (terpene)                            1.00        0.00        1.00
+Unique BGC rate (saccharide)                         1.00        0.00        0.00
+Unique BGC rate (hybrid)                             0.50        0.00        0.00
+Unique BGC rate (unknown)                            0.63        1.00        0.00
+Unique BGC rate (complete)                           0.68        0.20        1.00
+Unique BGC rate (incomplete)                         0.50        0.00        1.00
+Unique BGC rate (NRPS, complete)                     0.00        0.00        0.00
+Unique BGC rate (NRPS, incomplete)                   0.00        0.00        1.00
+Unique BGC rate (PKS, complete)                      0.86        0.00        0.00
+Unique BGC rate (PKS, incomplete)                    0.50        0.00        1.00
+Unique BGC rate (RiPP, complete)                     0.50        0.00        1.00
+Unique BGC rate (RiPP, incomplete)                   0.00        0.00        1.00
+Unique BGC rate (terpene, complete)                  1.00        0.00        1.00
+Unique BGC rate (terpene, incomplete)                1.00        0.00        1.00
+Unique BGC rate (saccharide, complete)               1.00        0.00        0.00
+Unique BGC rate (hybrid, complete)                   0.50        0.00        0.00
+Unique BGC rate (unknown, complete)                  0.61        1.00        0.00
+Unique BGC rate (unknown, incomplete)                1.00        0.00        0.00

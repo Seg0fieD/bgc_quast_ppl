@@ -1,0 +1,25 @@
+BGC-QUAST version: 1.0.0
+
+Started with command: bgc-quast.py /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/reference.json /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/reference.bgc.tsv /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/reference.clusters.tsv --genome /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/renamed/reference.fasta --threads 2 --output-dir /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/bgcquast_out --mode compare-tools --edge-distance 100 --min-bgc-length 0 --merge-distance 0 --overlap-fraction 0.9
+
+System information:
+  OS: Linux-6.17.0-40-generic-x86_64-with-glibc2.39
+  Python version: 3.12
+  CPUs number: 4
+
+Started: 2026-07-17 15:04:15
+
+Logging to /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/bgcquast_out/bgc-quast.log
+Mode COMPARE_TOOLS selected
+The running mode is set to: RunningMode.COMPARE_TOOLS
+RESULTS:
+  Text report is saved to /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/bgcquast_out/report.txt
+  HTML report is saved to /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/bgcquast_out/report.html
+  TSV report is saved to /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/bgcquast_out/report.tsv
+  Log is saved to /home/segofied/Documents/bgc_quast_ppl/work/e2/7b3b7ac7e64a98d068120364bd8315/bgcquast_out/bgc-quast.log
+
+Finished: 2026-07-17 15:04:15
+Elapsed time: 0:00:00.167124
+WARNINGs: 1
+
+Thank you for using BGC-QUAST!
