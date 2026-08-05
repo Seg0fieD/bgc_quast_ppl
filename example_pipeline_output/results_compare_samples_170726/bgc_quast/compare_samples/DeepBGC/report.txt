@@ -1,0 +1,78 @@
+file_label                                      reference assembly_10 assembly_20
+Genome mining tool                                DeepBGC     DeepBGC     DeepBGC
+# BGCs filtered by length                               0           0           0
+# BGCs                                                 40          37          38
+# BGCs (NRPS)                                           1           1           1
+# BGCs (PKS)                                           11           9           9
+# BGCs (RiPP)                                           3           3           2
+# BGCs (terpene)                                        2           2           2
+# BGCs (saccharide)                                     1           1           1
+# BGCs (hybrid)                                         2           2           1
+# BGCs (other)                                          0           0           1
+# BGCs (unknown)                                       20          19          21
+# BGCs (complete)                                      40          31          27
+# BGCs (incomplete)                                     0           6          11
+# BGCs (NRPS, complete)                                 1           0           0
+# BGCs (NRPS, incomplete)                               0           1           1
+# BGCs (PKS, complete)                                 11           7           6
+# BGCs (PKS, incomplete)                                0           2           3
+# BGCs (RiPP, complete)                                 3           2           1
+# BGCs (RiPP, incomplete)                               0           1           1
+# BGCs (terpene, complete)                              2           1           2
+# BGCs (terpene, incomplete)                            0           1           0
+# BGCs (saccharide, complete)                           1           1           0
+# BGCs (saccharide, incomplete)                         0           0           1
+# BGCs (hybrid, complete)                               2           2           1
+# BGCs (unknown, complete)                             20          18          17
+# BGCs (other, incomplete)                              0           0           1
+# BGCs (unknown, incomplete)                            0           1           4
+Total BGC length in bp                             380937      390315      421522
+Total BGC length in bp (NRPS)                       40138       37111       35171
+Total BGC length in bp (PKS)                       125768       68089       70778
+Total BGC length in bp (RiPP)                       35570       22925       24258
+Total BGC length in bp (terpene)                    22642       29892       35385
+Total BGC length in bp (saccharide)                 33465       27939       48434
+Total BGC length in bp (hybrid)                      6819       13640        8104
+Total BGC length in bp (other)                          0           0        3111
+Total BGC length in bp (unknown)                   116535      190719      196281
+Total BGC length in bp (complete)                  380937      228054      209499
+Total BGC length in bp (incomplete)                     0      162261      212023
+Total BGC length in bp (NRPS, complete)             40138           0           0
+Total BGC length in bp (NRPS, incomplete)               0       37111       35171
+Total BGC length in bp (PKS, complete)             125768       30257       27083
+Total BGC length in bp (PKS, incomplete)                0       37832       43695
+Total BGC length in bp (RiPP, complete)             35570       19156       12076
+Total BGC length in bp (RiPP, incomplete)               0        3769       12182
+Total BGC length in bp (terpene, complete)          22642         885       35385
+Total BGC length in bp (terpene, incomplete)            0       29007           0
+Total BGC length in bp (saccharide, complete)       33465       27939           0
+Total BGC length in bp (saccharide, incomplete)         0           0       48434
+Total BGC length in bp (hybrid, complete)            6819       13640        8104
+Total BGC length in bp (unknown, complete)         116535      136177      126851
+Total BGC length in bp (unknown, incomplete)            0       54542       69430
+Total BGC length in bp (other, incomplete)              0           0        3111
+Mean BGC length in bp                              9523.4     10549.1     11092.7
+Mean BGC length in bp (NRPS)                      40138.0     37111.0     35171.0
+Mean BGC length in bp (PKS)                       11433.5      7565.4      7864.2
+Mean BGC length in bp (RiPP)                      11856.7      7641.7     12129.0
+Mean BGC length in bp (terpene)                   11321.0     14946.0     17692.5
+Mean BGC length in bp (saccharide)                33465.0     27939.0     48434.0
+Mean BGC length in bp (hybrid)                     3409.5      6820.0      8104.0
+Mean BGC length in bp (unknown)                    5826.8     10037.8      9346.7
+Mean BGC length in bp (other)                         0.0         0.0      3111.0
+Mean BGC length in bp (complete)                   9523.4      7356.6      7759.2
+Mean BGC length in bp (incomplete)                    0.0     27043.5     19274.8
+Mean BGC length in bp (NRPS, complete)            40138.0         0.0         0.0
+Mean BGC length in bp (NRPS, incomplete)              0.0     37111.0     35171.0
+Mean BGC length in bp (PKS, complete)             11433.5      4322.4      4513.8
+Mean BGC length in bp (PKS, incomplete)               0.0     18916.0     14565.0
+Mean BGC length in bp (RiPP, complete)            11856.7      9578.0     12076.0
+Mean BGC length in bp (RiPP, incomplete)              0.0      3769.0     12182.0
+Mean BGC length in bp (terpene, complete)         11321.0       885.0     17692.5
+Mean BGC length in bp (terpene, incomplete)           0.0     29007.0         0.0
+Mean BGC length in bp (saccharide, complete)      33465.0     27939.0         0.0
+Mean BGC length in bp (saccharide, incomplete)        0.0         0.0     48434.0
+Mean BGC length in bp (hybrid, complete)           3409.5      6820.0      8104.0
+Mean BGC length in bp (unknown, complete)          5826.8      7565.4      7461.8
+Mean BGC length in bp (unknown, incomplete)           0.0     54542.0     17357.5
+Mean BGC length in bp (other, incomplete)             0.0         0.0      3111.0

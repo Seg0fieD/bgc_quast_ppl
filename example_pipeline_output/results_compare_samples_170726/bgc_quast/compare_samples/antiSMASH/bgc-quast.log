@@ -1,0 +1,25 @@
+BGC-QUAST version: 1.0.0
+
+Started with command: bgc-quast.py /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/reference.json /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/assembly_10.json /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/assembly_20.json --genome /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/renamed/reference.fasta /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/renamed/assembly_10.fasta /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/renamed/assembly_20.fasta --names reference,assembly_10,assembly_20 --threads 2 --output-dir /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/bgcquast_out --mode compare-samples --edge-distance 100 --min-bgc-length 0 --merge-distance 0
+
+System information:
+  OS: Linux-6.17.0-40-generic-x86_64-with-glibc2.39
+  Python version: 3.12
+  CPUs number: 4
+
+Started: 2026-07-17 14:56:22
+
+Logging to /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/bgcquast_out/bgc-quast.log
+Mode COMPARE_SAMPLES selected
+The running mode is set to: RunningMode.COMPARE_SAMPLES
+RESULTS:
+  Text report is saved to /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/bgcquast_out/report.txt
+  HTML report is saved to /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/bgcquast_out/report.html
+  TSV report is saved to /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/bgcquast_out/report.tsv
+  Log is saved to /home/segofied/Documents/bgc_quast_ppl/work/60/e480fed5a1c7c724a8403f5609c0ce/bgcquast_out/bgc-quast.log
+
+Finished: 2026-07-17 14:56:22
+Elapsed time: 0:00:00.139209
+WARNINGs: 1
+
+Thank you for using BGC-QUAST!
