@@ -11,7 +11,7 @@ work/
 local.config
 db/*
 
-tmp_test/
+/home/segofied/Documents/bgc_quast_ppl/tmp_test
 # example test data
 example_test_data/test_genome_BSubs
 example_test_data/test_genome

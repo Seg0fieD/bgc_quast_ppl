@@ -47,7 +47,6 @@ process BGCQUAST {
         ${reference_genome_arg} \\
         ${bigscape_arg} \\
         ${names_arg} \\
-        ${names_arg} \\
         --threads ${task.cpus} \\
         --output-dir \$WORKDIR/bgcquast_out \\
         ${args}
