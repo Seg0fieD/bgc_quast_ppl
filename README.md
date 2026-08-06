@@ -220,6 +220,7 @@ Optional. Runs BiG-SCAPE on the antiSMASH predictions and adds gene cluster fami
 | `--bgc_bigscape_dir` | — | Supply your own finished BiG-SCAPE output directory. BiG-SCAPE is then skipped. |
 | `--bgc_bigscape_cutoffs` | `0.3,0.5,0.7` | GCF distance cutoffs to compute. They fill the dropdown in the HTML report. |
 | `--bgc_bigscape_cutoff` | `0.3` | Which cutoff the report table shows. Must be one of the above. |
+| `--bgc_bigscape_classify` | `none` | BiG-SCAPE binning mode. Only `none` is wired. |
 
 **Pfam.** BiG-SCAPE cannot run without it. If you already have a `Pfam-A.hmm`, pass it with `--bgc_bigscape_pfam` and make sure the four pressed files (`.h3f .h3i .h3m .h3p`) sit beside it — run `hmmpress Pfam-A.hmm` once if they do not.
 
