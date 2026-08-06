@@ -6,7 +6,8 @@
 
 include { QUAST    } from '../../modules/nf-core/quast/main'
 include { BGCQUAST } from '../../modules/local/bgcquast'
-include { BIGSCAPE } from '../../modules/local/bigscape'
+include { BIGSCAPE              } from '../../modules/local/bigscape'
+include { BIGSCAPE_DOWNLOAD_DB  } from '../../modules/local/bigscape_download_db'
 
 workflow BGCQUAST_COMPARISON {
     take:
@@ -41,7 +42,21 @@ workflow BGCQUAST_COMPARISON {
             ch_bigscape_dir = Channel.value(file(params.bgc_bigscape_dir, checkIfExists: true))
         }
         else {
-            def pfam_hmm = file(params.bgc_bigscape_pfam, checkIfExists: true)
+            // Pfam: use the user's pressed copy if given, otherwise download and press one.
+            def ch_pfam_dir
+            def ch_pfam_name
+
+            if (params.bgc_bigscape_pfam) {
+                def pfam_hmm = file(params.bgc_bigscape_pfam, checkIfExists: true)
+                ch_pfam_dir  = Channel.value(pfam_hmm.parent)
+                ch_pfam_name = Channel.value(pfam_hmm.name)
+            }
+            else {
+                BIGSCAPE_DOWNLOAD_DB()
+                ch_versions  = ch_versions.mix(BIGSCAPE_DOWNLOAD_DB.out.versions)
+                ch_pfam_dir  = BIGSCAPE_DOWNLOAD_DB.out.db
+                ch_pfam_name = Channel.value('Pfam-A.hmm')
+            }
 
             // Pair "<sample_id>_<original_filename>" with its file, then sort so the two
             // lists the module receives stay index-aligned. The prefix is the join key
@@ -58,8 +73,8 @@ workflow BGCQUAST_COMPARISON {
             BIGSCAPE(
                 ch_bigscape_stage.map { rows -> rows.collect { it[0] } },
                 ch_bigscape_stage.map { rows -> rows.collect { it[1] } },
-                Channel.value(pfam_hmm.parent),
-                Channel.value(pfam_hmm.name),
+                ch_pfam_dir,
+                ch_pfam_name,
             )
             ch_versions     = ch_versions.mix(BIGSCAPE.out.versions)
             ch_bigscape_dir = BIGSCAPE.out.results.ifEmpty { [[]] }
