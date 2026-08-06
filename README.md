@@ -208,6 +208,40 @@ Do **not** pass both at once — the pipeline stops with an error if you do.
 | `--bgc_quast_quastdir` | — | Supply your own QUAST output directory (compare-to-reference only). QUAST is then skipped. |
 | `--bgc_quast_debug` | `false` | Print the raw error output on failure (for troubleshooting). |
 
+### BiG-SCAPE (gene cluster families)
+
+Optional. Runs BiG-SCAPE on the antiSMASH predictions and adds gene cluster family (GCF) rows plus a Venn diagram to the **antiSMASH** bgc-quast report. `compare-samples` mode only. Off by default — with it off, the report is unchanged.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--run_bigscape` | `false` | Turn it on. Needs antiSMASH enabled. |
+| `--bgc_bigscape_pfam` | — | Path to an existing `Pfam-A.hmm` **file** (not its folder). Leave unset to download it automatically. |
+| `--bgc_bigscape_pfam_url` | Pfam 38.2 | Where to download Pfam from when `--bgc_bigscape_pfam` is not set. |
+| `--bgc_bigscape_dir` | — | Supply your own finished BiG-SCAPE output directory. BiG-SCAPE is then skipped. |
+| `--bgc_bigscape_cutoffs` | `0.3,0.5,0.7` | GCF distance cutoffs to compute. They fill the dropdown in the HTML report. |
+| `--bgc_bigscape_cutoff` | `0.3` | Which cutoff the report table shows. Must be one of the above. |
+
+**Pfam.** BiG-SCAPE cannot run without it. If you already have a `Pfam-A.hmm`, pass it with `--bgc_bigscape_pfam` and make sure the four pressed files (`.h3f .h3i .h3m .h3p`) sit beside it — run `hmmpress Pfam-A.hmm` once if they do not.
+
+If you do not pass it, the pipeline downloads and presses Pfam for you. That is about 400 MB to download and roughly 4 GB of free disk once unpacked and pressed. Add `--save_db` to keep it under `<outdir>/databases/pfam`, otherwise it stays in the work directory and is downloaded again on a fresh run.
+
+The Pfam release is pinned on purpose. Pfam version changes which domains are found, which changes BiG-SCAPE distances and can change the families, so pinning keeps results reproducible between runs.
+
+Example:
+
+```bash
+nextflow run . \
+  -profile docker \
+  --input example_test_data/samplesheet.csv \
+  --outdir results \
+  --bgc_quast_mode compare-samples \
+  --run_bigscape \
+  --bgc_bigscape_pfam /ABS/PATH/db/pfam/Pfam-A.hmm \
+  --bgc_antismash_db /ABS/PATH/db/antismash_db_v8 \
+  --bgc_deepbgc_db /ABS/PATH/db/deepbgc_db \
+  --max_cpus 4 --max_memory 32.GB
+```
+
 ### Other
 
 | Option | Default | Meaning |
@@ -234,7 +268,10 @@ results/
 │   │   ├── antiSMASH/report.tsv
 │   │   ├── DeepBGC/report.tsv
 │   │   └── GECCO/report.tsv
-│   └── quast/                      # only in compare-to-reference mode
+│   ├── quast/                      # only in compare-to-reference mode
+│   └── bigscape/                   # only with --run_bigscape; includes BiG-SCAPE's own index.html
+├── databases/
+│   └── pfam/                       # only with --save_db; the downloaded and pressed Pfam
 └── pipeline_info/                  # run reports, timeline, and DAG diagram
 ```
 
