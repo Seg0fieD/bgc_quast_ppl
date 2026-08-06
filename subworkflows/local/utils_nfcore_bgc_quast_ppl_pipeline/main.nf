@@ -351,7 +351,7 @@ def validatePreRunEnvironment(input) {
             problems << "--run_bigscape needs antiSMASH, but --bgc_skip_antismash is set. Nothing would feed BiG-SCAPE."
         }
 
-       if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
+        if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
             warnings << "No --bgc_bigscape_pfam given. Pfam will be downloaded and pressed automatically (about 400 MB, one-off).\n     Pass --save_db to keep it, or --bgc_bigscape_pfam to use a copy you already have."
         }
 
