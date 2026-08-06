@@ -1567,14 +1567,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Populate pythonPlotsPanel (compare_tools mode only)
-    if (mode === 'compare_tools') {
-        const panel = document.getElementById('pythonPlotsPanel');
-        if (panel && reportMetadata) {
-            initVennPanel(panel, reportMetadata);
-        }
-    }
-
     // Show/hide buttons according to mode
     allMetricTabs.forEach(btn => {
         const key = btn.dataset.metric;
