@@ -19,6 +19,7 @@ workflow BGC_PREDICTION {
     main:
     ch_versions       = Channel.empty()
     ch_antismash_json = Channel.empty()
+    ch_antismash_gbk  = Channel.empty()
     ch_deepbgc_tsv    = Channel.empty()
     ch_gecco_clusters = Channel.empty()
 
@@ -42,6 +43,7 @@ workflow BGC_PREDICTION {
         ANTISMASH_ANTISMASH(gbks, ch_antismash_databases, [])
         ch_versions       = ch_versions.mix(ANTISMASH_ANTISMASH.out.versions)
         ch_antismash_json = ANTISMASH_ANTISMASH.out.json_results
+        ch_antismash_gbk  = ANTISMASH_ANTISMASH.out.gbk_results
     }
 
     // DEEPBGC
@@ -74,6 +76,7 @@ workflow BGC_PREDICTION {
     emit:
     versions       = ch_versions            // channel: [ path(versions.yml) ]
     antismash_json = ch_antismash_json      // channel: [ val(meta), path(*.json) ]
+    antismash_gbk  = ch_antismash_gbk       // channel: [ val(meta), [ path(*region*.gbk) ] ]  (optional per sample)
     deepbgc_tsv    = ch_deepbgc_tsv         // channel: [ val(meta), path(*.bgc.tsv) ]   (optional per sample)
     gecco_clusters = ch_gecco_clusters      // channel: [ val(meta), path(*.clusters.tsv) ] (optional per sample)
 }

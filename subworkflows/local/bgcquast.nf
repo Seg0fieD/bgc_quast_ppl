@@ -6,6 +6,7 @@
 
 include { QUAST    } from '../../modules/nf-core/quast/main'
 include { BGCQUAST } from '../../modules/local/bgcquast'
+include { BIGSCAPE } from '../../modules/local/bigscape'
 
 workflow BGCQUAST_COMPARISON {
     take:
@@ -18,13 +19,52 @@ workflow BGCQUAST_COMPARISON {
     ref_gecco_clusters // [ meta, tsv  ]  reference
     ref_genome         // [ meta, fasta ] reference genome, keyed by query id
     ref_name           // val: reference display name (--ref-name)
-
+    antismash_gbk      // [ meta, [ gbk ] ] query antiSMASH region GBKs (BiG-SCAPE input)
+    
     main:
     ch_versions    = Channel.empty()
     ch_bgcquast_in = Channel.empty()
     def mode       = params.bgc_quast_mode
 
     def proper = [antismash: 'antiSMASH', deepbgc: 'DeepBGC', gecco: 'GECCO']
+
+    /*
+        BiG-SCAPE side branch. Runs once per pipeline execution over every sample's
+        antiSMASH region GBKs together. Off unless --run_bigscape. Empty list means
+        "no folder", which BGCQUAST reads as "do not pass --bigscape-output-dir".
+    */
+    ch_bigscape_dir = Channel.value([[]])
+
+    if (params.run_bigscape) {
+        if (params.bgc_bigscape_dir) {
+            // User supplied a finished folder. Skip the run, same as bgc_quast_quastdir.
+            ch_bigscape_dir = Channel.value(file(params.bgc_bigscape_dir, checkIfExists: true))
+        }
+        else {
+            def pfam_hmm = file(params.bgc_bigscape_pfam, checkIfExists: true)
+
+            // Pair "<sample_id>_<original_filename>" with its file, then sort so the two
+            // lists the module receives stay index-aligned. The prefix is the join key
+            // bgc-quast reverses; ".region" must survive for --include-gbk to accept it.
+            ch_bigscape_stage = antismash_gbk
+                .flatMap { meta, gbks ->
+                    (gbks instanceof List ? gbks : [gbks]).collect { g ->
+                        ["${meta.id}_${g.name}".toString(), g]
+                    }
+                }
+                .toSortedList { a, b -> a[0] <=> b[0] }
+                .filter { rows -> rows.size() > 0 }
+
+            BIGSCAPE(
+                ch_bigscape_stage.map { rows -> rows.collect { it[0] } },
+                ch_bigscape_stage.map { rows -> rows.collect { it[1] } },
+                Channel.value(pfam_hmm.parent),
+                Channel.value(pfam_hmm.name),
+            )
+            ch_versions     = ch_versions.mix(BIGSCAPE.out.versions)
+            ch_bigscape_dir = BIGSCAPE.out.results.ifEmpty { [[]] }
+        }
+    }
 
     if (mode == 'compare-tools') {
         // One run per sample
@@ -42,7 +82,7 @@ workflow BGCQUAST_COMPARISON {
             .join(genomes)
             .map { meta, files, genome ->
                 // No --names: bgc-quast auto-labels columns by detected tool.
-                [meta + [leaf: "${meta.id}"], files, genome, [], [], []]
+                [meta + [leaf: "${meta.id}"], files, genome, [], [], [], []]
             }
     }
     else if (mode == 'compare-samples') {
@@ -55,8 +95,13 @@ workflow BGCQUAST_COMPARISON {
             .mix(by_tool(deepbgc_tsv, 'deepbgc'))
             .mix(by_tool(gecco_clusters, 'gecco'))
             .groupTuple(by: 0)
-            .map { tool, ids, files, gens ->
-                [[id: "compare_samples_${tool}", bgcquast_names: ids.join(','), leaf: proper[tool]], files, gens, [], [], []]
+            .combine(ch_bigscape_dir)
+            .map { tool, ids, files, gens, bsdir ->
+                [
+                    [id: "compare_samples_${tool}", bgcquast_names: ids.join(','), leaf: proper[tool]],
+                    files, gens, [], [], [],
+                    tool == 'antismash' ? bsdir : [],
+                ]
             }
     }
     else if (mode == 'compare-to-reference') {
@@ -100,7 +145,7 @@ workflow BGCQUAST_COMPARISON {
                 .map { names, files, gens, rfile, rgen, qdir, rid ->
                     [
                         [id: "compare_to_reference_${tool}", bgcquast_names: names.join(','), ref_name: rid, leaf: proper[tool]],
-                        files, gens, qdir, rfile, rgen,
+                        files, gens, qdir, rfile, rgen, [],
                     ]
                 }
         }

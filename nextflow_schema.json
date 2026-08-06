@@ -911,6 +911,63 @@
                     "fa_icon": "fas fa-bug"
                 }
             }
+        },
+        "bigscape": {
+            "title": "BiG-SCAPE: GCF ANALYSIS",
+            "type": "object",
+            "description": "Optional gene cluster family (GCF) analysis with BiG-SCAPE. Runs on the antiSMASH region GBKs and its results appear inside the antiSMASH bgc-quast report. Off by default.",
+            "default": "",
+            "fa_icon": "fas fa-project-diagram",
+            "properties": {
+                "run_bigscape": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run BiG-SCAPE on the antiSMASH predictions and add GCF rows to the bgc-quast report.",
+                    "help_text": "Requires antiSMASH to be enabled and either --bgc_bigscape_pfam or --bgc_bigscape_dir. BiG-SCAPE runs once per pipeline execution over every sample's region GBKs together.",
+                    "fa_icon": "fas fa-toggle-on"
+                },
+                "bgc_bigscape_pfam": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Absolute path to Pfam-A.hmm. Required when --run_bigscape is set, unless --bgc_bigscape_dir is given.",
+                    "help_text": "This is the .hmm file, not its folder. The four pressed index files (.h3f .h3i .h3m .h3p) must sit beside it; run hmmpress once if they are missing.",
+                    "fa_icon": "fas fa-database"
+                },
+                "bgc_bigscape_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Optional path to a finished BiG-SCAPE output directory. Supplying it skips the BiG-SCAPE run.",
+                    "help_text": "Mirrors --bgc_quast_quastdir. The folder must contain output_files/ with at least one clustering TSV.",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "bgc_bigscape_cutoffs": {
+                    "type": "string",
+                    "default": "0.3,0.5,0.7",
+                    "description": "Comma-separated GCF distance cutoffs for BiG-SCAPE to compute.",
+                    "help_text": "Passed to BiG-SCAPE --gcf-cutoffs. Extra cutoffs are nearly free because distances are computed once. They populate the cutoff dropdown in the HTML report.",
+                    "fa_icon": "fas fa-sliders-h"
+                },
+                "bgc_bigscape_cutoff": {
+                    "type": "number",
+                    "default": 0.3,
+                    "description": "Which cutoff the report table uses. Must be one of --bgc_bigscape_cutoffs.",
+                    "help_text": "Passed to bgc-quast --bigscape-cutoff. A value that was never run is a hard error listing the cutoffs that are available.",
+                    "fa_icon": "fas fa-crosshairs"
+                },
+                "bgc_bigscape_classify": {
+                    "type": "string",
+                    "default": "none",
+                    "enum": [
+                        "none",
+                        "class",
+                        "category",
+                        "legacy"
+                    ],
+                    "description": "BiG-SCAPE binning mode. Only 'none' is wired; the others are reserved.",
+                    "help_text": "Passed to BiG-SCAPE --classify. 'none' with --mix gives one bin and one family per BGC, which is what the parser expects.",
+                    "fa_icon": "fas fa-layer-group"
+                }
+            }
         }
     },
     "allOf": [
@@ -952,6 +1009,9 @@
         },
         {
             "$ref": "#/$defs/bgc_quast"
+        },
+        {
+            "$ref": "#/$defs/bigscape"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

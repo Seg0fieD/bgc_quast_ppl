@@ -345,6 +345,61 @@ def validatePreRunEnvironment(input) {
         problems << "--bgc_quast_quastdir path not found: ${params.bgc_quast_quastdir}"
     }
 
+    // BiG-SCAPE (only if it is switched on)
+    if (params.run_bigscape) {
+        if (params.bgc_skip_antismash) {
+            problems << "--run_bigscape needs antiSMASH, but --bgc_skip_antismash is set. Nothing would feed BiG-SCAPE."
+        }
+
+        if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
+            problems << "--run_bigscape is set but neither --bgc_bigscape_pfam nor --bgc_bigscape_dir was given."
+        }
+
+        if (params.bgc_bigscape_pfam) {
+            def hmm = file(params.bgc_bigscape_pfam)
+            if (!hmm.exists()) {
+                problems << "Pfam file not found: ${params.bgc_bigscape_pfam}  (this must be the .hmm file, not its folder)"
+            }
+            else {
+                def missing = ['h3f', 'h3i', 'h3m', 'h3p'].findAll { !file("${hmm}.${it}").exists() }
+                if (missing) {
+                    problems << "Pfam is not pressed. Missing beside ${hmm.name}: ${missing.collect { '.' + it }.join(' ')}\n     Fix: run  hmmpress ${hmm}"
+                }
+            }
+        }
+
+        if (params.bgc_bigscape_dir && !file(params.bgc_bigscape_dir).exists()) {
+            problems << "--bgc_bigscape_dir path not found: ${params.bgc_bigscape_dir}"
+        }
+
+        // The report cutoff must be one BiG-SCAPE actually computes
+        def cuts = params.bgc_bigscape_cutoffs.toString().split(',').collect { it.trim() as Double }
+        if (!cuts.any { Math.abs(it - (params.bgc_bigscape_cutoff as Double)) < 1e-9 }) {
+            problems << "--bgc_bigscape_cutoff ${params.bgc_bigscape_cutoff} is not in --bgc_bigscape_cutoffs '${params.bgc_bigscape_cutoffs}'."
+        }
+
+        // ".region" in a sample id breaks the BGC id the report joins on
+        if (sheet && sheet.exists()) {
+            def blines = sheet.readLines().findAll { it.trim() }
+            if (blines.size() >= 2) {
+                def bheader = blines[0].split(',', -1).collect { it.trim() }
+                def bsi     = bheader.indexOf('sample')
+                if (bsi >= 0) {
+                    blines[1..-1].eachWithIndex { line, idx ->
+                        def cells = line.split(',', -1)
+                        if (bsi < cells.size() && cells[bsi].trim().contains('.region')) {
+                            problems << "Sample name contains '.region' (row ${idx + 2}): ${cells[bsi].trim()}\n     BiG-SCAPE results are joined on the file name, and '.region' in a sample id breaks that. Rename the sample."
+                        }
+                    }
+                }
+            }
+        }
+
+        if (params.bgc_quast_mode != 'compare-samples') {
+            warnings << "BiG-SCAPE is only wired into compare-samples so far. In '${params.bgc_quast_mode}' it will run and publish its folder, but no GCF rows will appear in the report."
+        }
+    }
+
     // FASTA files listed in the samplesheet
     if (sheet && sheet.exists()) {
         def lines = sheet.readLines().findAll { it.trim() }
@@ -462,6 +517,21 @@ def explainPipelineError() {
                 name      : 'QUAST',
                 signatures: [],
                 generic   : 'QUAST failed. Check the query contigs and the reference genome given in the samplesheet.',
+            ],
+            [
+                process   : 'BIGSCAPE',
+                name      : 'BiG-SCAPE',
+                signatures: [
+                    [ match: '0 hsps found in this run',
+                    hint : 'BiG-SCAPE found no protein domains, so every distance came out 1.0 and no families were built. \n  The Pfam database in --bgc_bigscape_pfam is wrong or empty. Check it is a real Pfam-A.hmm and that its .h3f/.h3i/.h3m/.h3p files are beside it.' ],
+                    [ match: 'hmmpress',
+                    hint : 'BiG-SCAPE tried to press the Pfam database and could not write to that folder. \n  Run  hmmpress /path/to/Pfam-A.hmm  once by hand, then re-run the pipeline.' ],
+                    [ match: 'Missing output file',
+                    hint : 'BiG-SCAPE produced no output_files/ folder, which means no BGCs reached it. \n  Check that antiSMASH found clusters — a run where every sample has zero regions gives BiG-SCAPE nothing to cluster.' ],
+                    [ match: 'No files found',
+                    hint : 'BiG-SCAPE read zero GBK files. Its --include-gbk filter needs "region" in each file name. \n  Check the staged names in gbk_input/ inside the failed task folder.' ],
+                ],
+                generic   : 'BiG-SCAPE failed. Check --bgc_bigscape_pfam points at a pressed Pfam-A.hmm file and that antiSMASH produced region GBKs.',
             ],
             [
                 process   : 'BGCQUAST',

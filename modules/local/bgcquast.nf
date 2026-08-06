@@ -6,7 +6,7 @@ process BGCQUAST {
     conda "${projectDir}/bin/bgc-quast/environment.yml"
 
     input:
-    tuple val(meta), path(mining_results), path(genome), path(quast_dir), path(reference_mining), path(reference_genome)
+    tuple val(meta), path(mining_results), path(genome), path(quast_dir), path(reference_mining), path(reference_genome), path(bigscape_dir)
 
     output:
     // Final published folder is set by publishDir (conf/modules.config).
@@ -28,7 +28,8 @@ process BGCQUAST {
     def quast_arg            = quast_dir        ? "--quast-output-dir \$WORKDIR/${quast_dir}"               : ''
     def reference_mining_arg = reference_mining ? "--reference-mining-result \$WORKDIR/${reference_mining}" : ''
     def reference_genome_arg = reference_genome ? "--reference-genome \$WORKDIR/${reference_genome}"        : ''
-
+    def bigscape_arg         = bigscape_dir     ? "--bigscape-output-dir \$WORKDIR/${bigscape_dir} --bigscape-cutoff ${params.bgc_bigscape_cutoff}" : ''
+    
     """
     # Run from bin/bgc-quast/ so `from src.*` imports resolve; staged paths passed as absolute.
     WORKDIR=\$PWD
@@ -44,6 +45,8 @@ process BGCQUAST {
         ${quast_arg} \\
         ${reference_mining_arg} \\
         ${reference_genome_arg} \\
+        ${bigscape_arg} \\
+        ${names_arg} \\
         ${names_arg} \\
         --threads ${task.cpus} \\
         --output-dir \$WORKDIR/bgcquast_out \\

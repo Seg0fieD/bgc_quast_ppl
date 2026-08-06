@@ -198,6 +198,7 @@ workflow BGC_QUAST_PPL {
 
         // Split prediction outputs and prepped genomes into query vs reference lanes.
         ch_pred_as     = BGC_PREDICTION.out.antismash_json.branch { meta, f -> reference: meta.is_reference; query: true }
+        ch_pred_as_gbk = BGC_PREDICTION.out.antismash_gbk.branch  { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_db     = BGC_PREDICTION.out.deepbgc_tsv.branch    { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_ge     = BGC_PREDICTION.out.gecco_clusters.branch { meta, f -> reference: meta.is_reference; query: true }
         ch_long_fastas = ch_prepped_input_long.fastas.branch      { meta, f -> reference: meta.is_reference; query: true }
@@ -220,6 +221,7 @@ workflow BGC_QUAST_PPL {
             ch_pred_ge.reference,
             ch_long_fastas.reference,
             ch_ref_name,
+            ch_pred_as_gbk.query,
         )
         ch_versions = ch_versions.mix(BGCQUAST_COMPARISON.out.versions)
         ch_bgcquast_run_count = BGCQUAST_COMPARISON.out.results.count()
