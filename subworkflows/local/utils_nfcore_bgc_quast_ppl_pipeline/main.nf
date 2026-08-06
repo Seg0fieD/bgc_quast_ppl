@@ -351,8 +351,8 @@ def validatePreRunEnvironment(input) {
             problems << "--run_bigscape needs antiSMASH, but --bgc_skip_antismash is set. Nothing would feed BiG-SCAPE."
         }
 
-        if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
-            problems << "--run_bigscape is set but neither --bgc_bigscape_pfam nor --bgc_bigscape_dir was given."
+       if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
+            warnings << "No --bgc_bigscape_pfam given. Pfam will be downloaded and pressed automatically (about 400 MB, one-off).\n     Pass --save_db to keep it, or --bgc_bigscape_pfam to use a copy you already have."
         }
 
         if (params.bgc_bigscape_pfam) {
@@ -517,6 +517,21 @@ def explainPipelineError() {
                 name      : 'QUAST',
                 signatures: [],
                 generic   : 'QUAST failed. Check the query contigs and the reference genome given in the samplesheet.',
+            ],
+            [
+                process   : 'BIGSCAPE_DOWNLOAD_DB',
+                name      : 'Pfam download',
+                signatures: [
+                    [ match: 'ConnectionError',
+                    hint : 'Could not reach the Pfam FTP server. Check the network, or download Pfam-A.hmm yourself and pass it with --bgc_bigscape_pfam.' ],
+                    [ match: 'HTTPError',
+                    hint : 'The Pfam download URL returned an error. The pinned release may have moved. \n  Check --bgc_bigscape_pfam_url, or download Pfam-A.hmm yourself and pass it with --bgc_bigscape_pfam.' ],
+                    [ match: 'No space left on device',
+                    hint : 'Not enough disk for Pfam. It needs roughly 4 GB free in the Nextflow work directory once unpacked and pressed.' ],
+                    [ match: 'hmmpress did not produce',
+                    hint : 'The Pfam file downloaded but could not be pressed, so it is probably truncated or corrupt. Delete the work directory and run again.' ],
+                ],
+                generic   : 'Downloading Pfam failed. Download Pfam-A.hmm yourself, run hmmpress on it, and pass it with --bgc_bigscape_pfam.',
             ],
             [
                 process   : 'BIGSCAPE',
