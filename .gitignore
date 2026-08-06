@@ -11,7 +11,7 @@ work/
 local.config
 db/*
 
-/home/segofied/Documents/bgc_quast_ppl/tmp_test
+
 # example test data
 example_test_data/test_genome_BSubs
 example_test_data/test_genome
@@ -35,3 +35,6 @@ null/
 results_*/
 
 example_pipeline_output/_test_gcf_venn_c0.3.svg
+
+/home/segofied/Documents/bgc_quast_ppl/tmp_test/check_bigscape_parser.py
+tmp_test/*
