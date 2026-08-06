@@ -923,15 +923,22 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Run BiG-SCAPE on the antiSMASH predictions and add GCF rows to the bgc-quast report.",
-                    "help_text": "Requires antiSMASH to be enabled and either --bgc_bigscape_pfam or --bgc_bigscape_dir. BiG-SCAPE runs once per pipeline execution over every sample's region GBKs together.",
+                    "help_text": "Requires antiSMASH to be enabled. If neither --bgc_bigscape_pfam nor --bgc_bigscape_dir is given, Pfam is downloaded and pressed automatically. BiG-SCAPE runs once per pipeline execution over every sample's region GBKs together.",
                     "fa_icon": "fas fa-toggle-on"
                 },
                 "bgc_bigscape_pfam": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Absolute path to Pfam-A.hmm. Required when --run_bigscape is set, unless --bgc_bigscape_dir is given.",
-                    "help_text": "This is the .hmm file, not its folder. The four pressed index files (.h3f .h3i .h3m .h3p) must sit beside it; run hmmpress once if they are missing.",
+                    "description": "Absolute path to an existing Pfam-A.hmm. If omitted, Pfam is downloaded automatically.",
+                    "help_text": "This is the .hmm file, not its folder. The four pressed index files (.h3f .h3i .h3m .h3p) must sit beside it; run hmmpress once if they are missing. Leave unset to have the pipeline download and press Pfam for you.",
                     "fa_icon": "fas fa-database"
+                },
+                "bgc_bigscape_pfam_url": {
+                    "type": "string",
+                    "default": "https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/Pfam-A.hmm.gz",
+                    "description": "Where to download Pfam-A.hmm.gz from when --bgc_bigscape_pfam is not set.",
+                    "help_text": "Pinned to a specific Pfam release on purpose. Pfam version changes which domains are found, which changes BiG-SCAPE distances and can change the families, so a moving 'current_release' pointer would make results drift between runs. About 400 MB compressed. Ignored when --bgc_bigscape_pfam or --bgc_bigscape_dir is given.",
+                    "fa_icon": "fas fa-cloud-download-alt"
                 },
                 "bgc_bigscape_dir": {
                     "type": "string",
