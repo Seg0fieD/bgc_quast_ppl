@@ -184,6 +184,28 @@ def add_mode_specific_arguments(parser: argparse.ArgumentParser):
         help="Custom name for the reference genome mining result in reports (only if reference is provided).",
     )
 
+    bigscape = parser.add_argument_group("BiG-SCAPE")
+    bigscape.add_argument(
+        "--bigscape-output-dir",
+        "-b",
+        help="BiG-SCAPE output directory (the folder passed to BiG-SCAPE as -o). If given, "
+             "gene cluster family (GCF) metrics are added to the report. antiSMASH results only.",
+        metavar="DIR",
+        action="store",
+        type=Path,
+    )
+
+    bigscape.add_argument(
+        "--bigscape-cutoff",
+        type=float,
+        metavar="FLOAT",
+        default=None,
+        help="Which BiG-SCAPE GCF cutoff the report table shows [default: 0.3]. "
+             "The cutoff must be one that the BiG-SCAPE run actually produced.",
+    )
+
+    compare_tools = parser.add_argument_group("Compare-tools")
+
     compare_tools = parser.add_argument_group("Compare-tools")
     compare_tools.add_argument(
         "--overlap-fraction",
@@ -270,3 +292,15 @@ def validate_arguments(args: CommandLineArgs):
             "--ref-name was provided but no reference genome mining result was specified. "
             "Please use --reference-mining-result together with --ref-name."
         )
+
+    cutoff = getattr(args, "bigscape_cutoff", None)
+    if cutoff is not None:
+        validate(
+            0.0 < cutoff <= 1.0,
+            "--bigscape-cutoff must be greater than 0 and at most 1",
+        )
+        if not getattr(args, "bigscape_output_dir", None):
+            raise ValidationError(
+                "--bigscape-cutoff was provided but no BiG-SCAPE output directory was specified. "
+                "Please use --bigscape-output-dir DIR (or -b DIR) together with --bigscape-cutoff."
+            )

@@ -97,6 +97,8 @@ compare_tools:
 # these metrics are planned but not implemented yet
 compare_samples:
   metrics:
+    # Planned upstream, not implemented. Left in place on purpose; see the GCF
+    # metrics below for what actually measures this today.
     - name: "bgc_diversity"
       display_name: "BGC diversity"
       description: "Number of unique BGC types in each sample"
@@ -110,15 +112,33 @@ compare_samples:
       display_name: "# accessory BGCs"
       description: "Number of BGCs present in some but not all samples"
 
+    # BiG-SCAPE gene cluster family (GCF) metrics. These rows appear only when
+    # bgc-quast is given --bigscape-output-dir, and only for antiSMASH results.
+    - name: "gcf_count"
+      display_name: "# GCFs"
+      description: "Number of distinct BiG-SCAPE gene cluster families in this sample"
+    - name: "bgcs_in_gcf_count"
+      display_name: "# BGCs in GCFs"
+      description: "Number of BGCs whose family has at least two members across all samples"
+    - name: "singleton_bgc_count"
+      display_name: "# singleton BGCs"
+      description: "Number of BGCs that are the only member of their family"
+    - name: "shared_gcf_count"
+      display_name: "# shared GCFs"
+      description: "Number of families in this sample that also occur in at least one other sample"
+    - name: "unique_gcf_count"
+      display_name: "# unique GCFs"
+      description: "Number of families found in this sample only"
+    - name: "mean_bgcs_per_gcf"
+      display_name: "Mean BGCs per GCF"
+      description: "Average number of this sample's BGCs per family it contains"
+      precision: 1
+
   grouping_dimensions:
     product_type:
       include_total: true
       order: ["Total", "NRPS", "PKS", "RiPP", "Terpene", "Saccharide", "Alkaloid",
        "Hybrid"]
-    sample_group:
-      include_total: true
-      order: ["Total", "group_A", "group_B", "group_C"]
-
 
 # Global settings
 output_settings:

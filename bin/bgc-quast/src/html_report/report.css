@@ -21,7 +21,84 @@ html, body {
 /* ----- REPORT LAYOUT ----- */
 /* Content area: table and plot */
 #reportLayout {
-    display: flex;
+    display: flex;/* ---------------------------------------------------------------------------
+ * BiG-SCAPE GCF PANEL (compare-samples)
+ * Reuses .venn-wrapper / .venn-controls / .venn-title / .venn-svg from above.
+ * ------------------------------------------------------------------------- */
+
+.gcf-cutoff-select {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid #cfcfcf;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #333;
+    cursor: pointer;
+}
+
+.gcf-cutoff-select:hover {
+    border-color: #322b7a;
+}
+
+.gcf-summary-holder {
+    margin-top: 14px;
+}
+
+.gcf-summary-table {
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #ffffff;
+}
+
+.gcf-summary-table th,
+.gcf-summary-table td {
+    border: 1px solid #cfcfcf;
+    padding: 4px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Column headers: the sample names */
+.gcf-summary-table tr:first-child th {
+    background-color: #322b7a;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Row headers: the metric names */
+.gcf-summary-table tr:not(:first-child) th {
+    font-weight: 600;
+    color: #333;
+}
+
+.gcf-summary-table td {
+    text-align: right;
+}
+
+.gcf-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #696969;
+    max-width: 420px;
+}
+
+.gcf-report-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #322b7a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.gcf-report-link:hover {
+    color: #3d3495;
+    text-decoration: underline;
+}
+
+#downloadGcfVenn {
+    margin-top: 12px;
+}
     gap: 100px;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -42,7 +119,84 @@ html, body {
 #reportLayout > div:last-child {
     flex: 0 0 1000px;   /* right column ~ plot (doesn't grow/shrink with the page change) + controls */
 }
+/* ---------------------------------------------------------------------------
+ * BiG-SCAPE GCF PANEL (compare-samples)
+ * Reuses .venn-wrapper / .venn-controls / .venn-title / .venn-svg from above.
+ * ------------------------------------------------------------------------- */
 
+.gcf-cutoff-select {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid #cfcfcf;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #333;
+    cursor: pointer;
+}
+
+.gcf-cutoff-select:hover {
+    border-color: #322b7a;
+}
+
+.gcf-summary-holder {
+    margin-top: 14px;
+}
+
+.gcf-summary-table {
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #ffffff;
+}
+
+.gcf-summary-table th,
+.gcf-summary-table td {
+    border: 1px solid #cfcfcf;
+    padding: 4px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Column headers: the sample names */
+.gcf-summary-table tr:first-child th {
+    background-color: #322b7a;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Row headers: the metric names */
+.gcf-summary-table tr:not(:first-child) th {
+    font-weight: 600;
+    color: #333;
+}
+
+.gcf-summary-table td {
+    text-align: right;
+}
+
+.gcf-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #696969;
+    max-width: 420px;
+}
+
+.gcf-report-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #322b7a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.gcf-report-link:hover {
+    color: #3d3495;
+    text-decoration: underline;
+}
+
+#downloadGcfVenn {
+    margin-top: 12px;
+}
 /* Header */
 :root {
   --bar-text: #ffffff; /* title text color */
@@ -131,7 +285,84 @@ th, td {
 td {
     background-color: #ffffff;
 }
+/* ---------------------------------------------------------------------------
+ * BiG-SCAPE GCF PANEL (compare-samples)
+ * Reuses .venn-wrapper / .venn-controls / .venn-title / .venn-svg from above.
+ * ------------------------------------------------------------------------- */
 
+.gcf-cutoff-select {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid #cfcfcf;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #333;
+    cursor: pointer;
+}
+
+.gcf-cutoff-select:hover {
+    border-color: #322b7a;
+}
+
+.gcf-summary-holder {
+    margin-top: 14px;
+}
+
+.gcf-summary-table {
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #ffffff;
+}
+
+.gcf-summary-table th,
+.gcf-summary-table td {
+    border: 1px solid #cfcfcf;
+    padding: 4px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Column headers: the sample names */
+.gcf-summary-table tr:first-child th {
+    background-color: #322b7a;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Row headers: the metric names */
+.gcf-summary-table tr:not(:first-child) th {
+    font-weight: 600;
+    color: #333;
+}
+
+.gcf-summary-table td {
+    text-align: right;
+}
+
+.gcf-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #696969;
+    max-width: 420px;
+}
+
+.gcf-report-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #322b7a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.gcf-report-link:hover {
+    color: #3d3495;
+    text-decoration: underline;
+}
+
+#downloadGcfVenn {
+    margin-top: 12px;
+}
 th {
     background-color: #ffffff;
     font-weight: 400;  /* not bold */
@@ -632,4 +863,84 @@ label:has(input:disabled) {
 
 #downloadVennPlot:active {
     background: #e9e9f3;
+}
+
+
+/* ---------------------------------------------------------------------------
+ * BiG-SCAPE GCF PANEL (compare-samples)
+ * Reuses .venn-wrapper / .venn-controls / .venn-title / .venn-svg from above.
+ * ------------------------------------------------------------------------- */
+
+.gcf-cutoff-select {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid #cfcfcf;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #333;
+    cursor: pointer;
+}
+
+.gcf-cutoff-select:hover {
+    border-color: #322b7a;
+}
+
+.gcf-summary-holder {
+    margin-top: 14px;
+}
+
+.gcf-summary-table {
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #ffffff;
+}
+
+.gcf-summary-table th,
+.gcf-summary-table td {
+    border: 1px solid #cfcfcf;
+    padding: 4px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Column headers: the sample names */
+.gcf-summary-table tr:first-child th {
+    background-color: #322b7a;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Row headers: the metric names */
+.gcf-summary-table tr:not(:first-child) th {
+    font-weight: 600;
+    color: #333;
+}
+
+.gcf-summary-table td {
+    text-align: right;
+}
+
+.gcf-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #696969;
+    max-width: 420px;
+}
+
+.gcf-report-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #322b7a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.gcf-report-link:hover {
+    color: #3d3495;
+    text-decoration: underline;
+}
+
+#downloadGcfVenn {
+    margin-top: 12px;
 }

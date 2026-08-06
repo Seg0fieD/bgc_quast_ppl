@@ -13,6 +13,12 @@ from src.reporting.metrics_calculators import (
     CompareToRefMetricsCalculator,
     CompareToolsMetricsCalculator
 )
+from src.bigscape.metrics import (
+    ANTISMASH_TOOL,
+    BigscapeMetricsCalculator,
+    build_bigscape_metadata,
+)
+from src.bigscape.parser import normalize_cutoff
 from src.reporting.report_config import ReportConfigManager
 from src.reporting.report_data import (
     ReportData,
@@ -36,6 +42,7 @@ class ReportBuilder:
         reference_genome_mining_result: Optional[GenomeMiningResult] = None,
         label_renaming_log: Optional[list[dict]] = None,
         requested_mode: Optional[str] = None,
+        bigscape_families: Optional[dict] = None,
     ) -> ReportData:
         """
         Build a report from genome mining results.
@@ -135,9 +142,42 @@ class ReportBuilder:
                 "pairwise_by_run": meta.get("pairwise_by_run", {}),
             })
 
+        # elif running_mode == RunningMode.COMPARE_SAMPLES:
+        #     # TODO: Implement sample comparison metrics if needed.
+        #     ...
         elif running_mode == RunningMode.COMPARE_SAMPLES:
-            # TODO: Implement sample comparison metrics if needed.
-            ...
+            # Without BiG-SCAPE results there is nothing to add here, and the report
+            # stays exactly as it was before this feature existed.
+            if bigscape_families:
+                mode_config = self.report_config_manager.get_config("compare_samples")
+                if not mode_config:
+                    raise ValueError("No configuration found for running mode: compare_samples")
+
+                mode_metrics_calculator = BigscapeMetricsCalculator(
+                    results=results,
+                    config=mode_config,
+                )
+                gcf_metrics = mode_metrics_calculator.calculate_metrics()
+
+                if gcf_metrics:
+                    metrics.extend(gcf_metrics)
+
+                    # Column order must follow the report's own order, which is the
+                    # order of `results` (report_formatter.py:27 keeps first-seen
+                    # file_label order). Never sort this.
+                    column_labels = [
+                        r.display_label or r.input_file_label
+                        for r in results
+                        if r.mining_tool == ANTISMASH_TOOL
+                    ]
+                    payload = build_bigscape_metadata(
+                        families=bigscape_families,
+                        column_labels=column_labels,
+                        default_cutoff=normalize_cutoff(config.bigscape_cutoff),
+                        display_names={m.name: m.display_name for m in mode_config.metrics},
+                    )
+                    if payload:
+                        metadata.update({"bigscape": payload})
 
         # Create DataFrame.
         df = create_dataframe_from_metrics(metrics)

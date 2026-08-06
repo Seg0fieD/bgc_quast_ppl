@@ -35,6 +35,7 @@ class Config:
     min_bgc_length: int
     bgc_completeness_margin: int
     compare_tools_overlap_threshold: float
+    bigscape_cutoff: float = 0.3
 
 
 def _unique_timestamp_dir(root: Path) -> Path:
@@ -84,6 +85,7 @@ def load_config(args: Optional[CommandLineArgs] = None) -> Config:
         bgc_completeness_margin=cfg["bgc_completeness_margin"],
         allowed_gap_for_fragmented_recovery=cfg["allowed_gap_for_fragmented_recovery"],
         compare_tools_overlap_threshold=cfg["compare_tools_overlap_threshold"],
+        bigscape_cutoff=cfg.get("bigscape_cutoff", 0.3),
     )
 
     # CLI override
@@ -98,5 +100,8 @@ def load_config(args: Optional[CommandLineArgs] = None) -> Config:
 
     if args is not None and getattr(args, "min_bgc_length", None) is not None:
         conf.min_bgc_length = args.min_bgc_length
+
+    if args is not None and getattr(args, "bigscape_cutoff", None) is not None:
+        conf.bigscape_cutoff = args.bigscape_cutoff
 
     return conf

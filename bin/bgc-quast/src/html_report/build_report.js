@@ -1132,6 +1132,235 @@ function initVennPanel(panel, metadata) {
         });
     });
 }
+/* ---------------------------------------------------------------------------
+ * GCF VENN DIAGRAM (BiG-SCAPE, compare-samples)
+ *
+ * Separate from drawVenn above, which is a 2-set, tool-labelled, count-driven
+ * compare-tools widget. This one takes real set membership for 2 or 3 samples.
+ * ------------------------------------------------------------------------- */
+
+const GCF_VENN_COLORS = ['#2e808f', '#FFBC42', '#7B6CB0'];
+
+// Split family IDs into the exclusive / pairwise / triple regions of a Venn.
+function gcfVennRegions(sets, labels) {
+    const asSet = labels.map(l => new Set(sets[l] || []));
+    const inOnly = (i) => [...asSet[i]].filter(
+        f => asSet.every((s, j) => j === i || !s.has(f))
+    ).length;
+    const inBoth = (i, j) => [...asSet[i]].filter(
+        f => asSet[j].has(f) && asSet.every((s, k) => (k === i || k === j) || !s.has(f))
+    ).length;
+    const inAll = () => [...asSet[0]].filter(f => asSet.every(s => s.has(f))).length;
+
+    return { asSet, inOnly, inBoth, inAll };
+}
+
+// Draw a 2- or 3-set Venn of gene cluster families into the given <svg>.
+function drawVennGcf(svg, sets, labels) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const NS = 'http://www.w3.org/2000/svg';
+
+    const makeCircle = (cx, cy, r, fill) => {
+        const c = document.createElementNS(NS, 'circle');
+        c.setAttribute('cx', cx);
+        c.setAttribute('cy', cy);
+        c.setAttribute('r', r);
+        c.setAttribute('fill', fill);
+        c.setAttribute('fill-opacity', '0.55');
+        c.setAttribute('stroke', '#333333');
+        c.setAttribute('stroke-width', '1');
+        svg.appendChild(c);
+    };
+
+    const makeText = (x, y, text, size = 15, weight = 'normal') => {
+        const t = document.createElementNS(NS, 'text');
+        t.setAttribute('x', x);
+        t.setAttribute('y', y);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('dominant-baseline', 'middle');
+        t.setAttribute('font-size', size);
+        t.setAttribute('font-weight', weight);
+        t.setAttribute('font-family', 'Arial, sans-serif');
+        t.textContent = text;
+        svg.appendChild(t);
+    };
+
+    if (labels.length < 2 || labels.length > 3) {
+        svg.setAttribute('viewBox', '0 0 300 120');
+        makeText(150, 60, `${labels.length} samples — Venn shows 2 or 3`, 13);
+        return;
+    }
+
+    const { inOnly, inBoth, inAll } = gcfVennRegions(sets, labels);
+
+    if (labels.length === 2) {
+        svg.setAttribute('viewBox', '0 0 300 240');
+        makeCircle(120, 110, 75, GCF_VENN_COLORS[0]);
+        makeCircle(180, 110, 75, GCF_VENN_COLORS[1]);
+
+        makeText(85, 110, String(inOnly(0)));
+        makeText(215, 110, String(inOnly(1)));
+        makeText(150, 110, String(inBoth(0, 1)), 15, 'bold');
+
+        makeText(85, 215, labels[0], 11);
+        makeText(215, 215, labels[1], 11);
+        return;
+    }
+
+    // Three circles, centres on an equilateral triangle.
+    svg.setAttribute('viewBox', '0 0 300 290');
+    makeCircle(115, 110, 72, GCF_VENN_COLORS[0]);
+    makeCircle(185, 110, 72, GCF_VENN_COLORS[1]);
+    makeCircle(150, 175, 72, GCF_VENN_COLORS[2]);
+
+    // exclusive
+    makeText(75, 85, String(inOnly(0)));
+    makeText(225, 85, String(inOnly(1)));
+    makeText(150, 225, String(inOnly(2)));
+    // pairwise
+    makeText(150, 78, String(inBoth(0, 1)));
+    makeText(103, 165, String(inBoth(0, 2)));
+    makeText(197, 165, String(inBoth(1, 2)));
+    // all three
+    makeText(150, 137, String(inAll()), 16, 'bold');
+
+    // labels outside the circles
+    makeText(62, 25, labels[0], 11);
+    makeText(238, 25, labels[1], 11);
+    makeText(150, 275, labels[2], 11);
+}
+
+// Small read-only table of the GCF metrics for the selected cutoff.
+function buildGcfSummaryTable(bigscape, cutoff) {
+    const table = document.createElement('table');
+    table.className = 'gcf-summary-table';
+
+    const head = document.createElement('tr');
+    head.appendChild(document.createElement('th'));
+    (bigscape.columns || []).forEach(label => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        head.appendChild(th);
+    });
+    table.appendChild(head);
+
+    (bigscape.rows[cutoff] || []).forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach((cell, idx) => {
+            const el = document.createElement(idx === 0 ? 'th' : 'td');
+            el.textContent = cell;
+            tr.appendChild(el);
+        });
+        table.appendChild(tr);
+    });
+
+    return table;
+}
+
+// Build the whole BiG-SCAPE panel: cutoff dropdown, Venn, summary table, link out.
+function initGcfPanel(panel, bigscape) {
+    if (!bigscape || !bigscape.cutoffs || !bigscape.cutoffs.length) {
+        panel.textContent = 'No BiG-SCAPE results available.';
+        return;
+    }
+
+    panel.innerHTML = '';
+
+    const labels = bigscape.columns || [];
+    let cutoff = bigscape.default_cutoff || bigscape.cutoffs[0];
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'venn-wrapper';
+
+    const title = document.createElement('div');
+    title.className = 'venn-title';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('venn-svg');
+
+    // Controls: one dropdown, since a family only means something at one cutoff.
+    const controls = document.createElement('fieldset');
+    controls.className = 'venn-controls';
+
+    const legend = document.createElement('legend');
+    legend.textContent = 'GCF distance cutoff';
+    controls.appendChild(legend);
+
+    const select = document.createElement('select');
+    select.className = 'gcf-cutoff-select';
+    bigscape.cutoffs.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        if (c === cutoff) opt.selected = true;
+        select.appendChild(opt);
+    });
+    controls.appendChild(select);
+
+    const tableHolder = document.createElement('div');
+    tableHolder.className = 'gcf-summary-holder';
+
+    const note = document.createElement('div');
+    note.className = 'gcf-note';
+
+    const link = document.createElement('a');
+    link.className = 'gcf-report-link';
+    link.href = bigscape.report_url || '#';
+    link.textContent = 'Open full BiG-SCAPE report';
+    link.target = '_blank';
+    link.rel = 'noopener';
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.id = 'downloadGcfVenn';
+    downloadBtn.textContent = 'Download plot';
+    downloadBtn.addEventListener('click', () => {
+        if (!svg.firstChild) return;
+        exportSvg(svg, `gcf_venn_c${cutoff}.png`);
+    });
+
+    const mainRow = document.createElement('div');
+    mainRow.className = 'venn-main-row';
+
+    const leftCol = document.createElement('div');
+    leftCol.className = 'venn-left';
+    leftCol.appendChild(svg);
+
+    const rightCol = document.createElement('div');
+    rightCol.className = 'venn-right';
+    rightCol.appendChild(controls);
+    rightCol.appendChild(tableHolder);
+    rightCol.appendChild(note);
+    rightCol.appendChild(link);
+    rightCol.appendChild(downloadBtn);
+
+    mainRow.appendChild(leftCol);
+    mainRow.appendChild(rightCol);
+    wrapper.appendChild(title);
+    wrapper.appendChild(mainRow);
+    panel.appendChild(wrapper);
+
+    const render = () => {
+        title.textContent =
+            `Gene cluster families shared between samples (cutoff ${cutoff})`;
+        drawVennGcf(svg, (bigscape.sets && bigscape.sets[cutoff]) || {}, labels);
+
+        tableHolder.innerHTML = '';
+        tableHolder.appendChild(buildGcfSummaryTable(bigscape, cutoff));
+
+        note.textContent = (cutoff === bigscape.default_cutoff)
+            ? 'The report table above uses this cutoff.'
+            : `The report table above still uses cutoff ${bigscape.default_cutoff}. `
+              + 'Re-run bgc-quast with --bigscape-cutoff to change it.';
+    };
+
+    select.addEventListener('change', () => {
+        cutoff = select.value;
+        render();
+    });
+
+    render();
+}
 
 
 /* ---------------------------------------------------------------------------
@@ -1315,7 +1544,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Metric tabs: which ones are visible depends on running mode
     const allMetricTabs = Array.from(document.querySelectorAll('.metric-tab'));
     const mode = (typeof reportMode === 'string') ? reportMode : 'compare_samples';
-    const allowedKeys = METRIC_TABS_BY_MODE[mode] || ['bgcs'];
+    const bigscapeData = reportMetadata && reportMetadata.bigscape;
+    const allowedKeys = (METRIC_TABS_BY_MODE[mode] || ['bgcs']).slice();
+
+    // compare-samples only gets the plots tab when there is BiG-SCAPE data to show,
+    // so a normal run looks exactly as it did before.
+    if (mode === 'compare_samples' && bigscapeData && !allowedKeys.includes('pyplots')) {
+        allowedKeys.push('pyplots');
+        const pyBtn = allMetricTabs.find(b => b.dataset.metric === 'pyplots');
+        if (pyBtn) pyBtn.textContent = 'GCF overlap';
+    }
+
+    // Populate pythonPlotsPanel
+    const pyPanel = document.getElementById('pythonPlotsPanel');
+    if (mode === 'compare_tools') {
+        if (pyPanel && reportMetadata) {
+            initVennPanel(pyPanel, reportMetadata);
+        }
+    } else if (mode === 'compare_samples' && bigscapeData) {
+        if (pyPanel) {
+            initGcfPanel(pyPanel, bigscapeData);
+        }
+    }
 
     // Populate pythonPlotsPanel (compare_tools mode only)
     if (mode === 'compare_tools') {

@@ -21,6 +21,9 @@ class Bgc:
         product_types (list): The product types of the BGC.
         metadata (dict): The metadata of the BGC, e.g. tool-specific metadata.
         gene_count (int): The number of genes in the BGC.
+        gcf_id (str): The BiG-SCAPE gene cluster family this BGC belongs to, at the
+        cutoff selected with --bigscape-cutoff. None when BiG-SCAPE was not run, when
+        the mining tool is not antiSMASH, or when no family was found for this BGC.
     """
 
     bgc_id: str
@@ -31,7 +34,7 @@ class Bgc:
     product_types: List[str] = field(default_factory=list)
     metadata: Optional[Dict] = None
     gene_count: int = 0
-
+    gcf_id: Optional[str] = None
 
 @dataclass
 class GenomeMiningResult:

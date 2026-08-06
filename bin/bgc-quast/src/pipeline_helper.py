@@ -14,6 +14,8 @@ from src.genome_mining_parser import (
 )
 from src.logger import Logger
 from src.option_parser import ValidationError, get_command_line_args
+from src.bigscape.metrics import ANTISMASH_TOOL
+from src.bigscape.parser import parse_bigscape, select_cutoff
 from src.reporting.report_builder import ReportBuilder
 from src.reporting.report_config import ReportConfigManager
 from src.reporting.report_data import ReportData, RunningMode
@@ -51,7 +53,8 @@ class PipelineHelper:
         self.running_mode: Optional[RunningMode] = None
         self.analysis_report: Optional[ReportData] = None
         self.label_renaming_log: List[dict] = []
-
+        self.bigscape_families: dict = {}
+        
         default_cfg = load_config()
         try:
             self.args = get_command_line_args(default_cfg)
@@ -198,6 +201,49 @@ class PipelineHelper:
             self.log.error(str(e))
             raise
 
+        # BiG-SCAPE gene cluster families.
+        # This must come after assign_and_deduplicate_display_labels above: the join key
+        # is (display_label, bgc_id), and display_label does not exist before that call.
+        # A missing or unreadable folder yields {} and simply drops the GCF rows.
+        if getattr(self.args, "bigscape_output_dir", None):
+            known_labels = [
+                r.display_label or r.input_file_label
+                for r in self.assembly_genome_mining_results
+            ]
+            if self.reference_genome_mining_result is not None:
+                known_labels.append(
+                    self.reference_genome_mining_result.display_label
+                    or self.reference_genome_mining_result.input_file_label
+                )
+
+            self.bigscape_families = parse_bigscape(
+                self.args.bigscape_output_dir, known_labels, log=self.log
+            )
+
+            if self.bigscape_families:
+                try:
+                    at_cutoff = select_cutoff(
+                        self.bigscape_families, self.config.bigscape_cutoff
+                    )
+                except ValueError as e:
+                    self.log.error(str(e))
+                    raise ValidationError(str(e))
+
+                matched = 0
+                for result in self.assembly_genome_mining_results:
+                    if result.mining_tool != ANTISMASH_TOOL:
+                        continue
+                    label = result.display_label or result.input_file_label
+                    for bgc in result.bgcs:
+                        bgc.gcf_id = at_cutoff.get((label, bgc.bgc_id))
+                        if bgc.gcf_id:
+                            matched += 1
+
+                self.log.info(
+                    f"BiG-SCAPE: {matched} BGC(s) assigned to a gene cluster family "
+                    f"at cutoff {self.config.bigscape_cutoff}"
+                )
+
         self.log.info(f"The running mode is set to: {self.running_mode}")
 
     def compute_stats(self) -> None:
@@ -213,6 +259,7 @@ class PipelineHelper:
             reference_genome_mining_result=self.reference_genome_mining_result,
             label_renaming_log=getattr(self, "label_renaming_log", []),
             requested_mode=self.args.mode,
+            bigscape_families=self.bigscape_families,
         )
 
         self.analysis_report = analysis_report
