@@ -110,6 +110,13 @@ workflow BGCQUAST_COMPARISON {
             .mix(by_tool(deepbgc_tsv, 'deepbgc'))
             .mix(by_tool(gecco_clusters, 'gecco'))
             .groupTuple(by: 0)
+            // groupTuple keeps arrival order, so columns differ between tools and
+            // between runs. Reorder all three lists by sample id so every report
+            // has the same columns.
+            .map { tool, ids, files, gens ->
+                def idx = (0..<ids.size()).toList().sort { ids[it] }
+                [tool, idx.collect { ids[it] }, idx.collect { files[it] }, idx.collect { gens[it] }]
+            }
             .combine(ch_bigscape_dir)
             .map { tool, ids, files, gens, bsdir ->
                 [
