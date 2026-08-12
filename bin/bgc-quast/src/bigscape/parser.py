@@ -20,6 +20,7 @@ GBK_COLUMN = "GBK"
 FAMILY_COLUMN = "Family"
 
 REGION_MARKER = ".region"
+CLUSTER_MARKER = "_cluster_"
 
 
 def normalize_cutoff(value) -> str:
@@ -48,20 +49,39 @@ def strip_sample_prefix(stem: str, sample_labels: List[str]) -> Optional[Tuple[s
 
 
 def bgc_id_from_record(record_name: str) -> Optional[str]:
-    """Turn `CONTIG_2.region001` into `CONTIG_2.1`.
+    """Rebuild bgc-quast's BGC id from a staged GBK file name.
 
-    bgc-quast builds its id as sequence_id + "." + the raw region_number qualifier,
-    which is not zero padded (genome_mining_parser.py:144). So the padding is stripped.
+    Two naming schemes, auto-detected. `.region` is tried first, so the
+    antiSMASH path is unchanged. A name cannot carry both markers.
+
+        antiSMASH      CONTIG_2.region001   ->  CONTIG_2.1
+        GECCO/DeepBGC  CONTIG_2_cluster_1   ->  CONTIG_2_1
+
+    antiSMASH pads the region number in the file name but bgc-quast reads the
+    unpadded qualifier, so the padding is stripped. GECCO and DeepBGC pad
+    nothing, so their number is kept exactly as written.
+
+    Returns None when neither marker is present; the caller drops that row.
     """
-    if REGION_MARKER not in record_name:
-        return None
-    sequence_id, _, region_part = record_name.rpartition(REGION_MARKER)
-    if not sequence_id:
-        return None
-    digits = "".join(c for c in region_part if c.isdigit())
-    if not digits:
-        return None
-    return f"{sequence_id}.{int(digits)}"
+    if REGION_MARKER in record_name:
+        # bgc-quast: sequence_id + "." + raw region_number (genome_mining_parser.py:144-146).
+        sequence_id, _, region_part = record_name.rpartition(REGION_MARKER)
+        if not sequence_id:
+            return None
+        digits = "".join(c for c in region_part if c.isdigit())
+        if not digits:
+            return None
+        return f"{sequence_id}.{int(digits)}"
+
+    if CLUSTER_MARKER in record_name:
+        # GECCO: text after `cluster_` (:190, :218). DeepBGC: per-sequence counter (:266-268),
+        # which the GBK split step reproduces in the file name.
+        sequence_id, _, cluster_part = record_name.rpartition(CLUSTER_MARKER)
+        if not sequence_id or not cluster_part.isdigit():
+            return None
+        return f"{sequence_id}_{cluster_part}"
+
+    return None
 
 
 def find_clustering_files(bigscape_output_dir: Path) -> Dict[str, Path]:
