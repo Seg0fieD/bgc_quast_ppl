@@ -205,8 +205,6 @@ def add_mode_specific_arguments(parser: argparse.ArgumentParser):
     )
 
     compare_tools = parser.add_argument_group("Compare-tools")
-
-    compare_tools = parser.add_argument_group("Compare-tools")
     compare_tools.add_argument(
         "--overlap-fraction",
         dest="compare_tools_overlap_threshold",
