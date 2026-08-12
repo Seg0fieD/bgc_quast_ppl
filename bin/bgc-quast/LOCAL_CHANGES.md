@@ -13,8 +13,8 @@ Verified by running compare-samples with and without the flag and diffing `repor
 `report.tsv` and `report.html`.
 
 Last updated: 2026-08-12. The antiSMASH round (Phases 0–6) is complete and verified end to end
-on pipeline output. The GECCO/DeepBGC round is in progress: the parser and the tool filters are
-done and hand-verified, the pipeline side is not started.
+on pipeline output. The GECCO/DeepBGC round is in progress: the parser, the tool filters and the
+report-link derivation are done and verified; the pipeline side is partly built.
 
 ---
 
@@ -164,6 +164,14 @@ here from the folder passed to `--bigscape-output-dir` and handed to `build_repo
 `../../` in that link describes the pipeline's published tree, not anything about bgc-quast, so
 it is built here rather than inside `src/bigscape/metrics.py`, which stays free of path handling.
 **Upstream impact:** None. Both live inside `if self.args.bigscape_output_dir`.
+**Update 2026-08-12 (second) — the derivation must not resolve the path.** The first version
+called `Path(...).resolve()` on the folder it was given. Nextflow stages an input directory as a
+**symlink**, so resolving followed the link into the work directory, the parent stopped being
+`bigscape`, and the link came out one level short. Dropping `.resolve()` fixed it, and the path
+is already absolute so nothing else was needed. Verified end to end: the report now carries
+`"report_url": "../../bigscape/antismash/index.html"`.
+**Upstream impact:** None. Upstream has no staged-symlink layout, so the behaviour is the same
+either way there.
 
 ### `src/reporting/report_builder.py`
 **What:** Three imports, a new defaulted keyword argument `bigscape_families=None` on
@@ -226,20 +234,26 @@ existing selector was changed, so nothing already in the report can be affected.
 
 ---
 
-## Phases 4, 5 and 6 — pipeline only
+## Pipeline-side work — not in this folder
 
-Phases 4 and 5 wired the feature into the Nextflow pipeline. Phase 6 added automatic Pfam
-download. Both touched **pipeline files only**, none of which are vendored bgc-quast code, so
-nothing was added to the per-file log above:
+The Nextflow side of both rounds touched **pipeline files only**, none of which are vendored
+bgc-quast code, so nothing was added to the per-file log above:
 
 `modules/local/bigscape.nf`, `modules/local/bigscape_download_db.nf`,
-`modules/local/bgcquast.nf`, `subworkflows/local/bgc_prediction.nf`,
-`subworkflows/local/bgcquast.nf`, `workflows/bgc_quast_ppl.nf`,
+`modules/local/deepbgc_split_gbk.nf`, `modules/local/bgcquast.nf`,
+`subworkflows/local/bgc_prediction.nf`, `subworkflows/local/bgcquast.nf`,
+`workflows/bgc_quast_ppl.nf`,
 `subworkflows/local/utils_nfcore_bgc_quast_ppl_pipeline/main.nf`, `conf/modules.config`,
 `nextflow.config`, `nextflow_schema.json`, `README.md`.
 
-Those files are ours and are tracked by git normally. The vendored tool was not changed during
-these phases; the pytest failure list was unchanged throughout.
+Those files are ours and are tracked by git normally. The pytest failure list was unchanged
+throughout.
+
+**One exception worth naming.** The GECCO/DeepBGC round's Phase 4 restructured the published
+BiG-SCAPE folder into `bgc_quast/bigscape/<tool>/`, and that **did** require a vendored change —
+the `.resolve()` fix logged under `src/pipeline_helper.py` above. A pipeline layout change
+reaching into vendored code is exactly the kind of coupling worth keeping small, which is why the
+link is derived in one place and passed down as a plain string.
 
 ---
 
@@ -249,20 +263,24 @@ The goal is to let BiG-SCAPE run on GECCO and DeepBGC predictions too, not only 
 all three compare-samples reports grow GCF rows. Neither tool's TSV is readable by BiG-SCAPE,
 but both also emit GBKs, which are.
 
-**Done in this folder so far:**
+**Done in this folder:**
 
-1. The parser learned a second naming scheme, `_cluster_` — see `src/bigscape/parser.py` above.
-2. The four places that filtered on antiSMASH were opened, and a mixed-tool guard put in their
-   place — see `src/bigscape/metrics.py`, `src/pipeline_helper.py` and
-   `src/reporting/report_builder.py` above.
+1. The parser learned a second naming scheme, `_cluster_` — see `src/bigscape/parser.py`.
+2. The places that filtered on antiSMASH were opened and a mixed-tool guard put in their place —
+   see `src/bigscape/metrics.py`, `src/pipeline_helper.py`, `src/reporting/report_builder.py`.
+3. The BiG-SCAPE report link is now derived from the folder bgc-quast was given, rather than
+   hardcoded — see `src/pipeline_helper.py`.
 
 **Verified by hand, no pipeline**, by pointing bgc-quast at BiG-SCAPE folders produced outside
 Nextflow. Every BGC joined in both runs — 18 of 18 for GECCO, 115 of 115 for DeepBGC — and the
-table and the Venn agree on every cell.
+table, the Venn and BiG-SCAPE's own clustering file agree on every number.
 
-**Not done here:** everything on the pipeline side. Three per-tool BiG-SCAPE runs, a module that
-splits DeepBGC's multi-record GBK, and the params to switch tools on. None of that touches
-vendored code, so it will not appear in this file.
+**Done outside this folder:** a module that splits DeepBGC's multi-record GBK and adds the
+`/note="Cluster number: N"` qualifier BiG-SCAPE requires, and the per-tool `BIGSCAPE` aliasing
+with nested output. Neither touches vendored code.
+
+**Not done:** the channel wiring that actually feeds GECCO and DeepBGC GBKs to BiG-SCAPE, and the
+params to switch tools on. Neither will appear in this file.
 
 ---
 
@@ -314,3 +332,12 @@ The baseline is **38 `FAILED`/`ERROR` lines**. The passing count grows as tests 
 went from `20 failed / 123 passed / 18 errors` to `20 failed / 132 passed / 18 errors` when the
 nine parser tests landed. **The guard is that the failure list is identical, not that the suite
 is green.**
+
+---
+
+## One thing to know before testing a change here
+
+**Nothing in this folder is part of a Nextflow task hash.** The `BGCQUAST` process only calls
+`python3 bgc-quast.py`, so editing any file here leaves the hash unchanged and `-resume` will
+serve the cached report. After any change in this folder, re-run **without** `-resume`, or the
+result is stale.
