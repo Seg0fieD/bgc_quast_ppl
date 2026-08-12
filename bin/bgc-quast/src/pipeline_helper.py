@@ -254,7 +254,7 @@ class PipelineHelper:
                 )
                 # Link out to BiG-SCAPE's own report. The `../../` describes the
                 # pipeline's published tree, so it is built here, not in metrics.py.
-                staged = Path(self.args.bigscape_output_dir).resolve()
+                staged = Path(self.args.bigscape_output_dir)
                 leaf = staged.name
                 if staged.parent.name.startswith("bigscape"):
                     leaf = f"{staged.parent.name}/{leaf}"
