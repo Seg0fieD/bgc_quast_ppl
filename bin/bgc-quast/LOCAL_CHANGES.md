@@ -12,8 +12,10 @@ it already reads a QUAST output folder. It does not run BiG-SCAPE.
 Verified by running compare-samples with and without the flag and diffing `report.txt`,
 `report.tsv` and `report.html`.
 
-Last updated: 2026-08-11. The antiSMASH round (Phases 0–6) is complete and verified end to end
-on pipeline output. The GECCO/DeepBGC round is in progress; only the parser has changed so far.
+Last updated: 2026-08-12. The antiSMASH round (Phases 0–6) is complete and verified end to end
+on pipeline output. The GECCO/DeepBGC round is in progress: the parser and the tool filters are
+done and hand-verified, the pipeline side is not started.
+
 ---
 
 ## New files
@@ -57,6 +59,13 @@ family, so the row is dropped instead of printing a misleading `0` — same as
 `mean_gene_per_bgc`.
 **Upstream impact:** None. Importing the module registers the metrics, but a metric only
 produces a row when BGCs actually carry a family.
+**Update 2026-08-12 — the tool filter is gone.** `BigscapeMetricsCalculator` used to keep only
+`mining_tool == "antiSMASH"` results. It now uses every result it is given. BiG-SCAPE reads GECCO
+and DeepBGC GBKs too, and in `compare-samples` each bgc-quast run already holds exactly one tool,
+so the filter was a no-op there. A run holding more than one tool is stopped earlier, in
+`pipeline_helper.py`. The `ANTISMASH_TOOL` constant stays — the tests use it — but it now records
+the exact spelling `genome_mining_parser.py` writes, not a rule.
+**Upstream impact:** Still none without `--bigscape-output-dir`.
 
 ### `tests/test_bigscape_parser.py`
 **What:** 31 tests for the parser. Builds a fake output tree, so no BiG-SCAPE, Pfam or Docker
@@ -76,6 +85,12 @@ families and cannot tell "shared" from "present everywhere".
 One test checks that the table numbers and the dropdown numbers agree; they come from two
 different code paths and must not drift.
 **Upstream impact:** None.
+**Update 2026-08-12 — two tests replaced, count unchanged at 25.** Both asserted the tool filter
+that was removed from `metrics.py`, so they described behaviour that no longer exists. They were
+replaced rather than repaired: `test_calculator_skips_non_antismash_tools` became
+`test_calculator_uses_every_tool`, and `test_calculator_returns_nothing_when_only_other_tools`
+became `test_calculator_works_for_a_non_antismash_tool`. The three payload tests that assert on
+`report_url` were deliberately left untouched — see the `report_builder.py` note below.
 
 ---
 
@@ -109,6 +124,11 @@ error, and the cutoff must be in (0, 1].
 `--edge-distance`. Its argparse default is `None`, not `0.3`, so the YAML default wins unless
 the user actually types the flag.
 **Upstream impact:** None. Two new optional flags.
+**Update 2026-08-12 — a duplicate line removed.** `add_mode_specific_arguments` created the
+`Compare-tools` argument group twice in a row. The first call was dead — argparse suppresses a
+section with no actions, so `--help` never showed it — but it was left over from the BiG-SCAPE
+group edit. Deleted.
+**Upstream impact:** None. `--help` output is unchanged.
 
 ### `configs/report_config.yaml`
 **What:** Two changes.
@@ -121,6 +141,9 @@ entry here produces no row. The four unimplemented upstream metrics (`bgc_divers
 **Why (2):** See "Upstream bugs found" below.
 **Upstream impact:** The six new rows appear only when BiG-SCAPE data is present. The
 `sample_group` deletion is a bug fix; verified it changes no output (see below).
+**Note 2026-08-12:** the six rows needed **no change** to work for GECCO and DeepBGC. They were
+already worded generically ("in this sample"), which was confirmed by hand runs against both
+tools' BiG-SCAPE output.
 
 ### `src/pipeline_helper.py`
 **What:** Two imports, one attribute (`self.bigscape_families`), an attach block at the end
@@ -132,6 +155,15 @@ of `parse_input()`, and one extra argument in the `build_report(...)` call.
 should not kill a run, but asking for a cutoff that was never computed should say so rather
 than quietly showing a different one.
 **Upstream impact:** None. The whole block is inside `if self.args.bigscape_output_dir`.
+**Update 2026-08-12 — mixed-tool guard, and the report link.** Two changes. First, the attach
+block no longer skips non-antiSMASH results, and a guard replaces that skip: if a BiG-SCAPE
+folder is given and the run holds more than one `mining_tool`, it warns and skips the GCF layer
+entirely. One folder describes one tool, so matching its families against three tools' BGCs would
+produce numbers that look plausible and are wrong. Second, `self.bigscape_report_url` is derived
+here from the folder passed to `--bigscape-output-dir` and handed to `build_report()`. The
+`../../` in that link describes the pipeline's published tree, not anything about bgc-quast, so
+it is built here rather than inside `src/bigscape/metrics.py`, which stays free of path handling.
+**Upstream impact:** None. Both live inside `if self.args.bigscape_output_dir`.
 
 ### `src/reporting/report_builder.py`
 **What:** Three imports, a new defaulted keyword argument `bigscape_families=None` on
@@ -144,6 +176,11 @@ compare-tools uses for `pairwise_by_run` — so no new HTML placeholder was need
 The whole branch is wrapped in `if bigscape_families:`, so with BiG-SCAPE off it does exactly
 what the old bare `...` did.
 **Upstream impact:** None. The new argument is optional and defaults to `None`.
+**Update 2026-08-12.** The `column_labels` list no longer filters on antiSMASH, and a second
+defaulted keyword argument `bigscape_report_url=None` was added beside `bigscape_families`. It is
+forwarded to `build_bigscape_metadata` **only when set**, so that function keeps its own default
+and its existing tests are untouched.
+**Upstream impact:** None. Both arguments are optional and default to `None`.
 
 ### `src/html_report/build_report.js`
 **What:** Added `drawVennGcf` (3-set Venn), `gcfVennRegions` (computes the seven
@@ -162,6 +199,11 @@ untouched, so the compare-tools Venn is unchanged. The tab array is computed at
 runtime, so a compare-samples run with no `reportMetadata.bigscape` shows only the
 "All BGCs" tab, exactly as before. The `pyplots` button and `pythonPlotsPanel` div
 already existed in `report_template.html`; the template was not modified.
+**Note 2026-08-12:** this file needed **no change** for GECCO and DeepBGC. `drawVennGcf` was
+already tool-agnostic, and compare-samples has three columns whatever the tool. Confirmed by
+hand runs: both new reports render a correct 3-circle Venn, and for DeepBGC the seven region
+counts sum to 40, which is exactly the number of families counted independently from the
+BiG-SCAPE clustering file.
 
 ### `src/html_report/report.css`
 **What:** Appended `.gcf-*` classes at the end of the file for the GCF panel: the
@@ -198,6 +240,29 @@ nothing was added to the per-file log above:
 
 Those files are ours and are tracked by git normally. The vendored tool was not changed during
 these phases; the pytest failure list was unchanged throughout.
+
+---
+
+## The GECCO and DeepBGC round — where it stands
+
+The goal is to let BiG-SCAPE run on GECCO and DeepBGC predictions too, not only antiSMASH, so
+all three compare-samples reports grow GCF rows. Neither tool's TSV is readable by BiG-SCAPE,
+but both also emit GBKs, which are.
+
+**Done in this folder so far:**
+
+1. The parser learned a second naming scheme, `_cluster_` — see `src/bigscape/parser.py` above.
+2. The four places that filtered on antiSMASH were opened, and a mixed-tool guard put in their
+   place — see `src/bigscape/metrics.py`, `src/pipeline_helper.py` and
+   `src/reporting/report_builder.py` above.
+
+**Verified by hand, no pipeline**, by pointing bgc-quast at BiG-SCAPE folders produced outside
+Nextflow. Every BGC joined in both runs — 18 of 18 for GECCO, 115 of 115 for DeepBGC — and the
+table and the Venn agree on every cell.
+
+**Not done here:** everything on the pipeline side. Three per-tool BiG-SCAPE runs, a module that
+splits DeepBGC's multi-record GBK, and the params to switch tools on. None of that touches
+vendored code, so it will not appear in this file.
 
 ---
 
@@ -244,3 +309,8 @@ Run from `bin/bgc-quast`; `../../tmp_test/` is the repo's scratch folder.
 ```bash
 python -m pytest tests/ -q 2>&1 | grep -E "^(FAILED|ERROR)" | sort > ../../tmp_test/pytest_baseline.txt
 ```
+
+The baseline is **38 `FAILED`/`ERROR` lines**. The passing count grows as tests are added — it
+went from `20 failed / 123 passed / 18 errors` to `20 failed / 132 passed / 18 errors` when the
+nine parser tests landed. **The guard is that the failure list is identical, not that the suite
+is green.**
