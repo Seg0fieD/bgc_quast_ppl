@@ -1,5 +1,5 @@
 process BIGSCAPE {
-    tag "bigscape"
+    tag "${prefix}"
     label 'process_high'
 
     // Container is the tested route; conda is here so a conda user is not blocked.
@@ -7,15 +7,17 @@ process BIGSCAPE {
     container "quay.io/biocontainers/bigscape:2.0.3--pyhdfd78af_0"
 
     input:
+    val  prefix                             // tool name: antismash, gecco or deepbgc
     val  names                              // <sample_label>_<original_gbk_filename>, one per gbk
-    path gbks, stageAs: 'raw*/*'            // antiSMASH region GBKs, all samples
+    path gbks, stageAs: 'raw*/*'            // BGC region or cluster GBKs, all samples
     path pfam_dir                           // folder holding the .hmm plus .h3f .h3i .h3m .h3p
     val  pfam_name                          // basename of the .hmm inside pfam_dir
 
     output:
-    path "bigscape"                                              , emit: results
-    path "bigscape/output_files/**/*_clustering_c*.tsv"           , emit: clustering, optional: true
-    path "versions.yml"                                          , emit: versions
+    // Folder is named for the tool, and conf/modules.config publishes it under bigscape/.
+    tuple val(prefix), path("${prefix}")                             , emit: results
+    path "${prefix}/output_files/**/*_clustering_c*.tsv"             , emit: clustering, optional: true
+    path "versions.yml"                                              , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -33,8 +35,8 @@ process BIGSCAPE {
     }
 
     // Nextflow has no per-file rename. Pair names to staged paths by index and symlink
-    // into a flat gbk_input/. The <sample>_ prefix is the join key bgc-quast reverses,
-    // and ".region" must survive so BiG-SCAPE's --include-gbk filter accepts the file.
+    // into a flat gbk_input/. The <sample>_ prefix is the join key bgc-quast reverses, and
+    // ".region" or "_cluster_" must survive so BiG-SCAPE's --include-gbk filter accepts the file.
     def stage_cmds = (0..<gbk_list.size())
         .collect { i -> "ln -s \"\$WORKDIR/${gbk_list[i]}\" \"\$WORKDIR/gbk_input/${name_list[i]}\"" }
         .join('\n    ')
@@ -46,10 +48,10 @@ process BIGSCAPE {
 
     bigscape cluster \\
         -i \$WORKDIR/gbk_input \\
-        -o \$WORKDIR/bigscape \\
+        -o \$WORKDIR/${prefix} \\
         -p \$WORKDIR/${pfam_dir}/${pfam_name} \\
         -c ${task.cpus} \\
-        -l bigscape \\
+        -l ${prefix} \\
         ${args}
 
     BIGSCAPE_VERSION=\$( { bigscape --version 2>&1 || true; } | tail -n 1 )
@@ -62,9 +64,9 @@ process BIGSCAPE {
 
     stub:
     """
-    mkdir -p bigscape/output_files/bigscape_2026-01-01_00-00-00_c0.3/mix
-    touch bigscape/output_files/bigscape_2026-01-01_00-00-00_c0.3/mix/mix_clustering_c0.3.tsv
-    touch bigscape/index.html
+    mkdir -p ${prefix}/output_files/${prefix}_2026-01-01_00-00-00_c0.3/mix
+    touch ${prefix}/output_files/${prefix}_2026-01-01_00-00-00_c0.3/mix/mix_clustering_c0.3.tsv
+    touch ${prefix}/index.html
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

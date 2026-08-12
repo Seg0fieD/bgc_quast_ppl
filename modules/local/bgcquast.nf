@@ -6,7 +6,7 @@ process BGCQUAST {
     conda "${projectDir}/bin/bgc-quast/environment.yml"
 
     input:
-    tuple val(meta), path(mining_results), path(genome), path(quast_dir), path(reference_mining), path(reference_genome), path(bigscape_dir)
+    tuple val(meta), path(mining_results), path(genome), path(quast_dir), path(reference_mining), path(reference_genome), path(bigscape_dir, stageAs: 'bigscape/*')    
 
     output:
     // Final published folder is set by publishDir (conf/modules.config).
