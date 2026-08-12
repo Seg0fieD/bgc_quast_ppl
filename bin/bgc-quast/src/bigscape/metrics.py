@@ -19,7 +19,8 @@ from src.reporting.metrics_calculators import BasicMetricsCalculator
 from src.reporting.report_config import ReportConfig
 from src.reporting.report_data import MetricValue
 
-# Only antiSMASH results can carry GCF data. BiG-SCAPE cannot read GECCO or DeepBGC output.
+# The exact tool-name spelling bgc-quast writes (genome_mining_parser.py:391).
+# No longer used as a filter: GECCO and DeepBGC also feed BiG-SCAPE, via their GBKs.
 ANTISMASH_TOOL = "antiSMASH"
 
 # The metrics this module registers, in report row order.
@@ -85,8 +86,8 @@ def _families_in_group(bgcs: Iterable[Bgc]) -> Dict[str, int]:
 # Metric functions
 #
 # Each returns None when no BGC in the group has a family, which drops the row
-# instead of printing a misleading 0 (metrics_calculators.py:124). This is the
-# same pattern as mean_gene_per_bgc (metrics.py:121-132).
+# instead of printing a misleading 0 . This is the
+# same pattern as mean_gene_per_bgc 
 # ---------------------------------------------------------------------------
 
 
@@ -152,8 +153,12 @@ def mean_bgcs_per_gcf(bgcs: Iterable[Bgc]) -> Optional[float]:
 class BigscapeMetricsCalculator(BasicMetricsCalculator):
     """Adds the GCF metrics to a compare-samples report.
 
-    Only antiSMASH results are considered. Returns an empty list when no BGC carries
-    a family, so a run without BiG-SCAPE adds nothing at all to the report.
+    Tool-agnostic. Every result passed in is used, because each compare-samples
+    bgc-quast run holds exactly one tool. A run holding more than one is caught
+    earlier, in pipeline_helper.py, which skips the GCF layer entirely.
+
+    Returns an empty list when no BGC carries a family, so a run without BiG-SCAPE
+    adds nothing at all to the report.
     """
 
     def __init__(self, results: List[GenomeMiningResult], config: ReportConfig):
@@ -161,11 +166,10 @@ class BigscapeMetricsCalculator(BasicMetricsCalculator):
         self.config = config
 
     def calculate_metrics(self) -> List[MetricValue]:
-        antismash_results = [r for r in self.results if r.mining_tool == ANTISMASH_TOOL]
-        if not antismash_results:
+        if not self.results:
             return []
 
-        if not annotate_gcf_flags(antismash_results):
+        if not annotate_gcf_flags(self.results):
             return []
 
         # The compare_samples config also lists four metrics upstream never implemented
@@ -179,7 +183,7 @@ class BigscapeMetricsCalculator(BasicMetricsCalculator):
         all_metrics: List[MetricValue] = []
 
         for grouping_dims in self._generate_grouping_combinations(self.config):
-            for result in antismash_results:
+            for result in self.results:
                 try:
                     all_metrics.extend(
                         self._calculate_all_metrics_for_bgcs(

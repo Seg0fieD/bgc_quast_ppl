@@ -14,7 +14,6 @@ from src.reporting.metrics_calculators import (
     CompareToolsMetricsCalculator
 )
 from src.bigscape.metrics import (
-    ANTISMASH_TOOL,
     BigscapeMetricsCalculator,
     build_bigscape_metadata,
 )
@@ -43,6 +42,7 @@ class ReportBuilder:
         label_renaming_log: Optional[list[dict]] = None,
         requested_mode: Optional[str] = None,
         bigscape_families: Optional[dict] = None,
+        bigscape_report_url: Optional[str] = None,
     ) -> ReportData:
         """
         Build a report from genome mining results.
@@ -165,17 +165,21 @@ class ReportBuilder:
                     # Column order must follow the report's own order, which is the
                     # order of `results` (report_formatter.py:27 keeps first-seen
                     # file_label order). Never sort this.
+                    # Every result counts: a compare-samples run holds one tool, and a
+                    # mixed run never gets here — pipeline_helper.py stops it.
                     column_labels = [
                         r.display_label or r.input_file_label
                         for r in results
-                        if r.mining_tool == ANTISMASH_TOOL
                     ]
-                    payload = build_bigscape_metadata(
-                        families=bigscape_families,
-                        column_labels=column_labels,
-                        default_cutoff=normalize_cutoff(config.bigscape_cutoff),
-                        display_names={m.name: m.display_name for m in mode_config.metrics},
-                    )
+                    payload_args = {
+                        "families": bigscape_families,
+                        "column_labels": column_labels,
+                        "default_cutoff": normalize_cutoff(config.bigscape_cutoff),
+                        "display_names": {m.name: m.display_name for m in mode_config.metrics},
+                    }
+                    if bigscape_report_url:
+                        payload_args["report_url"] = bigscape_report_url
+                    payload = build_bigscape_metadata(**payload_args)
                     if payload:
                         metadata.update({"bigscape": payload})
 

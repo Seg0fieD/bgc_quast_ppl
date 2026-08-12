@@ -14,7 +14,7 @@ from src.genome_mining_parser import (
 )
 from src.logger import Logger
 from src.option_parser import ValidationError, get_command_line_args
-from src.bigscape.metrics import ANTISMASH_TOOL
+from src.bigscape.metrics import *
 from src.bigscape.parser import parse_bigscape, select_cutoff
 from src.reporting.report_builder import ReportBuilder
 from src.reporting.report_config import ReportConfigManager
@@ -54,6 +54,7 @@ class PipelineHelper:
         self.analysis_report: Optional[ReportData] = None
         self.label_renaming_log: List[dict] = []
         self.bigscape_families: dict = {}
+        self.bigscape_report_url: Optional[str] = None
         
         default_cfg = load_config()
         try:
@@ -201,11 +202,21 @@ class PipelineHelper:
             self.log.error(str(e))
             raise
 
-        # BiG-SCAPE gene cluster families.
-        # This must come after assign_and_deduplicate_display_labels above: the join key
-        # is (display_label, bgc_id), and display_label does not exist before that call.
-        # A missing or unreadable folder yields {} and simply drops the GCF rows.
+        # Must run after assign_and_deduplicate_display_labels: the join key is
+        # (display_label, bgc_id). A bad folder yields {} and the rows just drop.
         if getattr(self.args, "bigscape_output_dir", None):
+            # A BiG-SCAPE folder describes one tool. compare-tools holds all three in
+            # one run, so the families would land on BGCs they never came from.
+            tools_present = {r.mining_tool for r in self.assembly_genome_mining_results}
+            if len(tools_present) > 1:
+                self.log.warning(
+                    "BiG-SCAPE results were given, but this run holds more than one "
+                    f"tool ({', '.join(sorted(tools_present))}). A BiG-SCAPE folder "
+                    "describes one tool only, so the GCF rows are skipped."
+                )
+                self.log.info(f"The running mode is set to: {self.running_mode}")
+                return
+
             known_labels = [
                 r.display_label or r.input_file_label
                 for r in self.assembly_genome_mining_results
@@ -231,8 +242,6 @@ class PipelineHelper:
 
                 matched = 0
                 for result in self.assembly_genome_mining_results:
-                    if result.mining_tool != ANTISMASH_TOOL:
-                        continue
                     label = result.display_label or result.input_file_label
                     for bgc in result.bgcs:
                         bgc.gcf_id = at_cutoff.get((label, bgc.bgc_id))
@@ -243,6 +252,13 @@ class PipelineHelper:
                     f"BiG-SCAPE: {matched} BGC(s) assigned to a gene cluster family "
                     f"at cutoff {self.config.bigscape_cutoff}"
                 )
+                # Link out to BiG-SCAPE's own report. The `../../` describes the
+                # pipeline's published tree, so it is built here, not in metrics.py.
+                staged = Path(self.args.bigscape_output_dir).resolve()
+                leaf = staged.name
+                if staged.parent.name.startswith("bigscape"):
+                    leaf = f"{staged.parent.name}/{leaf}"
+                self.bigscape_report_url = f"../../{leaf}/index.html"
 
         self.log.info(f"The running mode is set to: {self.running_mode}")
 
@@ -260,6 +276,7 @@ class PipelineHelper:
             label_renaming_log=getattr(self, "label_renaming_log", []),
             requested_mode=self.args.mode,
             bigscape_families=self.bigscape_families,
+            bigscape_report_url=self.bigscape_report_url,
         )
 
         self.analysis_report = analysis_report
