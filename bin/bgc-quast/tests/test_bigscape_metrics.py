@@ -175,17 +175,24 @@ def test_calculator_returns_nothing_without_families(compare_samples_config):
     assert BigscapeMetricsCalculator(plain, compare_samples_config).calculate_metrics() == []
 
 
-def test_calculator_skips_non_antismash_tools(results, compare_samples_config):
+def test_calculator_uses_every_tool(results, compare_samples_config):
     gecco = make_result("gecco_run", [make_bgc("CONTIG_1.1", "F1")], tool="GECCO")
     values = BigscapeMetricsCalculator(results + [gecco], compare_samples_config).calculate_metrics()
 
-    assert all(v.mining_tool == ANTISMASH_TOOL for v in values)
-    assert str(gecco.input_file) not in {str(v.file_path) for v in values}
+    # No tool filter any more: BiG-SCAPE reads GECCO and DeepBGC GBKs too, and each
+    # compare-samples run holds exactly one tool. A mixed run is stopped in
+    # pipeline_helper.py before it reaches here.
+    assert str(gecco.input_file) in {str(v.file_path) for v in values}
+    assert {v.mining_tool for v in values} == {ANTISMASH_TOOL, "GECCO"}
 
 
-def test_calculator_returns_nothing_when_only_other_tools(compare_samples_config):
+def test_calculator_works_for_a_non_antismash_tool(compare_samples_config):
     gecco = [make_result("g", [make_bgc("CONTIG_1.1", "F1")], tool="GECCO")]
-    assert BigscapeMetricsCalculator(gecco, compare_samples_config).calculate_metrics() == []
+    values = BigscapeMetricsCalculator(gecco, compare_samples_config).calculate_metrics()
+
+    assert values
+    assert all(v.mining_tool == "GECCO" for v in values)
+
 
 
 def test_calculator_groups_by_product_type(results, compare_samples_config):
