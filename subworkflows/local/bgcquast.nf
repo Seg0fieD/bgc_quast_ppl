@@ -6,7 +6,7 @@
 
 include { QUAST    } from '../../modules/nf-core/quast/main'
 include { BGCQUAST } from '../../modules/local/bgcquast'
-include { BIGSCAPE              } from '../../modules/local/bigscape'
+include { BIGSCAPE as BIGSCAPE_ANTISMASH } from '../../modules/local/bigscape'
 include { BIGSCAPE_DOWNLOAD_DB  } from '../../modules/local/bigscape_download_db'
 
 workflow BGCQUAST_COMPARISON {
@@ -70,14 +70,20 @@ workflow BGCQUAST_COMPARISON {
                 .toSortedList { a, b -> a[0] <=> b[0] }
                 .filter { rows -> rows.size() > 0 }
 
-            BIGSCAPE(
+            BIGSCAPE_ANTISMASH(
+                'antismash',
                 ch_bigscape_stage.map { rows -> rows.collect { it[0] } },
                 ch_bigscape_stage.map { rows -> rows.collect { it[1] } },
                 ch_pfam_dir,
                 ch_pfam_name,
             )
-            ch_versions     = ch_versions.mix(BIGSCAPE.out.versions)
-            ch_bigscape_dir = BIGSCAPE.out.results.ifEmpty { [[]] }
+            ch_versions = ch_versions.mix(BIGSCAPE_ANTISMASH.out.versions)
+            
+            // Bare path, not the tuple: all three sources of ch_bigscape_dir must append
+            // the same element count to combine(). Phase 5 switches this to a [tool: dir] map.
+            ch_bigscape_dir = BIGSCAPE_ANTISMASH.out.results
+                .map { tool, dir -> dir }
+                .ifEmpty { [[]] }
         }
     }
 
