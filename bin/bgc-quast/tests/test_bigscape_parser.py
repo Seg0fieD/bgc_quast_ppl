@@ -32,6 +32,23 @@ ROWS = [
 
 LABELS = ["reference", "assembly_10", "assembly_20"]
 
+# GECCO writes one GBK per cluster, `<sequence_id>_cluster_<N>.gbk`.
+# Names copied from published pipeline output.
+GECCO_ROWS = [
+    ("assembly_10_CONTIG_2_cluster_1.gbk", "FAM_00001"),
+    ("assembly_10_CONTIG_2_cluster_2.gbk", "FAM_00002"),
+    ("assembly_20_CONTIG_1_cluster_1.gbk", "FAM_00001"),
+    ("reference_NC_003888.3_cluster_1.gbk", "FAM_00001"),
+]
+
+# The DeepBGC split step names each record the same way, so the parser
+# needs no DeepBGC branch. The number is a per-sequence counter.
+DEEPBGC_ROWS = [
+    ("assembly_10_CONTIG_1_cluster_1.gbk", "FAM_00001"),
+    ("assembly_10_CONTIG_1_cluster_4.gbk", "FAM_00002"),
+    ("assembly_20_CONTIG_1_cluster_1.gbk", "FAM_00001"),
+]
+
 
 def write_clustering_tsv(path: Path, rows=ROWS) -> None:
     """Write a minimal clustering TSV with the real column names."""
@@ -104,6 +121,46 @@ def test_bgc_id_returns_none_without_a_region():
     assert bgc_id_from_record("CONTIG_2") is None
     assert bgc_id_from_record("CONTIG_2.regionXYZ") is None
 
+# --- the _cluster_ marker: GECCO and DeepBGC -------------------------------
+
+
+def test_bgc_id_reads_the_cluster_marker():
+    """GECCO names its cluster GBKs `<sequence_id>_cluster_<N>.gbk`.
+
+    The DeepBGC split step writes the same shape, so one rule covers both.
+    """
+    assert bgc_id_from_record("CONTIG_2_cluster_1") == "CONTIG_2_1"
+    assert bgc_id_from_record("CONTIG_2_cluster_2") == "CONTIG_2_2"
+    assert bgc_id_from_record("CONTIG_1_cluster_37") == "CONTIG_1_37"
+
+
+def test_bgc_id_handles_a_sequence_id_with_a_dot():
+    """The reference's GECCO files are `NC_003888.3_cluster_N.gbk`."""
+    assert bgc_id_from_record("NC_003888.3_cluster_2") == "NC_003888.3_2"
+
+
+def test_bgc_id_keeps_the_cluster_number_verbatim():
+    """bgc-quast takes the raw text after `cluster_`, so no int() here.
+
+    Unlike the antiSMASH branch, which strips zero padding.
+    """
+    assert bgc_id_from_record("CONTIG_2_cluster_01") == "CONTIG_2_01"
+
+
+def test_bgc_id_takes_the_last_cluster_marker():
+    """A sequence id may itself contain `_cluster_`."""
+    assert bgc_id_from_record("CONTIG_cluster_2_cluster_1") == "CONTIG_cluster_2_1"
+
+
+def test_bgc_id_returns_none_for_a_broken_cluster_name():
+    assert bgc_id_from_record("_cluster_1") is None
+    assert bgc_id_from_record("CONTIG_2_cluster_x") is None
+    assert bgc_id_from_record("CONTIG_2_cluster_") is None
+
+
+def test_region_is_tried_before_cluster():
+    """`.region` wins, so the antiSMASH path cannot regress."""
+    assert bgc_id_from_record("CONTIG_2_cluster_1.region003") == "CONTIG_2_cluster_1.3"
 
 # --- discovery -------------------------------------------------------------
 
@@ -175,6 +232,42 @@ def test_unknown_labels_are_dropped_not_crashed(bigscape_out: Path):
 
     assert set(label for label, _ in families) == {"reference"}
 
+def test_parse_clustering_file_reads_gecco_names(tmp_path: Path):
+    """Real GECCO file names, taken from published pipeline output."""
+    tsv = tmp_path / "mix_clustering_c0.30.tsv"
+    write_clustering_tsv(tsv, GECCO_ROWS)
+
+    families = parse_clustering_file(tsv, LABELS)
+
+    assert families[("assembly_10", "CONTIG_2_1")] == "FAM_00001"
+    assert families[("assembly_10", "CONTIG_2_2")] == "FAM_00002"
+    assert families[("reference", "NC_003888.3_1")] == "FAM_00001"
+    assert len(families) == len(GECCO_ROWS)
+
+
+def test_parse_clustering_file_reads_split_deepbgc_names(tmp_path: Path):
+    """The DeepBGC split step reproduces bgc-quast's per-sequence counter."""
+    tsv = tmp_path / "mix_clustering_c0.30.tsv"
+    write_clustering_tsv(tsv, DEEPBGC_ROWS)
+
+    families = parse_clustering_file(tsv, LABELS)
+
+    assert families[("assembly_10", "CONTIG_1_1")] == "FAM_00001"
+    assert families[("assembly_10", "CONTIG_1_4")] == "FAM_00002"
+    assert len(families) == len(DEEPBGC_ROWS)
+
+
+def test_a_sample_label_containing_cluster_still_splits(tmp_path: Path):
+    """The label is stripped first, so `_cluster_` inside it is harmless."""
+    labels = ["assembly_cluster_2"]
+    rows = [("assembly_cluster_2_CONTIG_2_cluster_1.gbk", "FAM_00001")]
+
+    tsv = tmp_path / "mix_clustering_c0.30.tsv"
+    write_clustering_tsv(tsv, rows)
+
+    families = parse_clustering_file(tsv, labels)
+
+    assert families == {("assembly_cluster_2", "CONTIG_2_1"): "FAM_00001"}
 
 # --- top level -------------------------------------------------------------
 
