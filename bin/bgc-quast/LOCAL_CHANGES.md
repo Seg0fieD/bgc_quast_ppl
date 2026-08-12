@@ -12,8 +12,8 @@ it already reads a QUAST output folder. It does not run BiG-SCAPE.
 Verified by running compare-samples with and without the flag and diffing `report.txt`,
 `report.tsv` and `report.html`.
 
-Last updated: 2026-08-05. Phases 2 and 3 complete. Verified end to end on pipeline output.
-
+Last updated: 2026-08-11. The antiSMASH round (Phases 0–6) is complete and verified end to end
+on pipeline output. The GECCO/DeepBGC round is in progress; only the parser has changed so far.
 ---
 
 ## New files
@@ -35,6 +35,16 @@ Output folder names carry a run label and a timestamp, so paths are found by glo
 `output_files/*_c*/mix/*_clustering_c*.tsv`, never built from a fixed string.
 **Upstream impact:** None. Nothing calls it unless the new flag is given. A missing or broken
 folder returns `{}` and never raises into the run.
+**Update 2026-08-11 — two naming schemes.** `bgc_id_from_record` now auto-detects which marker
+a staged file name carries: `.region` first (antiSMASH), then `_cluster_` (GECCO, and DeepBGC
+once its multi-record GBK is split). `.region` is tried first, so the antiSMASH path is
+byte-for-byte the same code it was. The two branches differ on purpose: antiSMASH pads the
+region number in the file name while bgc-quast reads the unpadded qualifier, so the padding is
+stripped; GECCO and DeepBGC pad nothing and bgc-quast keeps the raw text, so the number is kept
+verbatim. `rpartition` takes the last marker, which handles both a sequence id containing a dot
+(`NC_003888.3_cluster_2`) and one containing `_cluster_`.
+**Upstream impact:** Still none. A name with neither marker returns `None` and the row is
+dropped, exactly as before.
 
 ### `src/bigscape/metrics.py`
 **What:** Six registered metrics (`gcf_count`, `bgcs_in_gcf_count`, `singleton_bgc_count`,
@@ -49,10 +59,13 @@ family, so the row is dropped instead of printing a misleading `0` — same as
 produces a row when BGCs actually carry a family.
 
 ### `tests/test_bigscape_parser.py`
-**What:** 22 tests for the parser. Builds a fake output tree, so no BiG-SCAPE, Pfam or Docker
+**What:** 31 tests for the parser. Builds a fake output tree, so no BiG-SCAPE, Pfam or Docker
 needed.
 **Why:** Covers path discovery, cutoff normalisation, longest-prefix label matching, and the
-"never raise" contract.
+"never raise" contract. Nine tests added 2026-08-11 for the `_cluster_` marker: GECCO and split
+DeepBGC names, a sequence id carrying a dot, the number kept verbatim, the last marker winning,
+broken names returning `None`, `.region` taking priority, and a sample label that itself
+contains `_cluster_`.
 **Upstream impact:** None.
 
 ### `tests/test_bigscape_metrics.py`
@@ -132,6 +145,31 @@ The whole branch is wrapped in `if bigscape_families:`, so with BiG-SCAPE off it
 what the old bare `...` did.
 **Upstream impact:** None. The new argument is optional and defaults to `None`.
 
+### `src/html_report/build_report.js`
+**What:** Added `drawVennGcf` (3-set Venn), `gcfVennRegions` (computes the seven
+region counts from family membership sets), `buildGcfSummaryTable`, and
+`initGcfPanel`. Changed the tab gate in `DOMContentLoaded` so `'pyplots'` is added
+to `METRIC_TABS_BY_MODE.compare_samples` only when `reportMetadata.bigscape`
+exists, and added a `compare_samples` branch beside the existing
+`mode === 'compare_tools'` one that calls `initGcfPanel`.
+**Why:** The existing `drawVenn` is 2-set, tool-labelled and driven by precomputed
+counts in `metadata.pairwise_by_run`. A GCF Venn needs three circles and real set
+membership, so it is new code rather than a change to `drawVenn`. Writing the
+function alone was not enough: `METRIC_TABS_BY_MODE.compare_samples` was `['bgcs']`
+and `initVennPanel` ran only under `compare_tools`, so the panel never rendered.
+**Upstream impact:** None without BiG-SCAPE. `drawVenn` and `initVennPanel` are
+untouched, so the compare-tools Venn is unchanged. The tab array is computed at
+runtime, so a compare-samples run with no `reportMetadata.bigscape` shows only the
+"All BGCs" tab, exactly as before. The `pyplots` button and `pythonPlotsPanel` div
+already existed in `report_template.html`; the template was not modified.
+
+### `src/html_report/report.css`
+**What:** Appended `.gcf-*` classes at the end of the file for the GCF panel: the
+cutoff dropdown, the summary table, the note line, and the link.
+**Why:** The new panel needed styling and the existing classes did not fit.
+**Upstream impact:** None. Additions only, all namespaced under `.gcf-`. No
+existing selector was changed, so nothing already in the report can be affected.
+
 ---
 
 ## Not touched
@@ -143,6 +181,23 @@ what the old bare `...` did.
   live in `src/bigscape/` instead.
 - `dev/html_report_experiments/` — a stale duplicate of the HTML assets. Left alone.
 - The four unimplemented `compare_samples` metrics in `configs/report_config.yaml`.
+
+---
+
+## Phases 4, 5 and 6 — pipeline only
+
+Phases 4 and 5 wired the feature into the Nextflow pipeline. Phase 6 added automatic Pfam
+download. Both touched **pipeline files only**, none of which are vendored bgc-quast code, so
+nothing was added to the per-file log above:
+
+`modules/local/bigscape.nf`, `modules/local/bigscape_download_db.nf`,
+`modules/local/bgcquast.nf`, `subworkflows/local/bgc_prediction.nf`,
+`subworkflows/local/bgcquast.nf`, `workflows/bgc_quast_ppl.nf`,
+`subworkflows/local/utils_nfcore_bgc_quast_ppl_pipeline/main.nf`, `conf/modules.config`,
+`nextflow.config`, `nextflow_schema.json`, `README.md`.
+
+Those files are ours and are tracked by git normally. The vendored tool was not changed during
+these phases; the pytest failure list was unchanged throughout.
 
 ---
 
@@ -184,37 +239,8 @@ either would swamp this diff. It is a separate piece of work.
 not change after each edit. Every change above was checked that way, and the new
 `tests/test_bigscape_*.py` files pass in full.
 
+Run from `bin/bgc-quast`; `../../tmp_test/` is the repo's scratch folder.
+
 ```bash
-python -m pytest tests/ -q 2>&1 | grep -E "^(FAILED|ERROR)" | sort > /tmp/pytest_baseline.txt
+python -m pytest tests/ -q 2>&1 | grep -E "^(FAILED|ERROR)" | sort > ../../tmp_test/pytest_baseline.txt
 ```
-
-### src/html_report/build_report.js
-
-**What:** Added `drawVennGcf` (3-set Venn), `gcfVennRegions` (computes the seven
-region counts from family membership sets), `buildGcfSummaryTable`, and
-`initGcfPanel`. Changed the tab gate in `DOMContentLoaded` so `'pyplots'` is added
-to `METRIC_TABS_BY_MODE.compare_samples` only when `reportMetadata.bigscape`
-exists, and added a `compare_samples` branch beside the existing
-`mode === 'compare_tools'` one that calls `initGcfPanel`.
-
-**Why:** The existing `drawVenn` is 2-set, tool-labelled and driven by precomputed
-counts in `metadata.pairwise_by_run`. A GCF Venn needs three circles and real set
-membership, so it is new code rather than a change to `drawVenn`. Writing the
-function alone was not enough: `METRIC_TABS_BY_MODE.compare_samples` was `['bgcs']`
-and `initVennPanel` ran only under `compare_tools`, so the panel never rendered.
-
-**Upstream impact:** None without BiG-SCAPE. `drawVenn` and `initVennPanel` are
-untouched, so the compare-tools Venn is unchanged. The tab array is computed at
-runtime, so a compare-samples run with no `reportMetadata.bigscape` shows only the
-"All BGCs" tab, exactly as before. The `pyplots` button and `pythonPlotsPanel` div
-already existed in `report_template.html`; the template was not modified.
-
-### src/html_report/report.css
-
-**What:** Appended `.gcf-*` classes at the end of the file for the GCF panel: the
-cutoff dropdown, the summary table, the note line, and the link.
-
-**Why:** The new panel needed styling and the existing classes did not fit.
-
-**Upstream impact:** None. Additions only, all namespaced under `.gcf-`. No
-existing selector was changed, so nothing already in the report can be affected.
