@@ -340,4 +340,4 @@ is green.**
 **Nothing in this folder is part of a Nextflow task hash.** The `BGCQUAST` process only calls
 `python3 bgc-quast.py`, so editing any file here leaves the hash unchanged and `-resume` will
 serve the cached report. After any change in this folder, re-run **without** `-resume`, or the
-result is stale.
+result is stale.a a 
