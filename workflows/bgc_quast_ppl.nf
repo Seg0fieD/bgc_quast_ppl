@@ -203,6 +203,11 @@ workflow BGC_QUAST_PPL {
         ch_pred_ge     = BGC_PREDICTION.out.gecco_clusters.branch { meta, f -> reference: meta.is_reference; query: true }
         ch_long_fastas = ch_prepped_input_long.fastas.branch      { meta, f -> reference: meta.is_reference; query: true }
 
+        // BiG-SCAPE input for the other two tools. Like antismash_gbk, only .query is consumed;
+        // .reference stays unused until compare-to-reference is wired (item E).
+        ch_pred_ge_gbk = BGC_PREDICTION.out.gecco_gbk.branch   { meta, f -> reference: meta.is_reference; query: true }
+        ch_pred_db_gbk = BGC_PREDICTION.out.deepbgc_gbk.branch { meta, f -> reference: meta.is_reference; query: true }
+
         // Fan the reference's results out to every query, re-keyed to the query meta.
         def fan_to_queries = { ref_ch ->
             ref_ch
@@ -222,6 +227,8 @@ workflow BGC_QUAST_PPL {
             ch_long_fastas.reference,
             ch_ref_name,
             ch_pred_as_gbk.query,
+            ch_pred_ge_gbk.query,
+            ch_pred_db_gbk.query,
         )
         ch_versions = ch_versions.mix(BGCQUAST_COMPARISON.out.versions)
         ch_bgcquast_run_count = BGCQUAST_COMPARISON.out.results.count()
