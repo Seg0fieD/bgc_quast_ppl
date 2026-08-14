@@ -40,17 +40,52 @@ workflow BGCQUAST_COMPARISON {
         is missing from the map gets [], which BGCQUAST reads as "no --bigscape-output-dir".
         The map is always wrapped in a list, because combine() spreads one level.
     */
+    def bs_tools    = ['antismash', 'gecco', 'deepbgc']
+    // 256-colour orange, dropped when --monochrome_logs is set.
+    def orange = params.monochrome_logs ? '' : "\033[38;5;208m"
+    def creset = params.monochrome_logs ? '' : "\033[0m"
+
     ch_bigscape_dir = Channel.value([[:]])
 
     if (params.run_bigscape) {
+        // --bgc_bigscape_dir is a parent holding per-tool subfolders, mirroring the published
+        // bgc_quast/bigscape/ layout. Tools without a subfolder still run normally.
+        def given = [:]
+
         if (params.bgc_bigscape_dir) {
-            // User supplied a finished folder. Skip the run, same as bgc_quast_quastdir.
-            // Still antiSMASH-only until D6 decides what this means with three tools.
-            ch_bigscape_dir = Channel.value([[antismash: file(params.bgc_bigscape_dir, checkIfExists: true)]])
+            file(params.bgc_bigscape_dir, checkIfExists: true)
+
+            bs_tools.each { t ->
+                def sub = file("${params.bgc_bigscape_dir}/${t}")
+                if (sub.exists() && sub.isDirectory()) {
+                    given[t] = sub
+                }
+            }
+
+            if (!given) {
+                error(
+                    "[bgc_quast_ppl] --bgc_bigscape_dir contains no per-tool subfolder.\n" +
+                    "                Expected at least one of: ${bs_tools.join(', ')}\n" +
+                    "                Looked in: ${params.bgc_bigscape_dir}\n" +
+                    "                Point it at a previous run's bgc_quast/bigscape/ folder."
+                )
+            }
+
+            log.info("${orange}            [bgc_quast_ppl] BiG-SCAPE folder supplied for: ${given.keySet().join(', ')}${creset}")
         }
-        else {
+
+        def to_run = bs_tools.findAll { !given.containsKey(it) }
+
+        if (to_run) {
+            log.info("${orange}            [bgc_quast_ppl] BiG-SCAPE will run for: ${to_run.join(', ')}${creset}")
+        }
+
+        // Bare map here on purpose. It is wrapped once, at the end, before combine() sees it.
+        ch_bigscape_run = Channel.value([:])
+
+        if (to_run) {
             // Pfam: use the user's pressed copy if given, otherwise download and press one.
-            // Resolved once and shared by all three runs.
+            // Resolved once and shared by every run.
             def ch_pfam_dir
             def ch_pfam_name
 
@@ -66,11 +101,6 @@ workflow BGCQUAST_COMPARISON {
                 ch_pfam_name = Channel.value('Pfam-A.hmm')
             }
 
-            // DeepBGC writes one multi-record GBK per sample; BiG-SCAPE reads only the
-            // first record, so split before staging. Skipped tools give an empty channel.
-            DEEPBGC_SPLIT_GBK(deepbgc_gbk)
-            ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
-
             // Pair "<sample_id>_<original_filename>" with its file, then sort so the two
             // lists the module receives stay index-aligned. The prefix is the join key
             // bgc-quast reverses; ".region" or "_cluster_" must survive for --include-gbk.
@@ -84,44 +114,62 @@ workflow BGCQUAST_COMPARISON {
                     .filter { rows -> rows.size() > 0 }
             }
 
-            def ch_stage_as = stage_gbks(antismash_gbk)
-            def ch_stage_ge = stage_gbks(gecco_gbk)
-            def ch_stage_db = stage_gbks(DEEPBGC_SPLIT_GBK.out.gbk)
+            ch_bigscape_results = Channel.empty()
 
-            BIGSCAPE_ANTISMASH(
-                'antismash',
-                ch_stage_as.map { rows -> rows.collect { it[0] } },
-                ch_stage_as.map { rows -> rows.collect { it[1] } },
-                ch_pfam_dir,
-                ch_pfam_name,
-            )
-            BIGSCAPE_GECCO(
-                'gecco',
-                ch_stage_ge.map { rows -> rows.collect { it[0] } },
-                ch_stage_ge.map { rows -> rows.collect { it[1] } },
-                ch_pfam_dir,
-                ch_pfam_name,
-            )
-            BIGSCAPE_DEEPBGC(
-                'deepbgc',
-                ch_stage_db.map { rows -> rows.collect { it[0] } },
-                ch_stage_db.map { rows -> rows.collect { it[1] } },
-                ch_pfam_dir,
-                ch_pfam_name,
-            )
-            ch_versions = ch_versions
-                .mix(BIGSCAPE_ANTISMASH.out.versions)
-                .mix(BIGSCAPE_GECCO.out.versions)
-                .mix(BIGSCAPE_DEEPBGC.out.versions)
+            if ('antismash' in to_run) {
+                def st = stage_gbks(antismash_gbk)
+                BIGSCAPE_ANTISMASH(
+                    'antismash',
+                    st.map { rows -> rows.collect { it[0] } },
+                    st.map { rows -> rows.collect { it[1] } },
+                    ch_pfam_dir,
+                    ch_pfam_name,
+                )
+                ch_versions         = ch_versions.mix(BIGSCAPE_ANTISMASH.out.versions)
+                ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_ANTISMASH.out.results)
+            }
 
-            // toList() always emits once, so a tool that never ran simply leaves the
-            // map without its key and no sentinel branch is needed.
-            ch_bigscape_dir = BIGSCAPE_ANTISMASH.out.results
-                .mix(BIGSCAPE_GECCO.out.results)
-                .mix(BIGSCAPE_DEEPBGC.out.results)
+            if ('gecco' in to_run) {
+                def st = stage_gbks(gecco_gbk)
+                BIGSCAPE_GECCO(
+                    'gecco',
+                    st.map { rows -> rows.collect { it[0] } },
+                    st.map { rows -> rows.collect { it[1] } },
+                    ch_pfam_dir,
+                    ch_pfam_name,
+                )
+                ch_versions         = ch_versions.mix(BIGSCAPE_GECCO.out.versions)
+                ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_GECCO.out.results)
+            }
+
+            if ('deepbgc' in to_run) {
+                // DeepBGC writes one multi-record GBK per sample; BiG-SCAPE reads only the
+                // first record, so split before staging. Skipped entirely if a folder is given.
+                DEEPBGC_SPLIT_GBK(deepbgc_gbk)
+                ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
+
+                def st = stage_gbks(DEEPBGC_SPLIT_GBK.out.gbk)
+                BIGSCAPE_DEEPBGC(
+                    'deepbgc',
+                    st.map { rows -> rows.collect { it[0] } },
+                    st.map { rows -> rows.collect { it[1] } },
+                    ch_pfam_dir,
+                    ch_pfam_name,
+                )
+                ch_versions         = ch_versions.mix(BIGSCAPE_DEEPBGC.out.versions)
+                ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_DEEPBGC.out.results)
+            }
+
+            // toList() always emits once, so a tool whose GBK channel was empty simply
+            // leaves its key out and no sentinel branch is needed.
+            ch_bigscape_run = ch_bigscape_results
                 .toList()
-                .map { rows -> [rows.collectEntries { t, d -> [(t): d] }] }
+                .map { rows -> rows.collectEntries { t, d -> [(t): d] } }
         }
+
+        // Supplied folders win nothing and lose nothing: to_run excludes them by construction.
+        // Wrapped in a list here, once, because combine() spreads one level.
+        ch_bigscape_dir = ch_bigscape_run.map { ran -> [given + ran] }
     }
 
     if (mode == 'compare-tools') {

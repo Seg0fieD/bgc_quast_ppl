@@ -372,38 +372,67 @@ def validatePreRunEnvironment(input) {
             problems << "--bgc_bigscape_dir path not found: ${params.bgc_bigscape_dir}"
         }
 
-        // The report cutoff must be one that will actually exist.
-        // With a user-supplied folder, check what is really in it. Otherwise
-        // check the list of cutoffs BiG-SCAPE is about to compute.
-        def want = params.bgc_bigscape_cutoff as Double
+       // The report cutoff must be one that will actually exist.
+        // --bgc_bigscape_dir is a parent of per-tool subfolders, so each one is checked
+        // separately, and any tool still due to run is checked against the cutoff list.
+        def want     = params.bgc_bigscape_cutoff as Double
+        def bs_tools = ['antismash', 'gecco', 'deepbgc']
+
+        def cutoffsIn = { dir ->
+            def found = []
+            dir.listFiles().each { d ->
+                if (d.isDirectory()) {
+                    def m = (d.name =~ /_c([0-9]*\.?[0-9]+)$/)
+                    if (m) { found << (m[0][1] as Double) }
+                }
+            }
+            found.unique().sort()
+        }
+
+        def checkCutoffList = { cuts, whose ->
+            if (!cuts.any { Math.abs(it - want) < 1e-9 }) {
+                problems << "Cutoff ${params.bgc_bigscape_cutoff} is not available for ${whose}.\n     Available cutoffs: ${cuts.join(', ')}\n     Please choose one of the cutoffs shown above with --bgc_bigscape_cutoff."
+            }
+        }
 
         if (params.bgc_bigscape_dir && file(params.bgc_bigscape_dir).exists()) {
-            def of = file("${params.bgc_bigscape_dir}/output_files")
-            if (!of.exists()) {
-                problems << "No BiG-SCAPE results in the folder you gave.\n     Looked for: ${of}\n     Give the folder BiG-SCAPE wrote, the one holding 'output_files'."
+            def supplied = [:]
+            bs_tools.each { t ->
+                def d = file("${params.bgc_bigscape_dir}/${t}")
+                if (d.exists() && d.isDirectory()) { supplied[t] = d }
+            }
+
+            if (!supplied) {
+                problems << "--bgc_bigscape_dir has no per-tool subfolder.\n     Looked in: ${params.bgc_bigscape_dir}\n     Expected at least one of: ${bs_tools.join(', ')}\n     Point it at a previous run's bgc_quast/bigscape/ folder."
             }
             else {
-                def found = []
-                of.listFiles().each { d ->
-                    if (d.isDirectory()) {
-                        def m = (d.name =~ /_c([0-9]*\.?[0-9]+)$/)
-                        if (m) { found << (m[0][1] as Double) }
+                supplied.each { tool, dir ->
+                    def of = file("${dir}/output_files")
+                    if (!of.exists()) {
+                        problems << "No BiG-SCAPE results for ${tool}.\n     Looked for: ${of}\n     Each per-tool subfolder must be a folder BiG-SCAPE wrote, holding 'output_files'."
+                    }
+                    else {
+                        def found = cutoffsIn(of)
+                        if (!found) {
+                            problems << "No BiG-SCAPE results for ${tool}.\n     ${of} has no cutoff folders in it.\n     Each per-tool subfolder must be a folder BiG-SCAPE wrote, holding 'output_files'."
+                        }
+                        else {
+                            checkCutoffList(found, "the supplied ${tool} folder")
+                        }
                     }
                 }
-                found = found.unique().sort()
-                if (!found) {
-                    problems << "No BiG-SCAPE results in the folder you gave.\n     ${of} has no cutoff folders in it.\n     Give the folder BiG-SCAPE wrote, the one holding 'output_files'."
-                }
-                else if (!found.any { Math.abs(it - want) < 1e-9 }) {
-                    problems << "Cutoff ${params.bgc_bigscape_cutoff} is not available.\n     Available cutoffs: ${found.join(', ')}\n     Please choose one of the cutoffs shown above with --bgc_bigscape_cutoff."
+
+                // Tools with no subfolder still run, so they use the cutoff list, not the folder.
+                def willRun = bs_tools.findAll { !supplied.containsKey(it) }
+                if (willRun) {
+                    def cuts = params.bgc_bigscape_cutoffs.toString().split(',').collect { it.trim() as Double }
+                    checkCutoffList(cuts, "the tools still to run (${willRun.join(', ')})")
                 }
             }
         }
         else if (!params.bgc_bigscape_dir) {
             def cuts = params.bgc_bigscape_cutoffs.toString().split(',').collect { it.trim() as Double }
-            if (!cuts.any { Math.abs(it - want) < 1e-9 }) {
-                problems << "Cutoff ${params.bgc_bigscape_cutoff} is not available.\n     Available cutoffs: ${cuts.join(', ')}\n     Please choose one of the cutoffs shown above with --bgc_bigscape_cutoff."
-            }
+            checkCutoffList(cuts, 'this run')
         }
 
         // ".region" in a sample id breaks the BGC id the report joins on
@@ -583,7 +612,7 @@ def explainPipelineError() {
                     [ match: 'was not found in the output',
                       hint : 'The BiG-SCAPE cutoff you asked for is not in the results.\n  The message above lists the cutoffs that are there. Pick one of them with --bgc_bigscape_cutoff.' ],
                     [ match: 'No BiG-SCAPE clustering files',
-                      hint : 'The BiG-SCAPE folder is empty or is the wrong folder.\n  --bgc_bigscape_dir should point at the folder that contains "output_files".' ],
+                      hint : 'The BiG-SCAPE folder is empty or is the wrong folder.\n  --bgc_bigscape_dir should point at a parent holding per-tool subfolders\n  (antismash/, gecco/, deepbgc/), each containing "output_files".' ],
                 ],
                 generic   : 'bgc-quast failed. Check that the prediction files, the query FASTA, and the QUAST output folder all reached this step.',
             ],
