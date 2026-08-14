@@ -1330,7 +1330,6 @@ function initGcfPanel(panel, bigscape) {
     rightCol.className = 'venn-right';
     rightCol.appendChild(controls);
     rightCol.appendChild(tableHolder);
-    rightCol.appendChild(note);
     rightCol.appendChild(link);
     rightCol.appendChild(downloadBtn);
 
@@ -1339,6 +1338,16 @@ function initGcfPanel(panel, bigscape) {
     wrapper.appendChild(title);
     wrapper.appendChild(mainRow);
     panel.appendChild(wrapper);
+
+   // Note under the main metrics table, bigscape cutt-off value  
+    const mainTable = document.getElementById('reportTableContainer');
+    const oldNote = document.querySelector('.gcf-note');
+    if (oldNote) oldNote.remove();
+    if (mainTable) {
+        mainTable.insertAdjacentElement('afterend', note);
+    } else {
+        rightCol.appendChild(note);
+    }
 
     const render = () => {
         title.textContent =
@@ -1349,9 +1358,10 @@ function initGcfPanel(panel, bigscape) {
         tableHolder.appendChild(buildGcfSummaryTable(bigscape, cutoff));
 
         note.textContent = (cutoff === bigscape.default_cutoff)
-            ? 'The report table above uses this cutoff.'
-            : `The report table above still uses cutoff ${bigscape.default_cutoff}. `
-              + 'Re-run bgc-quast with --bigscape-cutoff to change it.';
+            ? `GCF rows in this table use cutoff ${bigscape.default_cutoff}.`
+            : `GCF rows in this table use cutoff ${bigscape.default_cutoff}. `
+              + `The GCF overlap panel is showing ${cutoff}. `
+              + 'Re-run bgc-quast with --bigscape-cutoff to change this table.';
     };
 
     select.addEventListener('change', () => {
