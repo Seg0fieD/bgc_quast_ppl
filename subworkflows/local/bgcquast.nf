@@ -7,7 +7,10 @@
 include { QUAST    } from '../../modules/nf-core/quast/main'
 include { BGCQUAST } from '../../modules/local/bgcquast'
 include { BIGSCAPE as BIGSCAPE_ANTISMASH } from '../../modules/local/bigscape'
+include { BIGSCAPE as BIGSCAPE_GECCO     } from '../../modules/local/bigscape'
+include { BIGSCAPE as BIGSCAPE_DEEPBGC   } from '../../modules/local/bigscape'
 include { BIGSCAPE_DOWNLOAD_DB  } from '../../modules/local/bigscape_download_db'
+include { DEEPBGC_SPLIT_GBK     } from '../../modules/local/deepbgc_split_gbk'
 
 workflow BGCQUAST_COMPARISON {
     take:
@@ -21,7 +24,9 @@ workflow BGCQUAST_COMPARISON {
     ref_genome         // [ meta, fasta ] reference genome, keyed by query id
     ref_name           // val: reference display name (--ref-name)
     antismash_gbk      // [ meta, [ gbk ] ] query antiSMASH region GBKs (BiG-SCAPE input)
-    
+    gecco_gbk          // [ meta, [ gbk ] ] query GECCO cluster GBKs (BiG-SCAPE input)
+    deepbgc_gbk        // [ meta, gbk ]     query DeepBGC multi-record GBK (split first)
+
     main:
     ch_versions    = Channel.empty()
     ch_bgcquast_in = Channel.empty()
@@ -30,19 +35,22 @@ workflow BGCQUAST_COMPARISON {
     def proper = [antismash: 'antiSMASH', deepbgc: 'DeepBGC', gecco: 'GECCO']
 
     /*
-        BiG-SCAPE side branch. Runs once per pipeline execution over every sample's
-        antiSMASH region GBKs together. Off unless --run_bigscape. Empty list means
-        "no folder", which BGCQUAST reads as "do not pass --bigscape-output-dir".
+        BiG-SCAPE side branch. One run per tool over every sample's GBKs together.
+        Off unless --run_bigscape. The channel carries a [tool: dir] map; a tool that
+        is missing from the map gets [], which BGCQUAST reads as "no --bigscape-output-dir".
+        The map is always wrapped in a list, because combine() spreads one level.
     */
-    ch_bigscape_dir = Channel.value([[]])
+    ch_bigscape_dir = Channel.value([[:]])
 
     if (params.run_bigscape) {
         if (params.bgc_bigscape_dir) {
             // User supplied a finished folder. Skip the run, same as bgc_quast_quastdir.
-            ch_bigscape_dir = Channel.value(file(params.bgc_bigscape_dir, checkIfExists: true))
+            // Still antiSMASH-only until D6 decides what this means with three tools.
+            ch_bigscape_dir = Channel.value([[antismash: file(params.bgc_bigscape_dir, checkIfExists: true)]])
         }
         else {
             // Pfam: use the user's pressed copy if given, otherwise download and press one.
+            // Resolved once and shared by all three runs.
             def ch_pfam_dir
             def ch_pfam_name
 
@@ -58,32 +66,61 @@ workflow BGCQUAST_COMPARISON {
                 ch_pfam_name = Channel.value('Pfam-A.hmm')
             }
 
+            // DeepBGC writes one multi-record GBK per sample; BiG-SCAPE reads only the
+            // first record, so split before staging. Skipped tools give an empty channel.
+            DEEPBGC_SPLIT_GBK(deepbgc_gbk)
+            ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
+
             // Pair "<sample_id>_<original_filename>" with its file, then sort so the two
             // lists the module receives stay index-aligned. The prefix is the join key
-            // bgc-quast reverses; ".region" must survive for --include-gbk to accept it.
-            ch_bigscape_stage = antismash_gbk
-                .flatMap { meta, gbks ->
-                    (gbks instanceof List ? gbks : [gbks]).collect { g ->
-                        ["${meta.id}_${g.name}".toString(), g]
+            // bgc-quast reverses; ".region" or "_cluster_" must survive for --include-gbk.
+            def stage_gbks = { ch ->
+                ch.flatMap { meta, gbks ->
+                        (gbks instanceof List ? gbks : [gbks]).collect { g ->
+                            ["${meta.id}_${g.name}".toString(), g]
+                        }
                     }
-                }
-                .toSortedList { a, b -> a[0] <=> b[0] }
-                .filter { rows -> rows.size() > 0 }
+                    .toSortedList { a, b -> a[0] <=> b[0] }
+                    .filter { rows -> rows.size() > 0 }
+            }
+
+            def ch_stage_as = stage_gbks(antismash_gbk)
+            def ch_stage_ge = stage_gbks(gecco_gbk)
+            def ch_stage_db = stage_gbks(DEEPBGC_SPLIT_GBK.out.gbk)
 
             BIGSCAPE_ANTISMASH(
                 'antismash',
-                ch_bigscape_stage.map { rows -> rows.collect { it[0] } },
-                ch_bigscape_stage.map { rows -> rows.collect { it[1] } },
+                ch_stage_as.map { rows -> rows.collect { it[0] } },
+                ch_stage_as.map { rows -> rows.collect { it[1] } },
                 ch_pfam_dir,
                 ch_pfam_name,
             )
-            ch_versions = ch_versions.mix(BIGSCAPE_ANTISMASH.out.versions)
-            
-            // Bare path, not the tuple: all three sources of ch_bigscape_dir must append
-            // the same element count to combine(). Phase 5 switches this to a [tool: dir] map.
+            BIGSCAPE_GECCO(
+                'gecco',
+                ch_stage_ge.map { rows -> rows.collect { it[0] } },
+                ch_stage_ge.map { rows -> rows.collect { it[1] } },
+                ch_pfam_dir,
+                ch_pfam_name,
+            )
+            BIGSCAPE_DEEPBGC(
+                'deepbgc',
+                ch_stage_db.map { rows -> rows.collect { it[0] } },
+                ch_stage_db.map { rows -> rows.collect { it[1] } },
+                ch_pfam_dir,
+                ch_pfam_name,
+            )
+            ch_versions = ch_versions
+                .mix(BIGSCAPE_ANTISMASH.out.versions)
+                .mix(BIGSCAPE_GECCO.out.versions)
+                .mix(BIGSCAPE_DEEPBGC.out.versions)
+
+            // toList() always emits once, so a tool that never ran simply leaves the
+            // map without its key and no sentinel branch is needed.
             ch_bigscape_dir = BIGSCAPE_ANTISMASH.out.results
-                .map { tool, dir -> dir }
-                .ifEmpty { [[]] }
+                .mix(BIGSCAPE_GECCO.out.results)
+                .mix(BIGSCAPE_DEEPBGC.out.results)
+                .toList()
+                .map { rows -> [rows.collectEntries { t, d -> [(t): d] }] }
         }
     }
 
@@ -124,11 +161,11 @@ workflow BGCQUAST_COMPARISON {
                 [tool, idx.collect { ids[it] }, idx.collect { files[it] }, idx.collect { gens[it] }]
             }
             .combine(ch_bigscape_dir)
-            .map { tool, ids, files, gens, bsdir ->
+            .map { tool, ids, files, gens, bsmap ->
                 [
                     [id: "compare_samples_${tool}", bgcquast_names: ids.join(','), leaf: proper[tool]],
                     files, gens, [], [], [],
-                    tool == 'antismash' ? bsdir : [],
+                    bsmap[tool] ?: [],
                 ]
             }
     }

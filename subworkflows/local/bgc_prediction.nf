@@ -21,7 +21,9 @@ workflow BGC_PREDICTION {
     ch_antismash_json = Channel.empty()
     ch_antismash_gbk  = Channel.empty()
     ch_deepbgc_tsv    = Channel.empty()
+    ch_deepbgc_gbk    = Channel.empty()
     ch_gecco_clusters = Channel.empty()
+    ch_gecco_gbk      = Channel.empty()
 
     // ANTISMASH
     if (!params.bgc_skip_antismash) {
@@ -60,6 +62,8 @@ workflow BGC_PREDICTION {
         DEEPBGC_PIPELINE(gbks, ch_deepbgc_database)
         ch_versions    = ch_versions.mix(DEEPBGC_PIPELINE.out.versions)
         ch_deepbgc_tsv = DEEPBGC_PIPELINE.out.bgc_tsv
+        // One multi-record GBK per sample. DEEPBGC_SPLIT_GBK breaks it up before BiG-SCAPE.
+        ch_deepbgc_gbk = DEEPBGC_PIPELINE.out.bgc_gbk
     }
 
     // GECCO
@@ -71,6 +75,8 @@ workflow BGC_PREDICTION {
         GECCO_RUN(ch_gecco_input, [])
         ch_versions       = ch_versions.mix(GECCO_RUN.out.versions)
         ch_gecco_clusters = GECCO_RUN.out.clusters
+        // Already one file per cluster, so no split step is needed.
+        ch_gecco_gbk      = GECCO_RUN.out.gbk
     }
 
     emit:
@@ -78,5 +84,7 @@ workflow BGC_PREDICTION {
     antismash_json = ch_antismash_json      // channel: [ val(meta), path(*.json) ]
     antismash_gbk  = ch_antismash_gbk       // channel: [ val(meta), [ path(*region*.gbk) ] ]  (optional per sample)
     deepbgc_tsv    = ch_deepbgc_tsv         // channel: [ val(meta), path(*.bgc.tsv) ]   (optional per sample)
+    deepbgc_gbk    = ch_deepbgc_gbk         // channel: [ val(meta), path(*.bgc.gbk) ]   (optional per sample)
     gecco_clusters = ch_gecco_clusters      // channel: [ val(meta), path(*.clusters.tsv) ] (optional per sample)
+    gecco_gbk      = ch_gecco_gbk           // channel: [ val(meta), [ path(*_cluster_*.gbk) ] ] (optional per sample)
 }
