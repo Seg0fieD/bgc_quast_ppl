@@ -4,6 +4,8 @@
 
 .DS_Store*
 
+..pytest_cache/
+
 # Nextflow work directory
 work/
 
