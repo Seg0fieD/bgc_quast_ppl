@@ -34,6 +34,28 @@ workflow BGCQUAST_COMPARISON {
 
     def proper = [antismash: 'antiSMASH', deepbgc: 'DeepBGC', gecco: 'GECCO']
 
+    // No BGCs from a tool is a result, not an error: that sample gets no column.
+    def ch_found_ids = antismash_json.map { meta, _f -> ['antiSMASH', meta.id] }
+        .mix(deepbgc_tsv.map    { meta, _f -> ['DeepBGC', meta.id] })
+        .mix(gecco_clusters.map { meta, _f -> ['GECCO', meta.id] })
+        .toList()
+        .map { rows -> [rows] }
+
+    genomes.map { meta, _g -> meta.id }
+        .toSortedList()
+        .map { ids -> [ids] }
+        .combine(ch_found_ids)
+        .subscribe { ids, rows ->
+            def have = rows.groupBy { it[0] }.collectEntries { t, v -> [(t): v.collect { it[1] } as Set] }
+            proper.values().each { t ->
+                def missing = ids.findAll { !(have[t] ?: [] as Set).contains(it) }
+                if (missing) {
+                    log.warn("[bgc_quast_ppl] ${t} produced no BGC output for: ${missing.join(', ')}")
+                    log.warn("[bgc_quast_ppl] ${missing.size() == ids.size() ? "No ${t} report will be produced." : "These samples get no column in the ${t} report."}")
+                }
+            }
+        }
+
     /*
         BiG-SCAPE side branch. One run per tool over every sample's GBKs together.
         Off unless --run_bigscape. The channel carries a [tool: dir] map; a tool that
