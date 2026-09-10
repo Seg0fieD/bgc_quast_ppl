@@ -102,6 +102,28 @@ became `test_calculator_works_for_a_non_antismash_tool`. The three payload tests
 `sequence_id` have no defaults, so every existing positional construction keeps working.
 **Upstream impact:** None. Defaults to `None`.
 
+### `src/genome_mining_parser.py`
+
+**What:** One regex in `parse_antismash_json`. The region location pattern
+`\[(\d+):(\d+)\](?:\((\+|-)\))?` became `\[<?(\d+):>?(\d+)\](?:\((\+|-)\))?`.
+
+**Why:** An upstream bug, not ours. A BGC that runs off the end of a contig gets a fuzzy
+GenBank bound — antiSMASH writes `[0:>24677](+)`. The old pattern does not match it, the
+`ValueError` becomes an `InvalidInputException`, and `parse_input_mining_result_files` then
+falls through to the next parser. `parse_deepbgc_json` accepts any JSON and returns an empty
+list, so **the whole file** is silently reported as a DeepBGC run with zero BGCs. Found on a
+draft isolate assembly with 261 contigs: one fuzzy region cost all 63 of that sample's regions.
+In compare-samples the mismatched tool aborts the run; in compare-tools it would have produced
+a wrong report with no warning.
+
+The coordinate itself is correct — `<` and `>` mark uncertainty about the boundary, not about
+the number — so ignoring the marker is the right reading.
+
+**Upstream impact:** Files that parsed before parse identically. Files that were previously
+misrouted to DeepBGC now parse as antiSMASH, which is what they are.
+
+**Verified:** pytest failure list unchanged at 38 lines.
+
 ### `configs/config.yaml`
 **What:** One new setting, `bigscape_cutoff: 0.3`.
 **Why:** Which cutoff the report table opens on. Kept beside the other tuning defaults.
