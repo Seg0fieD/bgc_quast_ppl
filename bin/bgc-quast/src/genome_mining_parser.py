@@ -123,8 +123,10 @@ def parse_antismash_json(
                 if feature["type"] == "region":
                     location = feature["location"]
                     # Extract start and end positions from the location string
-                    # Example location: "[0:39844](+)", "[0:39844](-)", "[0:39844]"
-                    pattern = r"\[(\d+):(\d+)\](?:\((\+|-)\))?"
+                    # # Example location: "[0:39844](+)", "[0:39844](-)", "[0:39844]"
+                    # pattern = r"\[(\d+):(\d+)\](?:\((\+|-)\))?"
+                    # Fuzzy bounds: "[<0:>39844](+)" mark a region truncated by a contig edge.
+                    pattern = r"\[<?(\d+):>?(\d+)\](?:\((\+|-)\))?"
                     match = re.match(pattern, location)
                     if match:
                         start = int(match.group(1))
