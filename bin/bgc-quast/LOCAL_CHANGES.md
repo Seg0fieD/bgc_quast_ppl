@@ -233,7 +233,28 @@ already existed in `report_template.html`; the template was not modified.
 already tool-agnostic, and compare-samples has three columns whatever the tool. Confirmed by
 hand runs: both new reports render a correct 3-circle Venn, and for DeepBGC the seven region
 counts sum to 40, which is exactly the number of families counted independently from the
-BiG-SCAPE clustering file.
+BiG-SCAPE clustering file. 
+**Update 2026-09-03 — the cutoff note moved out of the panel (D9).** The dropdown redraws the
+Venn and the panel's own table, but the main metrics table is built in Python and pinned to
+`--bigscape-cutoff`, so it cannot follow. The note explaining that now sits under the main table
+instead of inside the panel, and names both cutoffs when they differ.
+
+**Upstream impact:** None. The note only exists when BiG-SCAPE data is present.
+
+**Anchoring gotcha:** `initGcfPanel` and `initVennPanel` each end with `panel.appendChild(wrapper);`.
+`initGcfPanel`'s is the second one.
+
+**Update 2026-09-10 — a sample picker for the Venn.** New `buildVennPicker`, plus three lines in
+`initGcfPanel`: a `chosen` list, the picker appended to the right column, and `render` drawing
+`chosen` instead of `labels`. `drawVennGcf` holds two or three sets; with four or more samples it
+used to draw nothing but a message. It now gets three dropdowns listing every sample, defaulting
+to the first three. Choosing a sample another dropdown already holds swaps the two, so the three
+stay distinct and the Venn is always drawable. The summary table beside it still shows every
+sample, so nothing is hidden.
+
+**Upstream impact:** None for three samples or fewer — the picker is only built when
+`labels.length > 3`, and `drawVennGcf` itself is unchanged. No CSS was added: the new dropdowns
+reuse `.gcf-cutoff-select`.
 
 ### `src/html_report/report.css`
 **What:** Appended `.gcf-*` classes at the end of the file for the GCF panel: the

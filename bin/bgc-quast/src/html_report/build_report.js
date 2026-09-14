@@ -1231,6 +1231,40 @@ function drawVennGcf(svg, sets, labels) {
     makeText(150, 275, labels[2], 11);
 }
 
+// The Venn holds three sets, so with more samples than that the user picks which three.
+function buildVennPicker(labels, chosen, onChange) {
+    const box = document.createElement('fieldset');
+    box.className = 'venn-controls';
+
+    const legend = document.createElement('legend');
+    legend.textContent = 'Samples in Venn';
+    box.appendChild(legend);
+
+    const selects = [];
+    chosen.forEach((current, slot) => {
+        const sel = document.createElement('select');
+        sel.className = 'gcf-cutoff-select';
+        labels.forEach(label => {
+            const opt = document.createElement('option');
+            opt.value = label;
+            opt.textContent = label;
+            if (label === current) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => {
+            // Picking a sample another slot already holds swaps the two, so the three stay distinct.
+            const clash = selects.findIndex((other, i) => i !== slot && other.value === sel.value);
+            if (clash !== -1) selects[clash].value = chosen[slot];
+            selects.forEach((other, i) => { chosen[i] = other.value; });
+            onChange();
+        });
+        selects.push(sel);
+        box.appendChild(sel);
+    });
+
+    return box;
+}
+
 // Small read-only table of the GCF metrics for the selected cutoff.
 function buildGcfSummaryTable(bigscape, cutoff) {
     const table = document.createElement('table');
@@ -1269,6 +1303,7 @@ function initGcfPanel(panel, bigscape) {
 
     const labels = bigscape.columns || [];
     let cutoff = bigscape.default_cutoff || bigscape.cutoffs[0];
+    const chosen = labels.slice(0, 3);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'venn-wrapper';
@@ -1329,6 +1364,7 @@ function initGcfPanel(panel, bigscape) {
     const rightCol = document.createElement('div');
     rightCol.className = 'venn-right';
     rightCol.appendChild(controls);
+    if (labels.length > 3) rightCol.appendChild(buildVennPicker(labels, chosen, () => render()));
     rightCol.appendChild(tableHolder);
     rightCol.appendChild(link);
     rightCol.appendChild(downloadBtn);
@@ -1352,7 +1388,7 @@ function initGcfPanel(panel, bigscape) {
     const render = () => {
         title.textContent =
             `Gene cluster families shared between samples (cutoff ${cutoff})`;
-        drawVennGcf(svg, (bigscape.sets && bigscape.sets[cutoff]) || {}, labels);
+        drawVennGcf(svg, (bigscape.sets && bigscape.sets[cutoff]) || {}, chosen);
 
         tableHolder.innerHTML = '';
         tableHolder.appendChild(buildGcfSummaryTable(bigscape, cutoff));
