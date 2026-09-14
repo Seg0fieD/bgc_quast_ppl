@@ -34,8 +34,11 @@ workflow BGCQUAST_COMPARISON {
 
     def proper = [antismash: 'antiSMASH', deepbgc: 'DeepBGC', gecco: 'GECCO']
 
+    // antiSMASH writes a JSON even with no BGCs; drop those samples so all three tools agree.
+    def ch_antismash_json = antismash_json.join(antismash_gbk).map { meta, json, _gbks -> [meta, json] }
+
     // No BGCs from a tool is a result, not an error: that sample gets no column.
-    def ch_found_ids = antismash_json.map { meta, _f -> ['antiSMASH', meta.id] }
+    def ch_found_ids = ch_antismash_json.map { meta, _f -> ['antiSMASH', meta.id] }
         .mix(deepbgc_tsv.map    { meta, _f -> ['DeepBGC', meta.id] })
         .mix(gecco_clusters.map { meta, _f -> ['GECCO', meta.id] })
         .toList()
@@ -197,7 +200,7 @@ workflow BGCQUAST_COMPARISON {
         // One run per sample
         def tool_order = ['antismash', 'deepbgc', 'gecco']
 
-        ch_bgcquast_in = antismash_json.map { meta, f -> [meta, 'antismash', f] }
+        ch_bgcquast_in = ch_antismash_json.map { meta, f -> [meta, 'antismash', f] }
             .mix(deepbgc_tsv.map    { meta, f -> [meta, 'deepbgc', f] })
             .mix(gecco_clusters.map { meta, f -> [meta, 'gecco', f] })
             .groupTuple(by: 0)
@@ -218,7 +221,7 @@ workflow BGCQUAST_COMPARISON {
             ch.join(genomes).map { meta, f, g -> [tool, meta.id, f, g] }
         }
 
-        ch_bgcquast_in = by_tool(antismash_json, 'antismash')
+        ch_bgcquast_in = by_tool(ch_antismash_json, 'antismash')
             .mix(by_tool(deepbgc_tsv, 'deepbgc'))
             .mix(by_tool(gecco_clusters, 'gecco'))
             .groupTuple(by: 0)
@@ -284,7 +287,7 @@ workflow BGCQUAST_COMPARISON {
                 }
         }
 
-        ch_bgcquast_in = per_tool_ref(antismash_json, ref_antismash_json, 'antismash')
+        ch_bgcquast_in = per_tool_ref(ch_antismash_json, ref_antismash_json, 'antismash')
             .mix(per_tool_ref(deepbgc_tsv,    ref_deepbgc_tsv,    'deepbgc'))
             .mix(per_tool_ref(gecco_clusters, ref_gecco_clusters, 'gecco'))
 
