@@ -165,9 +165,8 @@ workflow BGCQUAST_COMPARISON {
             }
 
             if ('deepbgc' in to_run) {
-                // DeepBGC writes one multi-record GBK per sample; BiG-SCAPE reads only the
-                // first record, so split before staging. Skipped entirely if a folder is given.
-                DEEPBGC_SPLIT_GBK(deepbgc_gbk)
+                // handles the BGC numbers from bgc.tsv instead of from GBK
+                DEEPBGC_SPLIT_GBK(deepbgc_gbk.join(deepbgc_tsv, failOnDuplicate: true))
                 ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
 
                 def st = stage_gbks(DEEPBGC_SPLIT_GBK.out.gbk)
