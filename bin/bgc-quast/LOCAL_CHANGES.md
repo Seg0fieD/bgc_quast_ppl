@@ -12,9 +12,8 @@ it already reads a QUAST output folder. It does not run BiG-SCAPE.
 Verified by running compare-samples with and without the flag and diffing `report.txt`,
 `report.tsv` and `report.html`.
 
-Last updated: 2026-08-12. The antiSMASH round (Phases 0–6) is complete and verified end to end
-on pipeline output. The GECCO/DeepBGC round is in progress: the parser, the tool filters and the
-report-link derivation are done and verified; the pipeline side is partly built.
+Last updated: 2026-09-21. Both the antiSMASH round and the GECCO/DeepBGC round are complete and
+verified end to end on pipeline output.
 
 ---
 
@@ -318,18 +317,21 @@ but both also emit GBKs, which are.
 Nextflow. Every BGC joined in both runs — 18 of 18 for GECCO, 115 of 115 for DeepBGC — and the
 table, the Venn and BiG-SCAPE's own clustering file agree on every number.
 
-**Done outside this folder:** a module that splits DeepBGC's multi-record GBK and adds the
-`/note="Cluster number: N"` qualifier BiG-SCAPE requires, and the per-tool `BIGSCAPE` aliasing
-with nested output. Neither touches vendored code.
+**Done outside this folder:** the module that splits DeepBGC's multi-record GBK and adds the
+`/note="Cluster number: N"` qualifier BiG-SCAPE requires, the per-tool `BIGSCAPE` aliasing with
+nested output, and the channel wiring that feeds GECCO and DeepBGC GBKs to BiG-SCAPE. Which tools
+BiG-SCAPE runs on follows the existing `bgc_skip_*` flags, so no new parameter was added. None of
+this touches vendored code.
 
-**Not done:** the channel wiring that actually feeds GECCO and DeepBGC GBKs to BiG-SCAPE, and the
-params to switch tools on. Neither will appear in this file.
+**Verified on pipeline output, 2026-09-14** — five genomes, all three tools. Every staged BGC
+joined a family (antiSMASH 165, GECCO 186, DeepBGC 707), and every number in all three reports
+matches its own BiG-SCAPE clustering file.
 
 ---
 
 ## Upstream bugs found
 
-Two problems in the vendored copy that are not ours, reported here so they can go upstream.
+Three problems in the vendored copy that are not ours, reported here so they can go upstream.
 
 ### 1. `report_config.yaml` declared a grouping dimension that does not exist
 
@@ -376,6 +378,15 @@ went from `20 failed / 123 passed / 18 errors` to `20 failed / 132 passed / 18 e
 nine parser tests landed. **The guard is that the failure list is identical, not that the suite
 is green.**
 
+### 3. The antiSMASH parser rejects fuzzy GenBank coordinates
+
+Logged in full under `src/genome_mining_parser.py` above. A region that runs off the end of a
+contig carries a `<` or `>` in its location. The old regex did not match it, so the whole file
+fell through to the DeepBGC parser and was reported as a DeepBGC run with zero BGCs.
+
+**Fix applied:** one regex, `\[<?(\d+):>?(\d+)\](?:\((\+|-)\))?`.
+**Verified:** pytest failure list unchanged at 38 lines.
+
 ---
 
 ## One thing to know before testing a change here
@@ -383,4 +394,4 @@ is green.**
 **Nothing in this folder is part of a Nextflow task hash.** The `BGCQUAST` process only calls
 `python3 bgc-quast.py`, so editing any file here leaves the hash unchanged and `-resume` will
 serve the cached report. After any change in this folder, re-run **without** `-resume`, or the
-result is stale.a a 
+result is stale.
