@@ -34,15 +34,29 @@ workflow BGCQUAST_COMPARISON {
 
     def proper = [antismash: 'antiSMASH', deepbgc: 'DeepBGC', gecco: 'GECCO']
 
-    // antiSMASH writes a JSON even with no BGCs; drop those samples so all three tools agree.
+    // 256-colour orange, dropped when --monochrome_logs is set.
+    def orange      = params.monochrome_logs ? '' : "\033[38;5;208m"
+    def orange_bold = params.monochrome_logs ? '' : "\033[1;38;5;208m"
+    def creset      = params.monochrome_logs ? '' : "\033[0m"
+
+    // antiSMASH writes a JSON even when it finds nothing, while GECCO and DeepBGC write no
+    // file at all. Keeping only samples with region GBKs makes all three behave the same.
     def ch_antismash_json = antismash_json.join(antismash_gbk).map { meta, json, _gbks -> [meta, json] }
 
-    // No BGCs from a tool is a result, not an error: that sample gets no column.
+    // A skipped tool never ran, so it must not be reported as having found nothing.
+    def active = []
+    if (!params.bgc_skip_antismash) active << 'antiSMASH'
+    if (!params.bgc_skip_deepbgc)   active << 'DeepBGC'
+    if (!params.bgc_skip_gecco)     active << 'GECCO'
+
     def ch_found_ids = ch_antismash_json.map { meta, _f -> ['antiSMASH', meta.id] }
         .mix(deepbgc_tsv.map    { meta, _f -> ['DeepBGC', meta.id] })
         .mix(gecco_clusters.map { meta, _f -> ['GECCO', meta.id] })
         .toList()
         .map { rows -> [rows] }
+
+    // Samples that no active tool could predict a BGC for, repeated when the run ends.
+    def no_bgc_notes = []
 
     genomes.map { meta, _g -> meta.id }
         .toSortedList()
@@ -50,25 +64,35 @@ workflow BGCQUAST_COMPARISON {
         .combine(ch_found_ids)
         .subscribe { ids, rows ->
             def have = rows.groupBy { it[0] }.collectEntries { t, v -> [(t): v.collect { it[1] } as Set] }
-            proper.values().each { t ->
-                def missing = ids.findAll { !(have[t] ?: [] as Set).contains(it) }
-                if (missing) {
-                    log.warn("[bgc_quast_ppl] ${t} produced no BGC output for: ${missing.join(', ')}")
-                    log.warn("[bgc_quast_ppl] ${missing.size() == ids.size() ? "No ${t} report will be produced." : "These samples get no column in the ${t} report."}")
+            def tools_missing_for = [:]
+            active.each { t ->
+                ids.findAll { !(have[t] ?: [] as Set).contains(it) }
+                    .each { id -> tools_missing_for.get(id, []) << t }
+            }
+            tools_missing_for.each { id, tools ->
+                no_bgc_notes << "${orange_bold}[bgc_quast_ppl] '${id}': no BGCs predicted, so ${tools.join(', ')} produced no result -- this sample has no column in ${tools.size() > 1 ? 'those reports' : 'that report'}.${creset}".toString()
+            }
+            active.each { t ->
+                if (ids.every { !(have[t] ?: [] as Set).contains(it) }) {
+                    no_bgc_notes << "${orange_bold}[bgc_quast_ppl] ${t} found no BGCs in any sample, so no ${t} report was produced.${creset}".toString()
                 }
             }
         }
 
+    workflow.onComplete {
+        if (no_bgc_notes) {
+            println ''
+            no_bgc_notes.each { println it }
+        }
+    }
+
     /*
         BiG-SCAPE side branch. One run per tool over every sample's GBKs together.
-        Off unless --run_bigscape. The channel carries a [tool: dir] map; a tool that
-        is missing from the map gets [], which BGCQUAST reads as "no --bigscape-output-dir".
+        Off unless --run_bigscape. The channel carries a [tool: dir] map; a tool missing
+        from the map gets [], which BGCQUAST reads as "no --bigscape-output-dir".
         The map is always wrapped in a list, because combine() spreads one level.
     */
-    def bs_tools    = ['antismash', 'gecco', 'deepbgc']
-    // 256-colour orange, dropped when --monochrome_logs is set.
-    def orange = params.monochrome_logs ? '' : "\033[38;5;208m"
-    def creset = params.monochrome_logs ? '' : "\033[0m"
+    def bs_tools = ['antismash', 'gecco', 'deepbgc']
 
     ch_bigscape_dir = Channel.value([[:]])
 
@@ -105,11 +129,11 @@ workflow BGCQUAST_COMPARISON {
             log.info("${orange}            [bgc_quast_ppl] BiG-SCAPE will run for: ${to_run.join(', ')}${creset}")
         }
 
-        // Bare map here on purpose. It is wrapped once, at the end, before combine() sees it.
+        // Bare map on purpose. It is wrapped once, at the end, before combine() sees it.
         ch_bigscape_run = Channel.value([:])
 
         if (to_run) {
-            // Pfam: use the user's pressed copy if given, otherwise download and press one.
+            // Pfam: use the supplied pressed copy, otherwise download and press one.
             // Resolved once and shared by every run.
             def ch_pfam_dir
             def ch_pfam_name
@@ -126,9 +150,9 @@ workflow BGCQUAST_COMPARISON {
                 ch_pfam_name = Channel.value('Pfam-A.hmm')
             }
 
-            // Pair "<sample_id>_<original_filename>" with its file, then sort so the two
-            // lists the module receives stay index-aligned. The prefix is the join key
-            // bgc-quast reverses; ".region" or "_cluster_" must survive for --include-gbk.
+            // Stage each GBK as "<sample_id>_<original_filename>" and sort, so the two lists
+            // the module receives stay index-aligned. bgc-quast reverses that prefix later,
+            // and ".region" or "_cluster_" must survive for BiG-SCAPE's --include-gbk.
             def stage_gbks = { ch ->
                 ch.flatMap { meta, gbks ->
                         (gbks instanceof List ? gbks : [gbks]).collect { g ->
@@ -168,7 +192,7 @@ workflow BGCQUAST_COMPARISON {
             }
 
             if ('deepbgc' in to_run) {
-                // handles the BGC numbers from bgc.tsv instead of from GBK
+                // The .bgc.tsv rides along because the BGC numbering comes from it, not the GBK.
                 DEEPBGC_SPLIT_GBK(deepbgc_gbk.join(deepbgc_tsv, failOnDuplicate: true))
                 ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
 
@@ -184,20 +208,20 @@ workflow BGCQUAST_COMPARISON {
                 ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_DEEPBGC.out.results)
             }
 
-            // toList() always emits once, so a tool whose GBK channel was empty simply
-            // leaves its key out and no sentinel branch is needed.
+            // toList() always emits once, so a tool with an empty GBK channel simply leaves
+            // its key out of the map.
             ch_bigscape_run = ch_bigscape_results
                 .toList()
                 .map { rows -> rows.collectEntries { t, d -> [(t): d] } }
         }
 
-        // Supplied folders win nothing and lose nothing: to_run excludes them by construction.
+        // Supplied folders and freshly run ones cannot overlap: to_run excludes the supplied.
         // Wrapped in a list here, once, because combine() spreads one level.
         ch_bigscape_dir = ch_bigscape_run.map { ran -> [given + ran] }
     }
 
     if (mode == 'compare-tools') {
-        // One run per sample
+        // One bgc-quast run per sample.
         def tool_order = ['antismash', 'deepbgc', 'gecco']
 
         ch_bgcquast_in = ch_antismash_json.map { meta, f -> [meta, 'antismash', f] }
@@ -211,12 +235,12 @@ workflow BGCQUAST_COMPARISON {
             }
             .join(genomes)
             .map { meta, files, genome ->
-                // No --names: bgc-quast auto-labels columns by detected tool.
+                // No --names: bgc-quast labels columns by the tool it detects.
                 [meta + [leaf: "${meta.id}"], files, genome, [], [], [], []]
             }
     }
     else if (mode == 'compare-samples') {
-        // One run per tool 
+        // One bgc-quast run per tool.
         def by_tool = { ch, tool ->
             ch.join(genomes).map { meta, f, g -> [tool, meta.id, f, g] }
         }
@@ -225,9 +249,8 @@ workflow BGCQUAST_COMPARISON {
             .mix(by_tool(deepbgc_tsv, 'deepbgc'))
             .mix(by_tool(gecco_clusters, 'gecco'))
             .groupTuple(by: 0)
-            // groupTuple keeps arrival order, so columns differ between tools and
-            // between runs. Reorder all three lists by sample id so every report
-            // has the same columns.
+            // groupTuple keeps arrival order, which varies between tools and between runs.
+            // Reorder all three lists by sample id so every report has the same columns.
             .map { tool, ids, files, gens ->
                 def idx = (0..<ids.size()).toList().sort { ids[it] }
                 [tool, idx.collect { ids[it] }, idx.collect { files[it] }, idx.collect { gens[it] }]
@@ -242,7 +265,7 @@ workflow BGCQUAST_COMPARISON {
             }
     }
     else if (mode == 'compare-to-reference') {
-        // Single reference genome, reused by QUAST
+        // A single reference genome, reused by QUAST.
         ch_ref_genome_file = ref_genome.map { meta, g -> g }.first()
 
         ch_query_ordered = genomes
@@ -250,7 +273,7 @@ workflow BGCQUAST_COMPARISON {
             .toSortedList { a, b -> a[0] <=> b[0] }
             .map { rows -> [rows.collect { it[0] }, rows.collect { it[1] }] }
 
-        // One QUAST run over all queries vs the reference, unless a dir is supplied.
+        // One QUAST run over all queries against the reference, unless a folder is supplied.
         if (params.bgc_quast_quastdir) {
             ch_quast_dir = Channel.value(file(params.bgc_quast_quastdir, checkIfExists: true))
         }
@@ -266,7 +289,8 @@ workflow BGCQUAST_COMPARISON {
             ch_quast_dir = QUAST.out.results.map { meta, dir -> dir }.first()
         }
 
-     // One run per tool: ordered query predictions + reference prediction, reference genome, and QUAST dir.
+        // One run per tool: ordered query predictions, the reference prediction and genome,
+        // and the QUAST folder.
         def per_tool_ref = { qch, rch, tool ->
             qch.join(genomes)
                 .map { meta, qfile, genome -> [meta.id, qfile, genome] }
@@ -291,19 +315,18 @@ workflow BGCQUAST_COMPARISON {
             .mix(per_tool_ref(deepbgc_tsv,    ref_deepbgc_tsv,    'deepbgc'))
             .mix(per_tool_ref(gecco_clusters, ref_gecco_clusters, 'gecco'))
 
-        // Empty means no predictions from the reference or any query.
+        // Empty means neither the reference nor any query produced a usable prediction.
         ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
             error(
                 "[bgc_quast_ppl] compare-to-reference produced no comparisons.\n" +
                 "                The reference or all query samples yielded no usable BGC predictions,\n" +
                 "                so QUAST and bgc-quast never ran.\n" +
-                "                Check that the reference genome passes the contig-length filter, \n" +
-                "                and its annotated, and produces antiSMASH/DeepBGC/GECCO output(s)."
+                "                Check that the reference genome passes the contig-length filter,\n" +
+                "                is annotated, and produces antiSMASH, DeepBGC or GECCO output."
             )
         }
     }
     else {
-        // auto-mode infer from input
         error("[bgc_quast_ppl] bgc_quast_mode='${mode}' is not supported yet. Use compare-tools, compare-samples, or compare-to-reference.")
     }
 
