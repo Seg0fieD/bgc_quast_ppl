@@ -26,6 +26,7 @@ workflow BGCQUAST_COMPARISON {
     antismash_gbk      // [ meta, [ gbk ] ] query antiSMASH region GBKs (BiG-SCAPE input)
     gecco_gbk          // [ meta, [ gbk ] ] query GECCO cluster GBKs (BiG-SCAPE input)
     deepbgc_gbk        // [ meta, gbk ]     query DeepBGC multi-record GBK (split first)
+    ref_antismash_gbk  // [ meta, [ gbk ] ] reference antiSMASH region GBKs
 
     main:
     ch_versions    = Channel.empty()
@@ -34,14 +35,19 @@ workflow BGCQUAST_COMPARISON {
 
     def proper = [antismash: 'antiSMASH', deepbgc: 'DeepBGC', gecco: 'GECCO']
 
-    // 256-colour orange, dropped when --monochrome_logs is set.
+    // Log colours, dropped when --monochrome_logs is set.
     def orange      = params.monochrome_logs ? '' : "\033[38;5;208m"
     def orange_bold = params.monochrome_logs ? '' : "\033[1;38;5;208m"
+    def pink        = params.monochrome_logs ? '' : "\033[1;38;5;197m"
+    def yellow      = params.monochrome_logs ? '' : "\033[1;93m"
+    def hi          = params.monochrome_logs ? '' : "\033[4m"
+    def noh         = params.monochrome_logs ? '' : "\033[24m"
+    def white       = params.monochrome_logs ? '' : "\033[97m"
     def creset      = params.monochrome_logs ? '' : "\033[0m"
 
-    // antiSMASH writes a JSON even when it finds nothing, while GECCO and DeepBGC write no
-    // file at all. Keeping only samples with region GBKs makes all three behave the same.
+    // antiSMASH writes a JSON even with zero regions; GECCO and DeepBGC write no file at all.
     def ch_antismash_json = antismash_json.join(antismash_gbk).map { meta, json, _gbks -> [meta, json] }
+    def ch_ref_antismash_json = ref_antismash_json.join(ref_antismash_gbk).map { meta, json, _gbks -> [meta, json] }
 
     // A skipped tool never ran, so it must not be reported as having found nothing.
     def active = []
@@ -79,6 +85,22 @@ workflow BGCQUAST_COMPARISON {
             }
         }
 
+    def ch_ref_found = ch_ref_antismash_json.map { _m, _f -> 'antiSMASH' }
+        .mix(ref_deepbgc_tsv.map    { _m, _f -> 'DeepBGC' })
+        .mix(ref_gecco_clusters.map { _m, _f -> 'GECCO' })
+        .toList()
+        .map { found -> [found] }
+
+    ref_name.combine(ch_ref_found).subscribe { rid, found ->
+        def tools = active.findAll { !found.contains(it) }
+        if (tools) {
+            no_bgc_notes << "${orange_bold}[bgc_quast_ppl] reference '${rid}': no BGCs predicted, so ${tools.join(', ')} produced no result -- ${tools.size() > 1 ? 'those reports were' : 'that report was'} not produced.${creset}".toString()
+        }
+    }
+    def ref_id = null
+
+    ref_name.subscribe { rid -> ref_id = rid }
+
     workflow.onComplete {
         if (no_bgc_notes) {
             println ''
@@ -88,15 +110,28 @@ workflow BGCQUAST_COMPARISON {
 
     /*
         BiG-SCAPE side branch. One run per tool over every sample's GBKs together.
-        Off unless --run_bigscape. The channel carries a [tool: dir] map; a tool missing
-        from the map gets [], which BGCQUAST reads as "no --bigscape-output-dir".
-        The map is always wrapped in a list, because combine() spreads one level.
+        compare-samples only, and off unless --run_bigscape. The channel carries a
+        [tool: dir] map; a tool missing from the map gets [], which BGCQUAST reads as
+        "no --bigscape-output-dir". The map is always wrapped in a list, because
+        combine() spreads one level.
     */
-    def bs_tools = ['antismash', 'gecco', 'deepbgc']
+    def bs_tools = []
+    if (!params.bgc_skip_antismash) { bs_tools << 'antismash' }
+    if (!params.bgc_skip_gecco)     { bs_tools << 'gecco' }
+    if (!params.bgc_skip_deepbgc)   { bs_tools << 'deepbgc' }
 
     ch_bigscape_dir = Channel.value([[:]])
 
-    if (params.run_bigscape) {
+    // The flag is never an error in another mode; the run just continues without it.
+    if (params.run_bigscape && mode != 'compare-samples') {
+        log.warn(
+            "${yellow}[bgc_quast_ppl] BiG-SCAPE does not run in ${mode} mode, \n" +
+            "       so BiG-SCAPE and its related steps are skipped. \n" +
+            "       For the gene cluster family analysis,run the pipeline in ${hi}compare-samples${noh} mode with ${hi}--run_bigscape${noh}.${creset}"
+        )
+    }
+
+    if (params.run_bigscape && mode == 'compare-samples') {
         // --bgc_bigscape_dir is a parent holding per-tool subfolders, mirroring the published
         // bgc_quast/bigscape/ layout. Tools without a subfolder still run normally.
         def given = [:]
@@ -311,18 +346,20 @@ workflow BGCQUAST_COMPARISON {
                 }
         }
 
-        ch_bgcquast_in = per_tool_ref(ch_antismash_json, ref_antismash_json, 'antismash')
+        ch_bgcquast_in = per_tool_ref(ch_antismash_json, ch_ref_antismash_json, 'antismash')
             .mix(per_tool_ref(deepbgc_tsv,    ref_deepbgc_tsv,    'deepbgc'))
             .mix(per_tool_ref(gecco_clusters, ref_gecco_clusters, 'gecco'))
 
         // Empty means neither the reference nor any query produced a usable prediction.
+        def banner = "=".multiply(100)
+
         ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
             error(
-                "[bgc_quast_ppl] compare-to-reference produced no comparisons.\n" +
-                "                The reference or all query samples yielded no usable BGC predictions,\n" +
-                "                so QUAST and bgc-quast never ran.\n" +
-                "                Check that the reference genome passes the contig-length filter,\n" +
-                "                is annotated, and produces antiSMASH, DeepBGC or GECCO output."
+                "\n${white}${banner}${creset}\n" +
+                "${pink}[bgc_quast_ppl] The reference '${ref_id}' has no predicted BGCs, so QUAST and bgc-quast did not run.${creset}\n\n" +
+                "${pink}  Check whether ${active.join(', ')} predicted any BGC in that genome.${creset}\n" +
+                "${pink}  The same message appears if no query sample has a predicted BGC either.${creset}\n" +
+                "${white}${banner}${creset}"
             )
         }
     }
