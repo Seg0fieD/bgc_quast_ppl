@@ -37,3 +37,5 @@ example_pipeline_output/_test_gcf_venn_c0.3.svg
 tmp_test/*
 
 tmp_test/check_bigscape_parser.py
+
+/v1.1.0/
