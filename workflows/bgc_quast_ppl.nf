@@ -52,10 +52,9 @@ workflow BGC_QUAST_PPL {
     /*
         REFERENCE RESOLUTION (compare-to-reference only)
         Exactly one reference (type r/R) runs the same prep -> annotation -> prediction
-        lane as the queries, is predicted once, then fanned out to every query.
+        lane as the queries and is predicted once.
     */
     ch_reference_rows = Channel.empty() // [ meta(is_reference), [ ref_fasta, [], [] ] ]
-    ch_query_ref_link = Channel.empty() // [ rid, query_meta ]
     ch_ref_name       = Channel.empty() // val: reference display name (--ref-name)
     ch_query_samples  = ch_samplesheet  // default: every row is a query
 
@@ -77,10 +76,6 @@ workflow BGC_QUAST_PPL {
             [[id: meta.id, category: 'all', is_reference: true], [fasta, faa, gbk]]
         }
 
-        // Link every query to the reference id so the fan-out lines up per query.
-        ch_query_ref_link = ch_split.query
-            .combine(ch_ref_name)
-            .map { meta, fasta, faa, gbk, rid -> [rid, meta + [category: 'long', is_reference: false]] }
     }
 
     /*
@@ -203,18 +198,9 @@ workflow BGC_QUAST_PPL {
         ch_pred_ge     = BGC_PREDICTION.out.gecco_clusters.branch { meta, f -> reference: meta.is_reference; query: true }
         ch_long_fastas = ch_prepped_input_long.fastas.branch      { meta, f -> reference: meta.is_reference; query: true }
 
-        // BiG-SCAPE input for the other two tools. Like antismash_gbk, only .query is consumed;
-        // .reference stays unused until compare-to-reference is wired (item E).
+        // BiG-SCAPE runs on queries only, so these reference branches stay unused.
         ch_pred_ge_gbk = BGC_PREDICTION.out.gecco_gbk.branch   { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_db_gbk = BGC_PREDICTION.out.deepbgc_gbk.branch { meta, f -> reference: meta.is_reference; query: true }
-
-        // Fan the reference's results out to every query, re-keyed to the query meta.
-        def fan_to_queries = { ref_ch ->
-            ref_ch
-                .map { meta, f -> [meta.id, f] }
-                .combine(ch_query_ref_link, by: 0)
-                .map { rid, f, qmeta -> [qmeta, f] }
-        }
 
         BGCQUAST_COMPARISON(
             ch_pred_as.query,
@@ -229,7 +215,9 @@ workflow BGC_QUAST_PPL {
             ch_pred_as_gbk.query,
             ch_pred_ge_gbk.query,
             ch_pred_db_gbk.query,
+            ch_pred_as_gbk.reference,
         )
+        
         ch_versions = ch_versions.mix(BGCQUAST_COMPARISON.out.versions)
         ch_bgcquast_run_count = BGCQUAST_COMPARISON.out.results.count()
     }
