@@ -915,15 +915,15 @@
         "bigscape": {
             "title": "BiG-SCAPE: GCF ANALYSIS",
             "type": "object",
-            "description": "Optional gene cluster family (GCF) analysis with BiG-SCAPE. Runs on the antiSMASH region GBKs and its results appear inside the antiSMASH bgc-quast report. Off by default.",
+            "description": "Optional gene cluster family (GCF) analysis with BiG-SCAPE. compare-samples mode only. Runs once per BGC prediction tool and its results appear inside that tool's bgc-quast report. Off by default.",
             "default": "",
             "fa_icon": "fas fa-project-diagram",
             "properties": {
                 "run_bigscape": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Run BiG-SCAPE on the antiSMASH predictions and add GCF rows to the bgc-quast report.",
-                    "help_text": "Requires antiSMASH to be enabled. If neither --bgc_bigscape_pfam nor --bgc_bigscape_dir is given, Pfam is downloaded and pressed automatically. BiG-SCAPE runs once per pipeline execution over every sample's region GBKs together.",
+                    "description": "Run BiG-SCAPE on the predicted BGCs and add GCF rows to every bgc-quast report. compare-samples mode only.",
+                    "help_text": "Runs only in compare-samples mode. In any other mode the flag is ignored, the run continues, and a warning says so. Needs at least one of antiSMASH, DeepBGC or GECCO enabled; each enabled tool gets its own BiG-SCAPE run over every sample's BGC GBKs together. If neither --bgc_bigscape_pfam nor --bgc_bigscape_dir is given, Pfam is downloaded and pressed automatically.",
                     "fa_icon": "fas fa-toggle-on"
                 },
                 "bgc_bigscape_pfam": {
@@ -943,8 +943,8 @@
                 "bgc_bigscape_dir": {
                     "type": "string",
                     "format": "directory-path",
-                    "description": "Optional path to a finished BiG-SCAPE output directory. Supplying it skips the BiG-SCAPE run.",
-                    "help_text": "Mirrors --bgc_quast_quastdir. The folder must contain output_files/ with at least one clustering TSV.",
+                    "description": "Optional path to a parent folder holding per-tool BiG-SCAPE output subfolders. Tools with a subfolder present are skipped.",
+                    "help_text": "Mirrors --bgc_quast_quastdir, one level higher. The folder holds antismash/, gecco/ and deepbgc/ subfolders, each a finished BiG-SCAPE output directory containing output_files/ with at least one clustering TSV. A previous run's bgc_quast/bigscape/ folder can be passed straight back in. Any tool without a subfolder still runs normally.",
                     "fa_icon": "fas fa-folder-open"
                 },
                 "bgc_bigscape_cutoffs": {
