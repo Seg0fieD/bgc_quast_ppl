@@ -1,10 +1,11 @@
 import json
 import os
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
-from src.config import Config, load_config
-from src.genome_mining_parser import (
+from bgc_quast.config import Config, load_config, BGCLevel
+from bgc_quast.genome_mining_parser import (
     InvalidInputException,
     get_completeness,
     get_seq_data_map,
@@ -14,11 +15,12 @@ from src.genome_mining_parser import (
     parse_gecco_tsv,
     parse_genome_data,
     parse_input_mining_result_files,
+    parse_prism_json,
     parse_quast_output_dir,
     parse_reference_genome_mining_result,
 )
-from src.genome_mining_result import AlignmentInfo, ContigData
-from src.logger import Logger
+from bgc_quast.genome_mining_result import AlignmentInfo, ContigData
+from bgc_quast.logger import Logger
 
 # Test data directory and constants
 TEST_DATA_DIR = Path(__file__).resolve().parent.parent / "test_data"
@@ -26,16 +28,16 @@ ANTISMASH_FILE = (
     TEST_DATA_DIR / "assembly_10_mining" / "antiSMASH" / "assembly_10.json.gz"
 )
 GECCO_FILE = (
-    TEST_DATA_DIR / "assembly_10_mining" / "GECCO" / "assembly_10.fasta.clusters.tsv"
+    TEST_DATA_DIR / "assembly_10_mining" / "GECCO" / "assembly_10.clusters.tsv"
 )
-DEEPBGC_TSV_FILE = TEST_DATA_DIR / "assembly_10_mining" / "DeepBGC" / "DeepBGC.bgc.tsv"
+DEEPBGC_TSV_FILE = TEST_DATA_DIR / "assembly_10_mining" / "DeepBGC" / "assembly_10" / "assembly_10.bgc.tsv"
 DEEPBGC_JSON_FILE = (
-    TEST_DATA_DIR / "assembly_10_mining" / "DeepBGC" / "DeepBGC.antismash.json"
+    TEST_DATA_DIR / "assembly_10_mining" / "DeepBGC" / "assembly_10" / "assembly_10.antismash.json"
 )
 QUAST_DIR = TEST_DATA_DIR / "quast_out"
 SEQ_DATA_MAP = {
-    "CONTIG_1": ContigData(seq_len=50000),
-    "CONTIG_2": ContigData(seq_len=50000),
+    "contig_1": ContigData(seq_len=50000),
+    "contig_2": ContigData(seq_len=50000),
 }
 
 
@@ -46,7 +48,7 @@ def logger():
 
 def test_parse_antismash_json_gzipped():
     """Test parsing a gzipped antiSMASH JSON file."""
-    bgcs = parse_antismash_json(load_config(), ANTISMASH_FILE, SEQ_DATA_MAP)
+    bgcs = parse_antismash_json(load_config(), ANTISMASH_FILE, SEQ_DATA_MAP, BGCLevel.REGION.value)
 
     # Verify we got some BGCs
     assert len(bgcs) == 6
@@ -54,7 +56,7 @@ def test_parse_antismash_json_gzipped():
     # Test the first BGC
     bgc = bgcs[0]
 
-    assert bgc.bgc_id == "CONTIG_2.1"
+    assert bgc.bgc_id == "CONTIG_2.reg.1"
     assert bgc.sequence_id == "CONTIG_2"
     assert bgc.start == 0
     assert bgc.end == 39844
@@ -64,7 +66,7 @@ def test_parse_antismash_json_gzipped():
 
 def test_parse_antismash_json_gzipped_unknown_seq_length():
     """Test parsing a gzipped antiSMASH JSON file."""
-    bgcs = parse_antismash_json(load_config(), ANTISMASH_FILE, None)
+    bgcs = parse_antismash_json(load_config(), ANTISMASH_FILE, None, BGCLevel.REGION.value)
 
     # Verify we got some BGCs
     assert len(bgcs) == 6
@@ -72,12 +74,12 @@ def test_parse_antismash_json_gzipped_unknown_seq_length():
     # Test the first BGC
     bgc = bgcs[0]
 
-    assert bgc.bgc_id == "CONTIG_2.1"
+    assert bgc.bgc_id == "CONTIG_2.reg.1"
     assert bgc.sequence_id == "CONTIG_2"
     assert bgc.start == 0
     assert bgc.end == 39844
     assert bgc.product_types == ["PKS"]
-    assert bgc.completeness == "Unknown"
+    assert bgc.completeness == "Incomplete"
 
 
 def test_parse_antismash_json_invalid_format():
@@ -87,7 +89,7 @@ def test_parse_antismash_json_invalid_format():
         f.write("invalid json content")
 
     with pytest.raises(InvalidInputException) as exc_info:
-        parse_antismash_json(load_config(), Path(invalid_file), SEQ_DATA_MAP)
+        parse_antismash_json(load_config(), Path(invalid_file), SEQ_DATA_MAP, BGCLevel.REGION.value)
     assert "Failed to parse antiSMASH format" in str(exc_info.value)
 
     # Clean up
@@ -97,7 +99,7 @@ def test_parse_antismash_json_invalid_format():
 
 def test_parse_gecco_tsv():
     """Test parsing a GECCO TSV file."""
-    bgcs = parse_gecco_tsv(load_config(), GECCO_FILE, SEQ_DATA_MAP)
+    bgcs = parse_gecco_tsv(load_config(), GECCO_FILE, SEQ_DATA_MAP, BGCLevel.REGION.value)
 
     # Verify we got some BGCs
     assert len(bgcs) == 6
@@ -107,9 +109,9 @@ def test_parse_gecco_tsv():
 
     assert bgc.bgc_id == "CONTIG_1_1"
     assert bgc.sequence_id == "CONTIG_1"
-    assert bgc.start == 1144
+    assert bgc.start == 1143
     assert bgc.end == 42174
-    assert bgc.product_types == ["Unknown"]
+    assert bgc.product_types == ["Unknown product"]
     assert bgc.completeness == "Complete"
 
 
@@ -119,13 +121,13 @@ def test_parse_gecco_tsv_invalid_format(tmp_path):
     tsv_file = tmp_path / "invalid_gecco.tsv"
     tsv_file.write_text(tsv_content)
     with pytest.raises(InvalidInputException) as exc_info:
-        parse_gecco_tsv(load_config(), tsv_file, None)
+        parse_gecco_tsv(load_config(), tsv_file, None, BGCLevel.REGION.value)
     assert "Not GECCO TSV" in str(exc_info.value)
 
 
 def test_parse_deepbgc_tsv():
     """Test parsing a DeepBGC TSV file."""
-    bgcs = parse_deepbgc_tsv(load_config(), DEEPBGC_TSV_FILE, SEQ_DATA_MAP)
+    bgcs = parse_deepbgc_tsv(load_config(), DEEPBGC_TSV_FILE, SEQ_DATA_MAP, BGCLevel.REGION.value)
 
     # Verify we got some BGCs
     assert len(bgcs) == 40
@@ -137,7 +139,7 @@ def test_parse_deepbgc_tsv():
     assert bgc.sequence_id == "CONTIG_1"
     assert bgc.start == 1143
     assert bgc.end == 9307
-    assert bgc.product_types == ["Unknown"]
+    assert bgc.product_types == ["Unknown product"]
     assert bgc.completeness == "Complete"
 
 
@@ -147,13 +149,13 @@ def test_parse_deepbgc_tsv_invalid_format(tmp_path):
     tsv_file = tmp_path / "invalid_deepbgc.tsv"
     tsv_file.write_text(tsv_content)
     with pytest.raises(InvalidInputException) as exc_info:
-        parse_deepbgc_tsv(load_config(), tsv_file, None)
+        parse_deepbgc_tsv(load_config(), tsv_file, None, BGCLevel.REGION.value)
     assert "Not DeepBGC TSV" in str(exc_info.value)
 
 
 def test_parse_deepbgc_json():
     """Test parsing a DeepBGC JSON file."""
-    bgcs = parse_deepbgc_json(load_config(), DEEPBGC_JSON_FILE, SEQ_DATA_MAP)
+    bgcs = parse_deepbgc_json(load_config(), DEEPBGC_JSON_FILE, SEQ_DATA_MAP, BGCLevel.REGION.value)
 
     # Verify we got some BGCs
     assert len(bgcs) == 40
@@ -165,8 +167,91 @@ def test_parse_deepbgc_json():
     assert bgc.sequence_id == "CONTIG_1"
     assert bgc.start == 1143
     assert bgc.end == 9307
-    assert bgc.product_types == ["Unknown"]
+    assert bgc.product_types == ["Unknown product"]
     assert bgc.completeness == "Complete"
+
+
+def test_parse_prism_json(tmp_path):
+    """Test parsing PRISM JSON."""
+    prism_file = tmp_path / "prism.json"
+    sequence_header = (
+        "NC_003888.3 Streptomyces coelicolor A3(2) chromosome, complete genome"
+    )
+    prism_file.write_text(
+        json.dumps(
+            {
+                "prism_results": {
+                    "clusters": [
+                        {
+                            "contig": sequence_header,
+                            "start": 100,
+                            "end": 500,
+                            "type": ["PKS"],
+                            "family": ["TYPE_I_POLYKETIDE"],
+                        },
+                        {
+                            "contig": sequence_header,
+                            "start": 600,
+                            "end": 900,
+                            "type": ["PKS", "NRPS"],
+                            "family": [
+                                "TYPE_I_POLYKETIDE",
+                                "NONRIBOSOMAL_PEPTIDE",
+                            ],
+                        },
+                        {
+                            "contig": sequence_header,
+                            "start": 1000,
+                            "end": 1200,
+                            "type": ["NULL"],
+                            "family": ["NULL"],
+                        },
+                    ]
+                }
+            }
+        )
+    )
+
+    seq_data_map = {
+        "nc_003888.3": ContigData(
+            seq_len=2000,
+            genes=[
+                (150, 250),
+                (300, 400),
+            ],
+        )
+    }
+
+    bgcs = parse_prism_json(
+        load_config(),
+        prism_file,
+        seq_data_map,
+        BGCLevel.REGION.value
+    )
+
+    assert len(bgcs) == 3
+
+    assert bgcs[0].sequence_id == "NC_003888.3"
+    assert bgcs[0].start == 100
+    assert bgcs[0].end == 500
+    assert bgcs[0].product_types == ["PKS"]
+    assert bgcs[0].gene_count == 2
+    assert bgcs[0].completeness == "Complete"
+    assert bgcs[0].metadata == {
+        "product_details": ["PKS"],
+        "product_family": ["TYPE_I_POLYKETIDE"],
+    }
+
+    assert set(bgcs[1].product_types) == {"PKS", "NRPS"}
+    assert bgcs[2].product_types == ["Unknown product"]
+
+def test_parse_prism_json_invalid_format(tmp_path):
+    """Test that non-PRISM JSON is rejected."""
+    prism_file = tmp_path / "invalid.json"
+    prism_file.write_text(json.dumps({"records": []}))
+
+    with pytest.raises(InvalidInputException):
+        parse_prism_json(load_config(), prism_file, None, BGCLevel.REGION.value)
 
 
 def test_parse_deepbgc_json_invalid_format(tmp_path):
@@ -174,8 +259,26 @@ def test_parse_deepbgc_json_invalid_format(tmp_path):
     json_file = tmp_path / "invalid_deepbgc.json"
     json_file.write_text("not a json")
     with pytest.raises(InvalidInputException) as exc_info:
-        parse_deepbgc_json(load_config(), json_file, None)
+        parse_deepbgc_json(load_config(), json_file, None, BGCLevel.REGION.value)
     assert "Failed to parse DeepBGC format" in str(exc_info.value)
+
+def test_parse_deepbgc_json_rejects_prism_schema(tmp_path):
+    """Test that PRISM JSON is not accepted as DeepBGC JSON."""
+    json_file = tmp_path / "wrong_schema.json"
+    json_file.write_text(
+        json.dumps(
+            {
+                "prism_results": {
+                    "clusters": []
+                }
+            }
+        )
+    )
+
+    with pytest.raises(InvalidInputException) as exc_info:
+        parse_deepbgc_json(load_config(), json_file, None, BGCLevel.REGION.value)
+
+    assert "'records' is missing or not a list" in str(exc_info.value)
 
 
 def test_parse_quast_output_dir_valid_file():
@@ -224,6 +327,61 @@ def test_parse_input_files_invalid_file(tmp_path, logger):
         in str(exc_info.value)
     )
 
+def test_parse_input_files_valid_json_wrong_schema(tmp_path, logger):
+    """Test that valid JSON with an unsupported structure is rejected."""
+    json_file = tmp_path / "wrong_schema.json"
+    json_file.write_text(
+        json.dumps(
+            {
+                "unsupported_format": {
+                    "predictions": []
+                }
+            }
+        )
+    )
+
+    with pytest.raises(InvalidInputException) as exc_info:
+        parse_input_mining_result_files(
+            logger,
+            load_config(),
+            [json_file],
+            None,
+        )
+
+    assert (
+        f"Could not parse file {json_file.as_posix()} with any available parser"
+        in str(exc_info.value)
+    )
+
+def test_parse_input_files_prism_json(tmp_path, logger):
+    """Test automatic detection of PRISM JSON."""
+    prism_file = tmp_path / "prism.json"
+    prism_file.write_text(
+        json.dumps(
+            {
+                "prism_results": {
+                    "clusters": [
+                        {
+                            "contig": "contig1",
+                            "start": 100,
+                            "end": 500,
+                            "type": ["PKS"],
+                            "family": ["TYPE_I_POLYKETIDE"],
+                        }
+                    ]
+                }
+            }
+        )
+    )
+
+    results = parse_input_mining_result_files(
+        logger, load_config(), [prism_file], None
+    )
+
+    assert len(results) == 1
+    assert results[0].mining_tool == "PRISM"
+    assert len(results[0].bgcs) == 1
+    assert results[0].bgcs[0].product_types == ["PKS"]
 
 def test_parse_input_files_valid_file(logger):
     """Test parsing a valid input file."""
@@ -273,22 +431,26 @@ def test_parse_input_mining_result_files_mixed_seq_length_sources(tmp_path, logg
     antismash_file2 = tmp_path / "file2.json"
     antismash_file2.write_text(json.dumps(antismash_json2))
 
+    # 3. Dummy genome file to prevent the "single genome fallback" behavior
+    dummy_fasta = tmp_path / "dummy.fasta"
+    dummy_fasta.write_text(">dummy\nATGC\n")
+
     # Call function
     results = parse_input_mining_result_files(
         logger,
         load_config(),
         [antismash_file1, antismash_file2, DEEPBGC_TSV_FILE],
-        [fasta_file],
+        [fasta_file, dummy_fasta],
     )
 
     # Check seq length sources
     # file1: from genome_data
     r1 = next(r for r in results if r.input_file == antismash_file1)
-    assert r1.genome_data["contigA"].seq_len == 8  # type: ignore
+    assert r1.genome_data["contiga"].seq_len == 8  # type: ignore
 
     # file2: from antiSMASH JSON
     r2 = next(r for r in results if r.input_file == antismash_file2)
-    assert r2.genome_data["contigB"].seq_len == 6  # type: ignore
+    assert r2.genome_data["contigb"].seq_len == 6  # type: ignore
 
     # file3: None
     r3 = next(r for r in results if r.input_file == DEEPBGC_TSV_FILE)
@@ -329,9 +491,9 @@ def test_parse_genome_data_fasta(tmp_path):
     result = parse_genome_data([fasta_file])
     label = fasta_file.stem
     assert label in result
-    assert result[label]["contigA"].seq_len == 12
-    assert result[label]["contigB"].seq_len == 8
-    assert result[label]["contigA"].genes == []
+    assert result[label]["contiga"].seq_len == 12
+    assert result[label]["contigb"].seq_len == 8
+    assert result[label]["contiga"].genes == []
 
 
 def test_parse_genome_data_gbff(tmp_path):
@@ -357,10 +519,58 @@ ORIGIN
     result = parse_genome_data([gbff_file])
     label = gbff_file.stem
     assert label in result
-    assert result[label]["contigC"].seq_len == 20
-    assert result[label]["contigD"].seq_len == 10
-    assert result[label]["contigC"].genes == [(0, 5), (9, 15)]
-    assert result[label]["contigD"].genes == []
+    assert result[label]["contigc"].seq_len == 20
+    assert result[label]["contigd"].seq_len == 10
+    assert result[label]["contigc"].genes == [(0, 5), (9, 15)]
+    assert result[label]["contigd"].genes == []
+
+def test_parse_genome_data_gbff_cds_only(tmp_path):
+    """Test that CDS-only GenBank annotations are used as genes."""
+    gbff_content = """LOCUS       contigE              20 bp    DNA     linear   01-JAN-1980
+DEFINITION  dummy.
+ACCESSION   contigE
+FEATURES             Location/Qualifiers
+     CDS             1..5
+     CDS             10..15
+ORIGIN
+        1 atgcatgcat gcatgcatgc
+//
+"""
+    gbff_file = tmp_path / "cds_only.gbff"
+    gbff_file.write_text(gbff_content)
+
+    result = parse_genome_data([gbff_file])
+    label = gbff_file.stem
+
+    assert result[label]["contige"].genes == [(0, 5), (9, 15)]
+
+
+def test_parse_genome_data_gbff_deduplicates_gene_and_cds(tmp_path):
+    """Test that matching gene and CDS features are counted only once."""
+    gbff_content = """LOCUS       contigF              20 bp    DNA     linear   01-JAN-1980
+DEFINITION  dummy.
+ACCESSION   contigF
+FEATURES             Location/Qualifiers
+     CDS             16..18
+     gene            1..5
+     CDS             1..5
+     gene            10..15
+     CDS             10..15
+ORIGIN
+        1 atgcatgcat gcatgcatgc
+//
+"""
+    gbff_file = tmp_path / "gene_and_cds.gbff"
+    gbff_file.write_text(gbff_content)
+
+    result = parse_genome_data([gbff_file])
+    label = gbff_file.stem
+
+    assert result[label]["contigf"].genes == [
+        (0, 5),
+        (9, 15),
+        (15, 18),
+    ]
 
 
 def test_parse_genome_data_unsupported_extension(tmp_path):
@@ -382,6 +592,72 @@ def test_get_seq_data_map_with_genome_seq_data_maps(tmp_path):
     result = get_seq_data_map(genome_seq_data_maps, dummy_file)
     assert result["contig"].seq_len == 123  # type: ignore
 
+def test_get_seq_data_map_prefers_original_label_over_alias(tmp_path):
+    """The original mining-result basename must have priority over --names."""
+    original_map = {"contig": ContigData(seq_len=111)}
+    alias_map = {"contig": ContigData(seq_len=222)}
+
+    mining_file = tmp_path / "assembly1.json"
+    mining_file.write_text("{}")
+
+    result = get_seq_data_map(
+        {
+            "assembly1": original_map,
+            "a1": alias_map,
+        },
+        mining_file,
+        matching_alias="a1",
+    )
+
+    assert result is original_map
+
+
+def test_get_seq_data_map_uses_names_alias_as_fallback(tmp_path):
+    """Use the corresponding --names value when the original label does not match."""
+    alias_map = {"contig": ContigData(seq_len=123)}
+    log = MagicMock(spec=Logger)
+
+    mining_file = tmp_path / "DeepBGC.bgc.tsv"
+    mining_file.write_text("")
+
+    result = get_seq_data_map(
+        {"assembly1": alias_map},
+        mining_file,
+        log=log,
+        matching_alias="assembly1",
+    )
+
+    assert result is alias_map
+    log.info.assert_called_once()
+    assert "--names alias" in log.info.call_args.args[0]
+
+
+def test_get_seq_data_map_warns_when_multiple_genomes_do_not_match(tmp_path):
+    """Warn when neither the original label nor --names matches a genome."""
+    log = MagicMock(spec=Logger)
+
+    mining_file = tmp_path / "DeepBGC.bgc.tsv"
+    mining_file.write_text("")
+
+    result = get_seq_data_map(
+        {
+            "assembly1": {"contig1": ContigData(seq_len=100)},
+            "assembly2": {"contig2": ContigData(seq_len=200)},
+        },
+        mining_file,
+        log=log,
+        matching_alias="wrong_name",
+    )
+
+    assert result is None
+    log.warning.assert_called_once()
+
+    warning_message = log.warning.call_args.args[0]
+    assert "Could not associate genome mining result" in warning_message
+    assert "DeepBGC" in warning_message
+    assert "wrong_name" in warning_message
+    assert "assembly1" in warning_message
+    assert "assembly2" in warning_message
 
 def test_get_seq_data_map_fallback_to_mining_result(tmp_path):
     dummy_file = tmp_path / "foo.json"
@@ -412,11 +688,100 @@ class DummyConfig(Config):
         ({"seq1": ContigData(1000)}, "seq1", 10, 990, 10, "Complete"),
         ({"seq1": ContigData(1000)}, "seq1", 5, 990, 10, "Incomplete"),
         ({"seq1": ContigData(1000)}, "seq1", 10, 995, 10, "Incomplete"),
-        ({}, "seq1", 10, 990, 10, "Unknown"),
-        ({"seq1": ContigData(1000)}, "seq2", 10, 990, 10, "Unknown"),
+        ({}, "seq1", 10, 990, 10, "Unknown completeness"),
+        ({"seq1": ContigData(1000)}, "seq2", 10, 990, 10, "Unknown completeness"),
     ],
 )
 def test_get_completeness(seq_data_map, sequence_id, start, end, margin, expected):
     config = DummyConfig(margin)
     result = get_completeness(config, seq_data_map, sequence_id, start, end)
     assert result == expected
+
+
+def test_parse_input_mining_results_does_not_reuse_genome_alias(tmp_path, logger):
+    """A genome alias may be assigned only once when multiple genomes exist."""
+    assembly_20_deepbgc = (
+        TEST_DATA_DIR / "assembly_20_mining" / "DeepBGC" / "assembly_20" / "assembly_20.bgc.tsv"
+    )
+    assembly_10_old_style = tmp_path / "DeepBGC_10.bgc.tsv"
+    assembly_20_old_style = tmp_path / "DeepBGC_20.bgc.tsv"
+    assembly_10_old_style.write_text(DEEPBGC_TSV_FILE.read_text())
+    assembly_20_old_style.write_text(assembly_20_deepbgc.read_text())
+
+    results = parse_input_mining_result_files(
+        logger,
+        load_config(),
+        [assembly_10_old_style, assembly_20_old_style],
+        [
+            TEST_DATA_DIR / "assembly_10.gbff.gz",
+            TEST_DATA_DIR / "assembly_20.gbff.gz",
+        ],
+        matching_aliases=["assembly_10", "assembly_10"],
+    )
+
+    assert results[0].genome_data is not None
+    assert results[1].genome_data is None
+
+
+def test_parse_input_mining_results_tries_alias_after_used_original_label(
+    tmp_path,
+    logger,
+):
+    """A used original label must not block a different unused alias."""
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_dir.mkdir()
+    second_dir.mkdir()
+
+    first_result = first_dir / "assembly_10.json"
+    second_result = second_dir / "assembly_10.json"
+
+    antismash_data = {
+        "records": [
+            {
+                "id": "contig",
+                "features": [
+                    {
+                        "type": "region",
+                        "location": "[0:3]",
+                        "qualifiers": {},
+                    }
+                ],
+            }
+        ]
+    }
+
+    first_result.write_text(json.dumps(antismash_data))
+    second_result.write_text(json.dumps(antismash_data))
+
+    genome_10 = tmp_path / "assembly_10.fasta"
+    genome_20 = tmp_path / "assembly_20.fasta"
+    genome_10.write_text(">contig\nATGC\n")
+    genome_20.write_text(">contig\nATGCATGC\n")
+
+    results = parse_input_mining_result_files(
+        logger,
+        load_config(),
+        [first_result, second_result],
+        [genome_10, genome_20],
+        matching_aliases=["unused_name", "assembly_20"],
+    )
+
+    assert results[0].genome_data["contig"].seq_len == 4  # type: ignore
+    assert results[1].genome_data["contig"].seq_len == 8  # type: ignore
+
+
+def test_parse_genome_data_rejects_duplicate_labels(tmp_path):
+    """Genome files with the same normalized basename are ambiguous."""
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_dir.mkdir()
+    second_dir.mkdir()
+
+    first_genome = first_dir / "assembly.fasta"
+    second_genome = second_dir / "assembly.fasta"
+    first_genome.write_text(">contig1\nATGC\n")
+    second_genome.write_text(">contig2\nATGC\n")
+
+    with pytest.raises(ValueError, match="same input label 'assembly'"):
+        parse_genome_data([first_genome, second_genome])

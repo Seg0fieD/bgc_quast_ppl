@@ -1,4 +1,4 @@
-"""Tests for src/bigscape/parser.py.
+"""Tests for bgc_quast/bigscape/parser.py.
 
 These build a fake BiG-SCAPE output tree, so they need no real run, no Pfam
 and no BiG-SCAPE install.
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from src.bigscape.parser import (
+from bgc_quast.bigscape.parser import (
     bgc_id_from_record,
     find_clustering_files,
     normalize_cutoff,
@@ -112,9 +112,9 @@ def test_strip_sample_prefix_returns_none_for_unknown_label():
 
 
 def test_bgc_id_strips_zero_padding():
-    assert bgc_id_from_record("CONTIG_2.region001") == "CONTIG_2.1"
-    assert bgc_id_from_record("CONTIG_2.region012") == "CONTIG_2.12"
-    assert bgc_id_from_record("NZ_CP069563.1.region003") == "NZ_CP069563.1.3"
+    assert bgc_id_from_record("CONTIG_2.region001") == "CONTIG_2.reg.1"
+    assert bgc_id_from_record("CONTIG_2.region012") == "CONTIG_2.reg.12"
+    assert bgc_id_from_record("NZ_CP069563.1.region003") == "NZ_CP069563.1.reg.3"
 
 
 def test_bgc_id_returns_none_without_a_region():
@@ -160,7 +160,7 @@ def test_bgc_id_returns_none_for_a_broken_cluster_name():
 
 def test_region_is_tried_before_cluster():
     """`.region` wins, so the antiSMASH path cannot regress."""
-    assert bgc_id_from_record("CONTIG_2_cluster_1.region003") == "CONTIG_2_cluster_1.3"
+    assert bgc_id_from_record("CONTIG_2_cluster_1.region003") == "CONTIG_2_cluster_1.reg.3"
 
 # --- discovery -------------------------------------------------------------
 
@@ -206,8 +206,8 @@ def test_parse_clustering_file_keys_on_sample_and_bgc_id(bigscape_out: Path):
     tsv = find_clustering_files(bigscape_out)["0.3"]
     families = parse_clustering_file(tsv, LABELS)
 
-    assert families[("reference", "CONTIG_2.1")] == "FAM_00001"
-    assert families[("assembly_10", "CONTIG_2.1")] == "FAM_00001"
+    assert families[("reference", "CONTIG_2.reg.1")] == "FAM_00001"
+    assert families[("assembly_10", "CONTIG_2.reg.1")] == "FAM_00001"
     assert len(families) == len(ROWS)
 
 
@@ -215,7 +215,7 @@ def test_same_bgc_id_in_three_samples_does_not_overwrite(bigscape_out: Path):
     tsv = find_clustering_files(bigscape_out)["0.3"]
     families = parse_clustering_file(tsv, LABELS)
 
-    shared = [k for k in families if k[1] == "CONTIG_6.1"]
+    shared = [k for k in families if k[1] == "CONTIG_6.reg.1"]
     assert sorted(label for label, _ in shared) == sorted(LABELS)
 
 

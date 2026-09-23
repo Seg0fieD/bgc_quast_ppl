@@ -1,0 +1,516 @@
+from typing import List, Optional
+from pathlib import Path
+
+from bgc_quast.version import get_version
+import bgc_quast.input_utils as input_utils
+import bgc_quast.reporting.report_writer as report_writer
+from bgc_quast.config import load_config
+from bgc_quast.genome_mining_parser import (
+    GenomeMiningResult,
+    QuastResult,
+    parse_input_mining_result_files,
+    parse_quast_output_dir,
+    parse_reference_genome_mining_result,
+)
+from bgc_quast.logger import Logger
+from bgc_quast.option_parser import ValidationError, get_command_line_args
+from bgc_quast.reporting.report_builder import ReportBuilder
+from bgc_quast.reporting.report_config import ReportConfigManager
+from bgc_quast.reporting.report_data import ReportData, RunningMode
+from bgc_quast.output.genbank_writer import write_genbank, UnsupportedGenomeFormatError
+from bgc_quast.output.bgc_list_writer import write_bgc_tsv, write_overlapping_bgc_tsv
+from bgc_quast.output.bgc_overlaps_html_writer import write_overlapping_bgc_html
+from bgc_quast.bigscape.parser import parse_bigscape, select_cutoff
+
+class PipelineHelper:
+    """
+    A helper class to manage the BGC-QUAST pipeline.
+
+    Attributes:
+        config: Configuration object for the pipeline.
+        args: Command-line arguments parsed into an object.
+        log: Logger instance for logging operations.
+        assembly_genome_mining_results: List of parsed genome mining results.
+        reference_genome_mining_result: Parsed reference genome mining result.
+        quast_results: List of parsed QUAST results.
+
+        running_mode: Running mode of the pipeline (e.g., COMPARE_TO_REFERENCE,
+        COMPARE_TOOLS, COMPARE_SAMPLES).
+        analysis_report: Report with analysis results.
+    """
+
+    def __init__(self, log: Logger):
+        """
+        Initialize the PipelineHelper.
+
+        Args:
+            log: Logger instance for logging operations.
+        """
+        self.log = log
+        self.assembly_genome_mining_results: List[GenomeMiningResult] = []
+        self.reference_genome_mining_result: Optional[GenomeMiningResult] = None
+        self.quast_results: Optional[List[QuastResult]] = None
+        self.running_mode: Optional[RunningMode] = None
+        self.analysis_report: Optional[ReportData] = None
+        self.label_renaming_log: List[dict] = []
+        self.matching_aliases: Optional[List[str]] = None
+        self.bigscape_families: dict = {}
+        self.bigscape_report_url: Optional[str] = None
+
+        default_cfg = load_config()
+        try:
+            self.args = get_command_line_args(default_cfg)
+        except ValidationError as e:
+            self.log.error(
+                f"The command-line argument validation failed: {str(e)}",
+                to_stderr=True,
+            )
+            raise e
+
+        try:
+            self.config = load_config(self.args)
+        except ValueError as e:
+            self.log.error(f"The configuration loading failed: {str(e)}", to_stderr=True)
+            raise e
+
+        self.set_up_output_dir()
+        self.log.set_up_file_handler(self.config.output_config.output_dir)
+        if self.args.debug:
+            self.log.enable_debug_mode()
+        self.log.info(f"BGC-QUAST version: {get_version()}")
+        self.log.start()
+
+    def set_up_output_dir(self) -> None:
+        output_cfg = self.config.output_config
+        output_dir = output_cfg.output_dir
+
+        if output_dir.exists():
+            self.log.warning(
+                f"The output directory ({output_dir}) already exists! "
+                f"Existing files may be overwritten."
+            )
+        else:
+            output_dir.mkdir(parents=True)
+
+        # Only for the *default timestamped* output dir:
+        if output_cfg.update_latest_symlink:
+            self._update_latest_symlink(output_cfg.latest_symlink, output_dir)
+
+    def _update_latest_symlink(self, symlink_path: Path, target_dir: Path) -> None:
+        """
+        Create/overwrite symlink_path -> target_dir.
+        """
+        try:
+            if symlink_path.exists() or symlink_path.is_symlink():
+                # If it's a symlink or file, unlink. If it's a real dir, be defensive.
+                if symlink_path.is_dir() and not symlink_path.is_symlink():
+                    raise RuntimeError(
+                        f"Cannot overwrite '{symlink_path}': it exists and is a directory (not a symlink)."
+                    )
+                symlink_path.unlink()
+
+            relative_target = target_dir.relative_to(symlink_path.parent)
+            symlink_path.symlink_to(relative_target, target_is_directory=True)
+        except OSError as e:
+            self.log.warning(f"Failed to update the latest symlink '{symlink_path}' -> '{target_dir}': {e}")
+
+    def parse_input(self) -> None:
+        """
+        Parse input files for genome mining and QUAST results.
+
+        Raises:
+            ValidationError: If required inputs are missing or invalid.
+        """
+        # TODO: move this part into the option_parser? There is a so-far-empty function
+        # for validating input correctness
+        if self.args.quast_output_dir and not self.args.reference_mining_result:
+            error_message = (
+                "The reference genome mining result is required in the compare-to-reference mode.\n"
+                "Please specify it using --reference-mining-result FILE or -r FILE."
+            )
+            self.log.error(error_message)
+            raise ValidationError(error_message)
+        if not self.args.quast_output_dir and self.args.reference_mining_result:
+            error_message = (
+                "The QUAST output directory is required in the compare-to-reference mode.\n"
+                "Please specify it using --quast-output-dir DIR or -q DIR."
+            )
+            self.log.error(error_message)
+            raise ValidationError(error_message)
+
+        # Prevent the usage of duplicates
+        all_gm_paths = list(self.args.mining_results)
+        if self.args.reference_mining_result is not None:
+            all_gm_paths.append(self.args.reference_mining_result)
+
+        try:
+            input_utils.validate_no_duplicate_paths(all_gm_paths)
+        except ValidationError as e:
+            self.log.error(f"{str(e)}")
+            raise e
+
+        # Parse --names early so that they can also be used as positional
+        # fallback aliases when associating mining results with genome files.
+        self.matching_aliases = input_utils.parse_names_arg(self.args.names)
+
+        if (
+                self.matching_aliases is not None
+                and len(self.matching_aliases) != len(self.args.mining_results)
+        ):
+            error_message = (
+                f"--names must contain the same number of entries as there are input genome "
+                f"mining result files. Expected {len(self.args.mining_results)}, got {len(self.matching_aliases)}."
+            )
+            self.log.error(error_message)
+            raise ValidationError(error_message)
+
+        # Parse genome mining results.
+        try:
+            self.assembly_genome_mining_results = parse_input_mining_result_files(
+                self.log,
+                self.config,
+                self.args.mining_results,
+                self.args.genome_data,
+                matching_aliases=self.matching_aliases,
+            )
+        except Exception as e:
+            self.log.error(f"Failed to parse genome mining results: {str(e)}")
+            raise e
+
+        # Parse QUAST results if provided.
+        if self.args.quast_output_dir:
+            try:
+                self.quast_results = parse_quast_output_dir(self.args.quast_output_dir)
+            except Exception as e:
+                self.log.error(f"Failed to parse QUAST results: {str(e)}")
+                raise e
+
+        # Parse reference genome mining result if provided.
+        if self.args.reference_mining_result:
+            try:
+                self.reference_genome_mining_result = (
+                    parse_reference_genome_mining_result(
+                        self.log,
+                        self.config,
+                        self.args.reference_mining_result,
+                        self.args.reference_genome_data,
+                    )
+                )
+            except Exception as e:
+                self.log.error(
+                    f"Failed to parse reference genome mining results: {str(e)}"
+                )
+                raise e
+
+        # Set running mode based on the provided arguments.
+        try:
+            self.running_mode = input_utils.determine_running_mode(
+                self.args.mode,
+                self.reference_genome_mining_result,
+                self.assembly_genome_mining_results,
+                self.config.bgc_levels,
+                log=self.log,
+            )
+
+            genome_count = len(self.args.genome_data or [])
+            mining_result_count = len(self.assembly_genome_mining_results)
+
+            if (
+                    self.running_mode == RunningMode.COMPARE_TOOLS
+                    and genome_count > 1
+            ):
+                raise ValidationError(
+                    "In compare-tools mode, all genome mining results must describe the same genome, "
+                    "so at most one genome file can be provided. "
+                    f"Expected 0 or 1 genome file, but got {genome_count}. "
+                    "Use -G/--genome to provide a single genome file."
+                )
+
+            if (
+                    self.running_mode
+                    in {
+                RunningMode.COMPARE_SAMPLES,
+                RunningMode.COMPARE_TO_REFERENCE,
+            }
+                    and genome_count not in {0, mining_result_count}
+            ):
+                mode_name = (
+                    "compare-samples"
+                    if self.running_mode == RunningMode.COMPARE_SAMPLES
+                    else "compare-to-reference"
+                )
+
+                raise ValidationError(
+                    f"In {mode_name} mode, the number of genome files provided with -G/--genome "
+                    "must either be zero or match the number of input genome mining result files. "
+                    f"Expected 0 or {mining_result_count} genome file(s), but got {genome_count}. "
+                    "Use -G/--genome to provide one genome file per input genome mining result file."
+                )
+
+            self.label_renaming_log = input_utils.assign_and_deduplicate_display_labels(
+                assembly_results=self.assembly_genome_mining_results,
+                reference_result=self.reference_genome_mining_result,
+                names_arg=self.args.names,
+                ref_name=self.args.ref_name,
+            )
+            if self.matching_aliases is not None:
+                renamed_results = [
+                    (result, requested_name)
+                    for result, requested_name in zip(
+                        self.assembly_genome_mining_results,
+                        self.matching_aliases,
+                    )
+                    if requested_name != result.input_file_label
+                ]
+
+                if renamed_results:
+                    self.log.info(
+                        "\nUsing custom report labels provided through --names. "
+                        "Labels derived from input genome mining result files will be used first to associate "
+                        "mining results with genome files and QUAST reports (if applicable); "
+                        "custom labels are used as a fallback:"
+                    )
+
+                    for result, requested_name in renamed_results:
+                        self.log.info(
+                            f"{result.input_file}: "
+                            f"input-derived label '{result.input_file_label}' ==> custom label '{result.display_label}'",
+                            indent=1,
+                        )
+                    self.log.info("")
+        except ValidationError as e:
+            # Log the specific message from determine_running_mode, then re-raise.
+            self.log.error(str(e))
+            raise
+
+        # Runs after assign_and_deduplicate_display_labels: the join key is
+        # (display_label, bgc_id). A bad folder yields {}, and the rows drop.
+        if getattr(self.args, "bigscape_output_dir", None):
+            # A BiG-SCAPE folder describes one tool; compare-tools holds all
+            # three, so families would land on BGCs they never came from.
+            tools_present = {r.mining_tool for r in self.assembly_genome_mining_results}
+            if len(tools_present) > 1:
+                self.log.warning(
+                    "BiG-SCAPE results were given, but this run holds more than one "
+                    f"tool ({', '.join(sorted(tools_present))}). A BiG-SCAPE folder "
+                    "describes one tool only, so the GCF rows are skipped."
+                )
+                self.log.info(f"The running mode is set to: {self.running_mode}")
+                return
+
+            known_labels = [
+                r.display_label or r.input_file_label
+                for r in self.assembly_genome_mining_results
+            ]
+            if self.reference_genome_mining_result is not None:
+                known_labels.append(
+                    self.reference_genome_mining_result.display_label
+                    or self.reference_genome_mining_result.input_file_label
+                )
+
+            self.bigscape_families = parse_bigscape(
+                self.args.bigscape_output_dir, known_labels, log=self.log
+            )
+
+            if self.bigscape_families:
+                try:
+                    at_cutoff = select_cutoff(
+                        self.bigscape_families, self.config.bigscape_cutoff
+                    )
+                except ValueError as e:
+                    self.log.error(str(e))
+                    raise ValidationError(str(e))
+
+                matched = 0
+                for result in self.assembly_genome_mining_results:
+                    label = result.display_label or result.input_file_label
+                    for bgc in result.bgcs:
+                        bgc.gcf_id = at_cutoff.get((label, bgc.bgc_id))
+                        if bgc.gcf_id:
+                            matched += 1
+
+                self.log.info(
+                    f"BiG-SCAPE: {matched} BGC(s) assigned to a gene cluster family "
+                    f"at cutoff {self.config.bigscape_cutoff}"
+                )
+                # Link to BiG-SCAPE's own report. The `../../` describes the
+                # pipeline's published tree, so it is built here.
+                staged = Path(self.args.bigscape_output_dir)
+                leaf = staged.name
+                if staged.parent.name.startswith("bigscape"):
+                    leaf = f"{staged.parent.name}/{leaf}"
+                self.bigscape_report_url = f"../../{leaf}/index.html"
+
+        self.log.info(f"The running mode is set to: {self.running_mode}")
+
+    def compute_stats(self) -> None:
+        """
+        Compute statistics for the parsed results.
+        """
+
+        try:
+            analysis_report = ReportBuilder(ReportConfigManager()).build_report(
+                config=self.config,
+                results=self.assembly_genome_mining_results,
+                running_mode=self.running_mode,  # type: ignore
+                quast_results=self.quast_results,
+                reference_genome_mining_result=self.reference_genome_mining_result,
+                label_renaming_log=getattr(self, "label_renaming_log", []),
+                requested_mode=self.args.mode,
+                matching_aliases=self.matching_aliases,
+                log=self.log,
+                bigscape_families=self.bigscape_families,
+                bigscape_report_url=self.bigscape_report_url,
+            )
+        except (ValidationError, ValueError) as e:
+            # Report our own exceptions as "Errors" for users.
+            self.log.error(str(e))
+            raise
+
+        self.analysis_report = analysis_report
+
+    def write_results(self) -> None:
+        """
+        Write the results of the pipeline to the output directory.
+
+        Logs the locations of the text and HTML reports.
+        """
+
+        # the extensions will be added for specific outputs (.gbk, .tsv)
+        bgc_info_base_output_path = (self.config.output_config.output_dir /
+                                     ".".join([
+                                              # input_utils.get_file_label_from_path(self.args.genome_data[0]),
+                                              "all_tools", self.config.output_config.bgc_annotations_basename]))
+        bgc_annotations_gbk_output_path = None
+        bgc_list_tsv_output_path = None
+        bgc_overlap_tsv_output_path = None
+        bgc_overlap_html_output_path = None
+        if self.running_mode == RunningMode.COMPARE_TOOLS:
+            if not self.args.genome_data:
+                self.log.warning("Cannot create integrated GenBank file with BGC annotations since no input genome was provided (--genome/-G)")
+            else:
+                bgc_annotations_gbk_output_path = Path(str(bgc_info_base_output_path) + ".gbk")
+                try:
+                    write_genbank(
+                        genome_file=self.args.genome_data[0],
+                        genome_mining_results=self.assembly_genome_mining_results,
+                        output_path=bgc_annotations_gbk_output_path,
+                        overlap_threshold=self.config.compare_tools_overlap_threshold
+                    )
+                except (ValueError, UnsupportedGenomeFormatError) as e:
+                    bgc_annotations_gbk_output_path = None
+                    self.log.warning(
+                        "Failed to generate integrated GenBank file with all BGC predictions. "
+                        f"Reason: {e}\n"
+                    )
+
+            bgc_list_tsv_output_path = Path(str(bgc_info_base_output_path) + ".tsv")
+            try:
+                write_bgc_tsv(
+                    genome_mining_results=self.assembly_genome_mining_results,
+                    output_path=bgc_list_tsv_output_path,
+                    genome_file=self.args.genome_data[0] if self.args.genome_data else None,
+                    overlap_threshold=self.config.compare_tools_overlap_threshold
+                )
+            except ValueError as e:
+                bgc_list_tsv_output_path = None
+                self.log.warning(
+                    "Failed to generate TSV file with all BGC predictions. "
+                    f"Reason: {e}\n"
+                )
+
+            bgc_overlap_tsv_output_path = Path(str(bgc_info_base_output_path) + ".overlaps.tsv")
+            try:
+                write_overlapping_bgc_tsv(
+                    genome_mining_results=self.assembly_genome_mining_results,
+                    output_path=bgc_overlap_tsv_output_path,
+                    genome_file=self.args.genome_data[0] if self.args.genome_data else None
+                )
+            except ValueError as e:
+                bgc_overlap_tsv_output_path = None
+                self.log.warning(
+                    "Failed to generate TSV file with overlapping BGC intervals. "
+                    f"Reason: {e}\n"
+                )
+
+            if bgc_overlap_tsv_output_path is not None:
+                bgc_overlap_html_output_path = Path(
+                    str(bgc_info_base_output_path) + ".overlaps.html"
+                )
+                try:
+                    write_overlapping_bgc_html(
+                        tsv_path=bgc_overlap_tsv_output_path,
+                        output_path=bgc_overlap_html_output_path,
+                    )
+                except (OSError, ValueError) as e:
+                    bgc_overlap_html_output_path = None
+                    self.log.warning(
+                        "Failed to generate HTML file with overlapping BGC intervals. "
+                        f"Reason: {e}\n"
+                    )
+
+        if not self.analysis_report:
+            self.log.error("No analysis report available to write results.")
+            return
+
+        report_writer.write_report(
+            self.analysis_report,
+            self.config.output_config.report,
+            self.config.output_config.html_report,
+            self.config.output_config.tsv_report,
+        )
+
+        self.log.info("")
+        self.log.info("RESULTS:")
+        self.log.info(
+            f"Text report is saved to {self.config.output_config.report}",
+            indent=1,
+        )
+        self.log.info(
+            f"HTML report is saved to {self.config.output_config.html_report}",
+            indent=1,
+        )
+        self.log.info(
+            f"TSV report is saved to {self.config.output_config.tsv_report}",
+            indent=1,
+        )
+        if bgc_annotations_gbk_output_path is not None:
+            self.log.info(
+                f"GenBank file with all BGCs predicted by all tools is saved to {bgc_annotations_gbk_output_path}",
+                indent=1,
+            )
+        if bgc_list_tsv_output_path is not None:
+            self.log.info(
+                f"TSV file with all BGCs predicted by all tools is saved to {bgc_list_tsv_output_path}",
+                indent=1,
+            )
+        if bgc_overlap_tsv_output_path is not None:
+            self.log.info(
+                f"TSV file with overlapping intervals of BGCs predicted by all tools is saved to {bgc_overlap_tsv_output_path}",
+                indent=1,
+            )
+
+        if bgc_overlap_html_output_path is not None:
+            self.log.info(
+                f"HTML file with overlapping intervals of BGCs predicted by all tools is saved to {bgc_overlap_html_output_path}",
+                indent=1,
+            )
+
+        # Log file label renamings (if any)
+        renaming_log = self.analysis_report.metadata.get("label_renaming_log") or []
+        if renaming_log:
+            self.log.info(
+                "Some input files had identical labels and were renamed "
+                "in the report to avoid ambiguity:",
+                indent=1,
+            )
+            for entry in renaming_log:
+                path = entry.get("path", "<unknown path>")
+                old_label = entry.get("old_label", "<unknown>")
+                new_label = entry.get("new_label", "<unknown>")
+                self.log.info(
+                    f"{path}: '{old_label}' ===> '{new_label}'",
+                    indent=2,
+                )
+
+        self.log.finish()  # TODO: Create a separate method for this and "cleaning up"

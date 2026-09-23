@@ -1,0 +1,157 @@
+from pathlib import Path
+from typing import List, Optional
+
+from Bio import SeqIO
+from Bio.SeqFeature import SeqFeature, FeatureLocation
+from Bio.SeqRecord import SeqRecord
+
+from bgc_quast.genome_mining_result import GenomeMiningResult
+from bgc_quast.input_utils import open_file
+
+
+class UnsupportedGenomeFormatError(Exception):
+    pass
+
+
+# Note some tools convert LOCUS/contig names to lowercase
+# TODO: some tools might also skip everything after the first space (do we need to support this?)
+def normalize_id(x):
+    return str(x).strip().lower()
+
+
+def make_bgc_feature(bgc, tool: str) -> SeqFeature:
+    return SeqFeature(
+        FeatureLocation(bgc.start, bgc.end),
+        type="misc_feature",
+        qualifiers = {
+            "product": [",".join(bgc.product_types)],
+            "note": [
+                "BGC",
+                f"tool:{tool}",
+                f"bgc_id:{bgc.bgc_id}",
+                f"completeness:{bgc.completeness}",
+                f"uniqueness:{bgc.uniqueness}",
+            ],
+        }
+    )
+
+
+def prepare_fasta_record_for_genbank(record):
+    new_record = SeqRecord(
+        seq=record.seq,
+        id=record.id,
+        name=record.name,
+        description=record.description or record.id,
+    )
+    new_record.annotations["molecule_type"] = "DNA"
+    new_record.features = []
+    return new_record
+
+
+def load_input_genome_records(genome_file: Path):
+    format_error_msg = (
+        f"Input genome file ({genome_file}) must be in GenBank or FASTA format; "
+        "other formats are currently not supported."
+    )
+
+    for format in ("genbank", "fasta"):
+        with open_file(genome_file) as handle:
+            try:
+                records = list(SeqIO.parse(handle, format))
+            except Exception:
+                records = []
+
+        if records:
+            if format == "fasta":
+                records = [prepare_fasta_record_for_genbank(record) for record in records]
+            return records
+
+    raise UnsupportedGenomeFormatError(format_error_msg)
+
+
+def add_uniqueness_comment(record: SeqRecord, overlap_threshold: Optional[float]) -> None:
+    if overlap_threshold is None:
+        return
+
+    percent = overlap_threshold * 100
+    record.annotations["comment"] = (
+        'BGC-QUAST compare-tools uniqueness classification: '
+        f'a BGC is considered "Shared" if any BGC predicted by another tool overlaps '
+        f'with at least {percent:g}% of its length (set by "--overlap-fraction"); '
+        f'otherwise it is considered "Unique".'
+    )
+
+
+def write_genbank(
+    genome_file: Path,
+    genome_mining_results: List[GenomeMiningResult],
+    output_path: Path,
+    overlap_threshold: Optional[float] = None,
+):
+    records = load_input_genome_records(genome_file)
+
+    for record in records:
+        add_uniqueness_comment(record, overlap_threshold)
+
+    record_by_id = {}
+    for record in records:
+        key = normalize_id(record.id)
+        if key in record_by_id:
+            raise ValueError(f"Duplicate record ID after normalization: {record.id}")
+        record_by_id[key] = record
+
+    missing_ids = set()
+    invalid_bgcs = []
+
+    for result in genome_mining_results:
+        tool = result.mining_tool
+
+        for bgc in result.bgcs:
+            record = record_by_id.get(normalize_id(bgc.sequence_id))
+            if record is None:
+                missing_ids.add(str(bgc.sequence_id))
+                continue
+
+            record_len = len(record.seq)
+
+            if bgc.start is None or bgc.end is None:
+                invalid_bgcs.append(
+                    f"{bgc.bgc_id}: missing coordinates on sequence {bgc.sequence_id}"
+                )
+                continue
+
+            if bgc.start < 0 or bgc.end < 0:
+                invalid_bgcs.append(
+                    f"{bgc.bgc_id}: invalid coordinates {bgc.start}..{bgc.end} "
+                    f"on sequence {bgc.sequence_id} (coordinates must be >= 1)"
+                )
+                continue
+
+            if bgc.start > bgc.end:
+                invalid_bgcs.append(
+                    f"{bgc.bgc_id}: invalid coordinates {bgc.start}..{bgc.end} "
+                    f"on sequence {bgc.sequence_id} (start > end)"
+                )
+                continue
+
+            if bgc.end > record_len:
+                invalid_bgcs.append(
+                    f"{bgc.bgc_id}: invalid coordinates {bgc.start}..{bgc.end} "
+                    f"on sequence {bgc.sequence_id} (record length = {record_len})"
+                )
+                continue
+
+            record.features.append(make_bgc_feature(bgc, tool))
+
+    if missing_ids:
+        raise ValueError(
+            "Could not find matching GenBank record(s) for sequence ID(s). "
+            "Have you provided the same genome sequence used for the genome mining? "
+            + ", ".join(sorted(missing_ids))
+        )
+    if invalid_bgcs:
+        raise ValueError(
+            "Some BGC coordinates are invalid:\n" + "\n".join(invalid_bgcs)
+        )
+
+    SeqIO.write(records, output_path, "genbank")

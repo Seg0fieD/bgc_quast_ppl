@@ -1,0 +1,214 @@
+"""Report builder for creating structured reports from genome mining results."""
+
+from typing import List, Optional
+from collections import defaultdict
+from bgc_quast.logger import Logger
+
+import bgc_quast.compare_to_ref_analyzer as compare_to_ref_analyzer
+from bgc_quast.compare_tools_analyzer import compute_uniqueness
+import bgc_quast.input_utils as input_utils
+from bgc_quast.config import Config
+from bgc_quast.genome_mining_result import GenomeMiningResult, QuastResult
+from bgc_quast.reporting.metrics_calculators import (
+    BasicMetricsCalculator,
+    CompareToRefMetricsCalculator,
+    CompareToolsMetricsCalculator
+)
+from bgc_quast.reporting.report_config import ReportConfigManager
+from bgc_quast.reporting.report_data import (
+    ReportData,
+    RunningMode,
+    create_dataframe_from_metrics,
+)
+from bgc_quast.bigscape.metrics import (
+    BigscapeMetricsCalculator,
+    build_bigscape_metadata,
+)
+from bgc_quast.bigscape.parser import normalize_cutoff
+
+
+class ReportBuilder:
+    """Builds structured reports from genome mining results."""
+
+    def __init__(self, config_manager: ReportConfigManager):
+        self.report_config_manager = config_manager
+
+    def build_report(
+        self,
+        config: Config,
+        results: List[GenomeMiningResult],
+        running_mode: RunningMode,
+        quast_results: Optional[list[QuastResult]] = None,
+        reference_genome_mining_result: Optional[GenomeMiningResult] = None,
+        label_renaming_log: Optional[list[dict]] = None,
+        requested_mode: Optional[str] = None,
+        matching_aliases: Optional[List[str]] = None,
+        log: Optional[Logger] = None,
+        bigscape_families: Optional[dict] = None,
+        bigscape_report_url: Optional[str] = None,
+    ) -> ReportData:
+        """
+        Build a report from genome mining results.
+
+        Args:
+            config: Config of the run.
+            results: List of GenomeMiningResult objects
+            running_mode: Running mode of the report
+            (e.g., COMPARE_TO_REFERENCE, COMPARE_TOOLS, COMPARE_SAMPLES).
+            quast_results: Optional list of QuastResult objects for QUAST analysis.
+            reference_genome_mining_result: Optional GenomeMiningResult for reference
+            genome comparison.
+            matching_aliases: Optional positional aliases parsed from --names.
+            log: Optional logger used to report fallback QUAST associations.
+
+        Returns:
+            ReportData object with structured metrics
+        """
+        report_config = self.report_config_manager.get_config("basic_report")
+        if not report_config:
+            raise ValueError("No configuration found for running mode: basic_report")
+
+
+        basic_metrics_calculator = BasicMetricsCalculator(
+            results=results,
+            config=report_config,
+        )
+        metrics = basic_metrics_calculator.calculate_metrics()
+        if not metrics:
+            raise ValueError("No metrics were calculated. Check your input data.")
+
+        requested_mode = requested_mode
+
+        mode_str = requested_mode if requested_mode is not None else running_mode.value
+        metadata = {
+            "requested_mode": mode_str.replace("-", "_"),
+            "running_mode": running_mode.value,
+            "results_count": len(results),
+            "min_bgc_length": config.min_bgc_length,
+            "bgc_completeness_margin": config.bgc_completeness_margin,
+        }
+
+        if running_mode == RunningMode.COMPARE_TO_REFERENCE:
+            mode_config = self.report_config_manager.get_config("compare_to_reference")
+            if not mode_config:
+                raise ValueError(
+                    "No configuration found for running mode: compare_to_reference"
+                )
+
+            reference_bgcs = compare_to_ref_analyzer.compute_coverage(
+                log,
+                results,
+                reference_genome_mining_result,  # type: ignore
+                quast_results,  # type: ignore
+                config.allowed_gap_for_fragmented_recovery,
+                matching_aliases=matching_aliases,
+            )
+
+            mode_metrics_calculator = CompareToRefMetricsCalculator(
+                results_with_ref_bgcs=reference_bgcs,
+                config=mode_config,
+            )
+            metrics.extend(mode_metrics_calculator.calculate_metrics())
+
+            # Add reference as a third column for basic metrics only
+            if reference_genome_mining_result is not None:
+                ref_basic_calc = BasicMetricsCalculator(
+                    results=[reference_genome_mining_result],
+                    config=report_config,
+                )
+                metrics.extend(ref_basic_calc.calculate_metrics())
+
+            # metadata.update({"reference_bgcs": reference_bgcs})
+
+            if reference_genome_mining_result is not None:
+                metadata.update(
+                    {
+                        "reference_input_file": str(reference_genome_mining_result.input_file),
+                        "reference_file_label": (reference_genome_mining_result.display_label
+                                                 or reference_genome_mining_result.input_file_label),
+                    }
+                )
+
+        elif running_mode == RunningMode.COMPARE_TOOLS:
+            mode_config = self.report_config_manager.get_config("compare_tools")
+            if not mode_config:
+                raise ValueError("No configuration found for running mode: compare_tools")
+
+            results_with_unique_nonunique, meta = compute_uniqueness(results,
+                                                                     overlap_threshold=config.compare_tools_overlap_threshold)
+
+            mode_metrics_calculator = CompareToolsMetricsCalculator(
+                results_with_unique_nonunique_bgcs=results_with_unique_nonunique,
+                config=mode_config,
+            )
+            metrics.extend(mode_metrics_calculator.calculate_metrics())
+
+            # keep in metadata so users/finders can locate them
+            metadata.update({
+                "compare_tools_overlap_threshold": config.compare_tools_overlap_threshold,
+                "totals_by_run": meta.get("totals_by_run", {}),
+                "pairwise_by_run": meta.get("pairwise_by_run", {}),
+            })
+
+        elif running_mode == RunningMode.COMPARE_SAMPLES:
+            # TODO_ Implement sample comparison metrics if needed.
+            if bigscape_families:
+                mode_config = self.report_config_manager.get_config("compare_samples")
+                if not mode_config:
+                    raise ValueError("No configuration found for running mode: compare_samples")
+
+                mode_metrics_calculator = BigscapeMetricsCalculator(
+                    results=results,
+                    config=mode_config,
+                )
+                gcf_metrics = mode_metrics_calculator.calculate_metrics()
+
+                if gcf_metrics:
+                    metrics.extend(gcf_metrics)
+
+                    # Column order follows `results`, the report's own order;
+                    # sorting here would break the match with the table.
+                    column_labels = [
+                        r.display_label or r.input_file_label
+                        for r in results
+                    ]
+                    payload_args = {
+                        "families": bigscape_families,
+                        "column_labels": column_labels,
+                        "default_cutoff": normalize_cutoff(config.bigscape_cutoff),
+                        "display_names": {m.name: m.display_name for m in mode_config.metrics},
+                    }
+                    if bigscape_report_url:
+                        payload_args["report_url"] = bigscape_report_url
+                    payload = build_bigscape_metadata(**payload_args)
+                    if payload:
+                        metadata.update({"bigscape": payload})
+
+        # Create DataFrame.
+        df = create_dataframe_from_metrics(metrics)
+        # Create a mapping from (file_path, mining_tool) to label
+        path_tool_to_label = {
+            (str(r.input_file), r.mining_tool): (r.display_label or r.input_file_label) for r in results
+        }
+
+        # Add a mapping for reference as well
+        if reference_genome_mining_result is not None:
+            path_tool_to_label[
+                (str(reference_genome_mining_result.input_file), reference_genome_mining_result.mining_tool)
+            ] = (
+                    reference_genome_mining_result.display_label or reference_genome_mining_result.input_file_label
+            )
+
+        file_paths_str = df["file_path"].astype(str)
+        key_series = list(zip(file_paths_str, df["mining_tool"]))
+
+        df["Genome mining tool"] = df["mining_tool"]
+        df["file_label"] = [path_tool_to_label[key] for key in key_series]
+        df["input_file"] = file_paths_str
+
+        df.drop(columns=["file_path"], inplace=True, errors="ignore")
+
+        metadata["label_renaming_log"] = label_renaming_log or []
+
+        return ReportData(metrics_df=df, running_mode=running_mode, metadata=metadata)
+    

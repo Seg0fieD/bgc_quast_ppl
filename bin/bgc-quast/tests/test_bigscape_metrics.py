@@ -1,4 +1,4 @@
-"""Tests for src/bigscape/metrics.py.
+"""Tests for bgc_quast/bigscape/metrics.py.
 
 The fixture is deliberately messier than the real test data: three columns, one
 family in all three, one in two of three, and three singletons. The real 18-GBK run
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from src.bigscape.metrics import (
+from bgc_quast.bigscape.metrics import (
     ANTISMASH_TOOL,
     GCF_METRIC_NAMES,
     BigscapeMetricsCalculator,
@@ -24,8 +24,8 @@ from src.bigscape.metrics import (
     summarise_cutoff,
     unique_gcf_count,
 )
-from src.genome_mining_result import Bgc, GenomeMiningResult
-from src.reporting.report_config import ReportConfigManager
+from bgc_quast.genome_mining_result import Bgc, GenomeMiningResult
+from bgc_quast.reporting.report_config import ReportConfigManager
 
 LABELS = ["reference", "assembly_10", "assembly_20"]
 

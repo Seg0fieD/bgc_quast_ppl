@@ -24,14 +24,14 @@ process BGCQUAST {
     def genome_list = genome ? (genome instanceof List ? genome : [genome]) : []
     // Symlink "<id>_long.fasta" to "<id>.fasta" so --genome matches the mining-result label.
     def genome_renames = genome_list.collect { "ln -sf \$WORKDIR/${it.name} \$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join('\n    ')
-    def genome_arg     = genome_list ? "--genome " + genome_list.collect { "\$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join(' ') : ''
+    def genome_arg     = genome_list ? genome_list.collect { "--genome \$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join(' ') : ''
     def quast_arg            = quast_dir        ? "--quast-output-dir \$WORKDIR/${quast_dir}"               : ''
     def reference_mining_arg = reference_mining ? "--reference-mining-result \$WORKDIR/${reference_mining}" : ''
     def reference_genome_arg = reference_genome ? "--reference-genome \$WORKDIR/${reference_genome}"        : ''
     def bigscape_arg         = bigscape_dir     ? "--bigscape-output-dir \$WORKDIR/${bigscape_dir} --bigscape-cutoff ${params.bgc_bigscape_cutoff}" : ''
     
     """
-    # Run from bin/bgc-quast/ so `from src.*` imports resolve; staged paths passed as absolute.
+    # Run from bin/bgc-quast/ so `from bgc_quast.*` imports resolve; staged paths are passed as absolute.
     WORKDIR=\$PWD
     mkdir -p \$WORKDIR/bgcquast_out
     mkdir -p \$WORKDIR/renamed
