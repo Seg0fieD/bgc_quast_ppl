@@ -209,14 +209,13 @@ Do **not** pass both at once — the pipeline stops with an error if you do.
 
 ### BiG-SCAPE (gene cluster families)
 
-Optional. Runs BiG-SCAPE on the antiSMASH predictions and adds gene cluster family (GCF) rows plus a Venn diagram to the **antiSMASH** bgc-quast report. `compare-samples` mode only. Off by default — with it off, the report is unchanged.
-
+Optional. Runs BiG-SCAPE once per active tool and adds gene cluster family (GCF) rows plus a Venn diagram to **all three** bgc-quast reports. `compare-samples` mode only — in any other mode the flag is ignored with a warning and the run continues. Off by default; with it off the reports are unchanged.
 | Option | Default | Meaning |
 |---|---|---|
-| `--run_bigscape` | `false` | Turn it on. Needs antiSMASH enabled. |
+| `--run_bigscape` | `false` | Turn it on. Any one of the three tools is enough. |
 | `--bgc_bigscape_pfam` | — | Path to an existing `Pfam-A.hmm` **file** (not its folder). Leave unset to download it automatically. |
 | `--bgc_bigscape_pfam_url` | Pfam 38.2 | Where to download Pfam from when `--bgc_bigscape_pfam` is not set. |
-| `--bgc_bigscape_dir` | — | Supply your own finished BiG-SCAPE output directory. BiG-SCAPE is then skipped. |
+| `--bgc_bigscape_dir` | — | A parent folder holding one subfolder per tool. Tools already present there are reused; the rest are run. A previous run's `bgc_quast/bigscape/` can be handed straight back in. |
 | `--bgc_bigscape_cutoffs` | `0.3,0.5,0.7` | GCF distance cutoffs to compute. They fill the dropdown in the HTML report. |
 | `--bgc_bigscape_cutoff` | `0.3` | Which cutoff the report table shows. Must be one of the above. |
 | `--bgc_bigscape_classify` | `none` | BiG-SCAPE binning mode. Only `none` is wired. |
@@ -226,6 +225,14 @@ Optional. Runs BiG-SCAPE on the antiSMASH predictions and adds gene cluster fami
 If you do not pass it, the pipeline downloads and presses Pfam for you. That is about 400 MB to download and roughly 4 GB of free disk once unpacked and pressed. Add `--save_db` to keep it under `<outdir>/databases/pfam`, otherwise it stays in the work directory and is downloaded again on a fresh run.
 
 The Pfam release is pinned on purpose. Pfam version changes which domains are found, which changes BiG-SCAPE distances and can change the families, so pinning keeps results reproducible between runs.
+
+**One annotation for all three tools.** The pipeline annotates each genome once with pyrodigal in meta mode and gives the same GenBank file to antiSMASH, DeepBGC and GECCO. That is on purpose: a difference between tools is then a difference between BGC finders, not between gene callers. It is also why the counts differ slightly from gurevichlab's demo data, where each tool called its own genes.
+
+**GECCO.** Its BiG-SCAPE run uses `--force-gbk`, which upstream marks experimental.
+
+**Choosing a database.** If BiG-SCAPE's own page asks you for a `bigscape.db`, that file is written by a previous BiG-SCAPE run and lives inside its output folder. Point it at the one in the tool's own folder under `bgc_quast/bigscape/<tool>/`.
+
+**Samples with no BGCs.** A sample for which a tool predicted nothing is left out of that tool's report, and the run prints a line saying so. The same applies to the reference in compare-to-reference mode.
 
 Example:
 
@@ -263,13 +270,17 @@ results/
 │   │   ├── DeepBGC/report.tsv
 │   │   └── GECCO/report.tsv
 │   ├── compare_tools/              # compare-tools mode
-│   │   └── <sample>/report.tsv
+│   │   └── <sample>/               # report.tsv, plus all_tools.bgcs.gbk,
+│   │                               # all_tools.bgcs.tsv and the two overlaps files
 │   ├── compare_to_reference/       # compare-to-reference mode
 │   │   ├── antiSMASH/report.tsv
 │   │   ├── DeepBGC/report.tsv
 │   │   └── GECCO/report.tsv
 │   ├── quast/                      # only in compare-to-reference mode
-│   └── bigscape/                   # only with --run_bigscape; includes BiG-SCAPE's own index.html
+│   └── bigscape/                   # only with --run_bigscape
+│       ├── antismash/              # each holds BiG-SCAPE's own index.html
+│       ├── deepbgc/
+│       └── gecco/
 ├── databases/
 │   └── pfam/                       # only with --save_db; the downloaded and pressed Pfam
 └── pipeline_info/                  # run reports, timeline, and DAG diagram
