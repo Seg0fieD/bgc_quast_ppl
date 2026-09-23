@@ -5,6 +5,7 @@
 .DS_Store*
 
 ..pytest_cache/
+.vscode/
 
 # Nextflow work directory
 work/
@@ -39,3 +40,5 @@ tmp_test/*
 tmp_test/check_bigscape_parser.py
 
 /v1.1.0/
+
+/v1.0.0/
