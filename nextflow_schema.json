@@ -896,13 +896,6 @@
                     "help_text": "Passed to bgc-quast --overlap-fraction.",
                     "fa_icon": "fas fa-percent"
                 },
-                "bgc_quast_output_bgcs": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Write BGCs predicted by all tools into one combined GenBank file. Used in compare-tools mode and needs a genome.",
-                    "help_text": "Passed to bgc-quast --output-bgcs.",
-                    "fa_icon": "fas fa-file-export"
-                },
                 "bgc_quast_debug": {
                     "type": "boolean",
                     "default": false,

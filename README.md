@@ -204,7 +204,6 @@ Do **not** pass both at once — the pipeline stops with an error if you do.
 | `--bgc_quast_min_bgc_length` | `0` | Ignore BGCs shorter than this. `0` = no minimum. |
 | `--bgc_quast_merge_distance` | `0` | Merge BGCs closer than this. |
 | `--bgc_quast_overlap_fraction` | `0.9` | Overlap fraction used when matching BGCs. |
-| `--bgc_quast_output_bgcs` | `false` | Also write the individual BGC sequences. |
 | `--bgc_quast_quastdir` | — | Supply your own QUAST output directory (compare-to-reference only). QUAST is then skipped. |
 | `--bgc_quast_debug` | `false` | Print the raw error output on failure (for troubleshooting). |
 
