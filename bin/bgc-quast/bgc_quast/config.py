@@ -110,7 +110,7 @@ def load_config(args: Optional[CommandLineArgs] = None) -> Config:
 
     if args is not None and getattr(args, "bgc_level", None) is not None:
         conf.bgc_levels = [BGCLevel(level) for level in args.bgc_level]
-    
+
     if args is not None and getattr(args, "bigscape_cutoff", None) is not None:
         conf.bigscape_cutoff = args.bigscape_cutoff
 

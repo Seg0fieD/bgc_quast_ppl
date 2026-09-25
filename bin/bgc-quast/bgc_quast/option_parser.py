@@ -197,7 +197,7 @@ def add_mode_specific_arguments(parser: argparse.ArgumentParser):
         default=None,
         help="Custom name for the reference genome mining result in reports (only if reference is provided, see -R)",
     )
-    
+
     bigscape = parser.add_argument_group("BiG-SCAPE")
     bigscape.add_argument(
         "--bigscape-output-dir",
@@ -327,7 +327,7 @@ def validate_arguments(args: CommandLineArgs):
             "--ref-name was provided but no reference genome mining result was specified. "
             "Please use --reference-mining-result together with --ref-name."
         )
-    
+
     cutoff = getattr(args, "bigscape_cutoff", None)
     if cutoff is not None:
         validate(

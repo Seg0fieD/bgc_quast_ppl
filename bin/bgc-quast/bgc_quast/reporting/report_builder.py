@@ -151,7 +151,7 @@ class ReportBuilder:
             })
 
         elif running_mode == RunningMode.COMPARE_SAMPLES:
-            # TODO_ Implement sample comparison metrics if needed.
+            # TODO_: Implement sample comparison metrics if needed.
             if bigscape_families:
                 mode_config = self.report_config_manager.get_config("compare_samples")
                 if not mode_config:

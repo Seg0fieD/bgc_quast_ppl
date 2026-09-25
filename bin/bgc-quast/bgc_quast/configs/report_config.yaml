@@ -110,7 +110,7 @@ compare_samples:
     - name: "accessory_bgcs"
       display_name: "# accessory BGCs"
       description: "Number of BGCs present in some but not all samples"
-    
+
     # BiG-SCAPE gene cluster family (GCF) metrics: present only with --bigscape-output-dir.
     - name: "gcf_count"
       display_name: "# GCFs"
@@ -130,7 +130,7 @@ compare_samples:
     - name: "mean_bgcs_per_gcf"
       display_name: "Mean BGCs per GCF"
       description: "Average number of this sample's BGCs per family it contains"
-      precision: 1  
+      precision: 1
 
   grouping_dimensions:
     product_type:
