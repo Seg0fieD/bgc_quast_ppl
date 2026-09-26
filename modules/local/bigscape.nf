@@ -46,6 +46,13 @@ process BIGSCAPE {
     mkdir -p \$WORKDIR/gbk_input
     ${stage_cmds}
 
+    # BiG-SCAPE never seeds numpy, so scikit-learn draws a different
+    # tie-breaker each run and borderline BGCs change family. Python imports
+    # sitecustomize at startup, which also covers spawned child processes.
+    echo 'import numpy' > \$WORKDIR/sitecustomize.py
+    echo 'numpy.random.seed(0)' >> \$WORKDIR/sitecustomize.py
+    export PYTHONPATH="\$WORKDIR\${PYTHONPATH:+:\$PYTHONPATH}"
+
     bigscape cluster \\
         -i \$WORKDIR/gbk_input \\
         -o \$WORKDIR/${prefix} \\
