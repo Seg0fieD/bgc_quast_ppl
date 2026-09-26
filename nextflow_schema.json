@@ -67,7 +67,6 @@
                     "default": "pyrodigal",
                     "description": "Specify which annotation tool to use for some downstream tools.",
                     "enum": [
-                        "prodigal",
                         "pyrodigal",
                         "prokka",
                         "bakta"
@@ -333,40 +332,6 @@
                     "fa_icon": "fas fa-font",
                     "help_text": "This parameter allows prokka to retain the original contig names by activating `PROKKA`'s  `--force` flag. If this parameter is set to `false` it activates `PROKKA`'s flags `--locus-tag PROKKA --centre CENTER` so the locus tags (contig names) will be PROKKA_# and the center tag will be CENTER. By default `PROKKA` changes contig headers to avoid errors that might rise due to long contig headers, so this must be turned on if the user has short contig names that should be retained by `PROKKA`. \n\n> Modifies tool parameter(s):\n> - Prokka: `--locus-tag PROKKA --centre CENTER`\n> - Prokka: `--force`",
                     "description": "Retains contig names."
-                }
-            },
-            "fa_icon": "fas fa-file-signature"
-        },
-        "annotation_prodigal": {
-            "title": "Annotation: Prodigal",
-            "type": "object",
-            "description": "Prodigal is a protein-coding gene prediction tool developed to run on bacterial and archaeal genomes. More info: https://github.com/hyattpd/prodigal/wiki",
-            "default": "",
-            "properties": {
-                "annotation_prodigal_singlemode": {
-                    "type": "boolean",
-                    "description": "Specify whether to use Prodigal's single-genome mode for long sequences.",
-                    "help_text": "By default Prodigal runs in 'single genome' mode that requires sequence lengths to be equal or longer than 20000 characters.\n\nHowever, more fragmented reads from MAGs often result in contigs shorter than this. Therefore, this pipeline will run with the `meta` mode by default. Providing this parameter allows to override this and run in single genome mode again.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s): \n> -PRODIGAL: `-p`",
-                    "fa_icon": "far fa-circle"
-                },
-                "annotation_prodigal_closed": {
-                    "type": "boolean",
-                    "description": "Does not allow partial genes on contig edges.",
-                    "help_text": "Suppresses partial genes from being on contig edge, resulting in closed ends. Should only be activated for genomes where it is sure the first and last bases of the sequence(s) do not fall inside a gene. Run together with `-p normal` (former `-p single`) .\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s):\n> - PRODIGAL: `-c`",
-                    "fa_icon": "fas fa-arrows-alt-h"
-                },
-                "annotation_prodigal_transtable": {
-                    "type": "integer",
-                    "default": 11,
-                    "description": "Specifies the translation table used for gene annotation.",
-                    "help_text": "Specifies which translation table should be used for seqeunce annotation. All possible genetic code translation tables can be found [here](https://en.wikipedia.org/wiki/List_of_genetic_codes). The default is set at 11, which is used for standard Bacteria/Archeae.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s):\n> - PRODIGAL: `-g`",
-                    "fa_icon": "fas fa-border-all"
-                },
-                "annotation_prodigal_forcenonsd": {
-                    "type": "boolean",
-                    "description": "Forces Prodigal to scan for motifs.",
-                    "help_text": "Forces PRODIGAL to a full scan for motifs rather than activating the Shine-Dalgarno RBS finder, the default scanner for PRODIGAL to train for motifs.\n\nFor more information check the Prodigal [documentation](https://github.com/hyattpd/prodigal/wiki).\n\n> Modifies tool parameter(s):\n> - PRODIGAL: `-n`",
-                    "fa_icon": "fas fa-barcode"
                 }
             },
             "fa_icon": "fas fa-file-signature"
@@ -985,9 +950,6 @@
         },
         {
             "$ref": "#/$defs/annotation_prokka"
-        },
-        {
-            "$ref": "#/$defs/annotation_prodigal"
         },
         {
             "$ref": "#/$defs/annotation_pyrodigal"

@@ -3,12 +3,9 @@
 */
 
 include { PROKKA                         } from '../../modules/nf-core/prokka/main'
-//include { PRODIGAL                       } from '../../modules/nf-core/prodigal/main'
 include { PYRODIGAL                      } from '../../modules/nf-core/pyrodigal/main'
 include { BAKTA_BAKTADBDOWNLOAD          } from '../../modules/nf-core/bakta/baktadbdownload/main'
 include { BAKTA_BAKTA                    } from '../../modules/nf-core/bakta/bakta/main'
-include { GUNZIP as GUNZIP_PRODIGAL_FAA  } from '../../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_PRODIGAL_GBK  } from '../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PYRODIGAL_FAA } from '../../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PYRODIGAL_GBK } from '../../modules/nf-core/gunzip/main'
 
@@ -19,13 +16,7 @@ workflow ANNOTATION {
     main:
     ch_versions = Channel.empty()
 
-    if (params.annotation_tool == "pyrodigal" || (params.annotation_tool == "prodigal" && params.run_bgc_screening == true && (!params.bgc_skip_antismash || !params.bgc_skip_deepbgc || !params.bgc_skip_gecco))) {
-        // BGC tools need Pyrodigal; Prodigal's GBK format is incompatible.
-
-        if (params.annotation_tool == "prodigal" && params.run_bgc_screening == true && (!params.bgc_skip_antismash || !params.bgc_skip_deepbgc || !params.bgc_skip_gecco)) {
-            log.warn("[bgc_quast_ppl] Switching annotation tool to: Pyrodigal. Prodigal GBK annotations are incompatible with antiSMASH, DeepBGC, and GECCO. To use Prodigal, skip those tools or provide a pre-annotated GBK file in the samplesheet.")
-        }
-
+    if (params.annotation_tool == "pyrodigal") {
         PYRODIGAL(fasta, "gbk")
         GUNZIP_PYRODIGAL_FAA(PYRODIGAL.out.faa)
         GUNZIP_PYRODIGAL_GBK(PYRODIGAL.out.annotations)
@@ -34,17 +25,6 @@ workflow ANNOTATION {
         ch_versions = ch_versions.mix(GUNZIP_PYRODIGAL_GBK.out.versions)
         ch_annotation_faa = GUNZIP_PYRODIGAL_FAA.out.gunzip
         ch_annotation_gbk = GUNZIP_PYRODIGAL_GBK.out.gunzip
-    }
-    else if (params.annotation_tool == "prodigal") {
-
-        PRODIGAL(fasta, "gbk")
-        GUNZIP_PRODIGAL_FAA(PRODIGAL.out.amino_acid_fasta)
-        GUNZIP_PRODIGAL_GBK(PRODIGAL.out.gene_annotations)
-        ch_versions = ch_versions.mix(PRODIGAL.out.versions)
-        ch_versions = ch_versions.mix(GUNZIP_PRODIGAL_FAA.out.versions)
-        ch_versions = ch_versions.mix(GUNZIP_PRODIGAL_GBK.out.versions)
-        ch_annotation_faa = GUNZIP_PRODIGAL_FAA.out.gunzip
-        ch_annotation_gbk = GUNZIP_PRODIGAL_GBK.out.gunzip
     }
     else if (params.annotation_tool == "prokka") {
 
