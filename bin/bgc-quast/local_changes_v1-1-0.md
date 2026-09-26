@@ -16,15 +16,16 @@ surface can be re-measured at any time:
 
     git --git-dir=v1.1.0/bgc-quast.git --work-tree=bin/bgc-quast status --short
 
-The result must be the modified files in section 2 plus the new files in
-section 1. Anything else is an unrecorded change.
+The result must be the modified files in section 2, the new files in
+section 1, and the differences in section 4. Anything else is an unrecorded
+change.
 
 ## 1. New files
 
 Three source files and two test files. None of them are upstream code.
 
 - `bgc_quast/bigscape/__init__.py` - empty, marks the package.
-- `bgc_quast/bigscape/parser.py` (240 lines) - reads BiG-SCAPE clustering
+- `bgc_quast/bigscape/parser.py` (241 lines) - reads BiG-SCAPE clustering
   files and maps `(sample label, BGC id)` to a family identifier, per
   cutoff. `bgc_id_from_record` rebuilds the bgc-quast BGC identifier from a
   staged region GenBank file name; for antiSMASH it emits
@@ -124,12 +125,15 @@ Column labels for the panel follow the order of `results`, which is the
 report's own column order. Sorting them here would break the match with the
 table.
 
+Upstream's `# TODO:` marker in the compare-samples branch reads `# TODO_:`.
+This is deliberate and carries no behaviour.
+
 Effect: the compare-samples branch is a no-op without family data, as
 upstream.
 
 ### `bgc_quast/html_report/build_report.js`
 
-293 lines added; 5 lines replaced.
+301 lines added; 5 lines replaced.
 
 Five new functions: `gcfVennRegions`, `drawVennGcf`, `buildVennPicker`,
 `buildGcfSummaryTable` and `initGcfPanel`.
@@ -138,6 +142,14 @@ The five replaced lines are the panel dispatch. Upstream shows its Python
 plots panel in compare-tools only. It now also opens in compare-samples
 when family data is present, showing the GCF panel, with the tab relabelled
 `GCF overlap`. The compare-tools path is unchanged.
+
+`initGcfPanel` also places a note under the main metrics table. It states
+the cutoff the table's GCF rows use, and when the panel shows a different
+cutoff, says so. When there are more than three samples, the Venn shows
+only the three picked, so the note adds that the Venn counts cover those
+three while the table's unique count is taken across all samples. With
+three samples or fewer the Venn covers every sample and that sentence is
+left out.
 
 Effect: no change to any existing report without family data.
 
@@ -174,15 +186,17 @@ removed rather than re-applied.
 - A one-line DOI correction in `README.md`. Upstream corrected the same
   DOI, so the vendored README now differs from upstream in no way.
 
-## 4. Incidental differences, to be reverted
+## 4. Incidental differences
 
-These are not intentional changes and carry no behaviour.
+Neither carries behaviour. Both are kept.
 
-- `reporting/report_builder.py`: upstream's `# TODO:` marker reads
-  `# TODO_`, and a whitespace-only line was added at the end of the file.
-- `config.py` and `option_parser.py`: two whitespace-only lines.
-- `dev/prism_validation/*/bgc-quast.log`: five upstream example log files
-  are absent from this copy.
+- `reporting/report_builder.py` ends with a newline and four spaces, where
+  upstream ends with no final newline.
+- The five example logs under `dev/prism_validation/*/bgc-quast.log` are
+  absent. Upstream's own `.gitignore`, which this copy keeps unchanged,
+  excludes `*.log`; upstream tracks these five files by force-adding them.
+  Committed into this repository, the same rule leaves them out. Restoring
+  them would need `git add -f`.
 
 ## 5. What to re-check after any future upstream pull
 
@@ -190,6 +204,7 @@ These are not intentional changes and carry no behaviour.
   restored by a pull and must be commented out again.
 - `tests/test_pipeline_helper.py`: a pull restores the upstream argument
   list and the two keywords must be added back.
+- `reporting/report_builder.py`: a pull restores the `# TODO:` marker.
 - The antiSMASH BGC identifier form. v1.1.0 changed it from
   `<contig>.<number>` to `<contig>.reg.<number>` and nothing errored - the
   family rows simply vanished from one report. After any upgrade, compare
