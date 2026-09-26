@@ -17,11 +17,13 @@ workflow BGCQUAST_COMPARISON {
     antismash_json     // [ meta, json ]  query
     deepbgc_tsv        // [ meta, tsv  ]  query (optional per sample)
     gecco_clusters     // [ meta, tsv  ]  query (optional per sample)
-    genomes            // [ meta, fasta ] query contigs (--genome and QUAST consensus)
-    ref_antismash_json // [ meta, json ]  reference, keyed by query id
+    genomes            // [ meta, fasta ] query contigs, QUAST input
+    genome_gbks        // [ meta, gbk ]   query annotation (--genome)
+    ref_antismash_json // [ meta, json ]  reference
     ref_deepbgc_tsv    // [ meta, tsv  ]  reference
     ref_gecco_clusters // [ meta, tsv  ]  reference
-    ref_genome         // [ meta, fasta ] reference genome, keyed by query id
+    ref_genome         // [ meta, fasta ] reference contigs, QUAST input
+    ref_genome_gbk     // [ meta, gbk ]   reference annotation
     ref_name           // val: reference display name (--ref-name)
     antismash_gbk      // [ meta, [ gbk ] ] query antiSMASH region GBKs (BiG-SCAPE input)
     gecco_gbk          // [ meta, [ gbk ] ] query GECCO cluster GBKs (BiG-SCAPE input)
@@ -127,7 +129,8 @@ workflow BGCQUAST_COMPARISON {
         log.warn(
             "${yellow}[bgc_quast_ppl] BiG-SCAPE does not run in ${mode} mode, \n" +
             "       so BiG-SCAPE and its related steps are skipped. \n" +
-            "       For the gene cluster family analysis,run the pipeline in ${hi}compare-samples${noh} mode with ${hi}--run_bigscape${noh}.${creset}"
+            "       For the gene cluster family analysis, run the pipeline in \n" +
+            "       ${hi}compare-samples${noh} mode with ${hi}--run_bigscape${noh}.${creset}"
         )
     }
 
@@ -268,7 +271,7 @@ workflow BGCQUAST_COMPARISON {
                 def ordered_files = idx.collect { files[it] }
                 [meta, ordered_files]
             }
-            .join(genomes)
+            .join(genome_gbks)
             .map { meta, files, genome ->
                 // No --names: bgc-quast labels columns by the tool it detects.
                 [meta + [leaf: "${meta.id}"], files, genome, [], [], [], []]
@@ -277,7 +280,7 @@ workflow BGCQUAST_COMPARISON {
     else if (mode == 'compare-samples') {
         // One bgc-quast run per tool.
         def by_tool = { ch, tool ->
-            ch.join(genomes).map { meta, f, g -> [tool, meta.id, f, g] }
+            ch.join(genome_gbks).map { meta, f, g -> [tool, meta.id, f, g] }
         }
 
         ch_bgcquast_in = by_tool(ch_antismash_json, 'antismash')
@@ -300,8 +303,9 @@ workflow BGCQUAST_COMPARISON {
             }
     }
     else if (mode == 'compare-to-reference') {
-        // A single reference genome, reused by QUAST.
+        // One reference genome: contigs for QUAST, GenBank for bgc-quast.
         ch_ref_genome_file = ref_genome.map { meta, g -> g }.first()
+        ch_ref_genome_gbk  = ref_genome_gbk.map { meta, g -> g }.first()
 
         ch_query_ordered = genomes
             .map { meta, g -> [meta.id, g] }
@@ -327,7 +331,7 @@ workflow BGCQUAST_COMPARISON {
         // One run per tool: ordered query predictions, the reference prediction and genome,
         // and the QUAST folder.
         def per_tool_ref = { qch, rch, tool ->
-            qch.join(genomes)
+            qch.join(genome_gbks)
                 .map { meta, qfile, genome -> [meta.id, qfile, genome] }
                 .toSortedList { a, b -> a[0] <=> b[0] }
                 .filter { rows -> rows.size() > 0 }
@@ -335,7 +339,7 @@ workflow BGCQUAST_COMPARISON {
                     [rows.collect { it[0] }, rows.collect { it[1] }, rows.collect { it[2] }]
                 }
                 .combine(rch.map { meta, f -> f })
-                .combine(ch_ref_genome_file)
+                .combine(ch_ref_genome_gbk)
                 .combine(ch_quast_dir)
                 .combine(ref_name)
                 .map { names, files, gens, rfile, rgen, qdir, rid ->

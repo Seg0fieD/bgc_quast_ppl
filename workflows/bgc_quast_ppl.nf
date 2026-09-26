@@ -119,9 +119,8 @@ workflow BGC_QUAST_PPL {
     // Length-filter contigs for BGC screening (speeds up screening, avoids 'no hits' fails).
     if (params.run_bgc_screening) {
         SEQKIT_SEQ_LENGTH(ch_intermediate_input.fastas.map { meta, fasta, faa, gbk -> [meta, fasta] })
-        ch_input_for_annotation = ch_intermediate_input.fastas
-            .map { meta, fasta, protein, gbk -> [meta, fasta] }
-            .mix(SEQKIT_SEQ_LENGTH.out.fastx.map { meta, fasta -> [meta + [category: 'long'], fasta] })
+        ch_input_for_annotation = SEQKIT_SEQ_LENGTH.out.fastx
+            .map { meta, fasta -> [meta + [category: 'long'], fasta] }    
             .filter { meta, fasta ->
                 if (fasta != [] && fasta.isEmpty()) {
                     log.warn("[bgc_quast_ppl] Sample ${meta.id} has no contigs longer than ${params.bgc_mincontiglength} bp. Will not be screened for BGCs.")
@@ -149,15 +148,6 @@ workflow BGC_QUAST_PPL {
         ch_new_annotation = ch_intermediate_input.fastas
     }
 
-    // Mix preannotated samples back with the newly annotated ones.
-    ch_prepped_input = ch_new_annotation
-        .filter { meta, fasta, faa, gbk -> meta.category != 'long' }
-        .mix(ch_intermediate_input.preannotated)
-        .multiMap { meta, fasta, faa, gbk ->
-            fastas: [meta, fasta]
-            faas: [meta, faa]
-            gbks: [meta, gbk]
-        }
 
     if (params.run_bgc_screening) {
         ch_prepped_input_long = ch_new_annotation
@@ -197,6 +187,7 @@ workflow BGC_QUAST_PPL {
         ch_pred_db     = BGC_PREDICTION.out.deepbgc_tsv.branch    { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_ge     = BGC_PREDICTION.out.gecco_clusters.branch { meta, f -> reference: meta.is_reference; query: true }
         ch_long_fastas = ch_prepped_input_long.fastas.branch      { meta, f -> reference: meta.is_reference; query: true }
+        ch_long_gbks   = ch_prepped_input_long.gbks.branch        { meta, f -> reference: meta.is_reference; query: true }
 
         // BiG-SCAPE runs on queries only, so these reference branches stay unused.
         ch_pred_ge_gbk = BGC_PREDICTION.out.gecco_gbk.branch   { meta, f -> reference: meta.is_reference; query: true }
@@ -207,10 +198,12 @@ workflow BGC_QUAST_PPL {
             ch_pred_db.query,
             ch_pred_ge.query,
             ch_long_fastas.query,
+            ch_long_gbks.query,
             ch_pred_as.reference,
             ch_pred_db.reference,
             ch_pred_ge.reference,
             ch_long_fastas.reference,
+            ch_long_gbks.reference,
             ch_ref_name,
             ch_pred_as_gbk.query,
             ch_pred_ge_gbk.query,

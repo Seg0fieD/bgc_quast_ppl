@@ -22,9 +22,10 @@ process BGCQUAST {
     def args = task.ext.args ?: ''
     def names_arg = meta.bgcquast_names ? "--names ${meta.bgcquast_names}" : ''
     def genome_list = genome ? (genome instanceof List ? genome : [genome]) : []
-    // Symlink "<id>_long.fasta" to "<id>.fasta" so --genome matches the mining-result label.
-    def genome_renames = genome_list.collect { "ln -sf \$WORKDIR/${it.name} \$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join('\n    ')
-    def genome_arg     = genome_list ? genome_list.collect { "--genome \$WORKDIR/renamed/" + it.name.replaceFirst(/_long\./, '.') }.join(' ') : ''
+    // Symlink "<id>_long.fasta" or "<id>_pyrodigal.gbk" to "<id>.<ext>" so
+    // --genome matches the mining-result label.
+    def genome_renames = genome_list.collect { "ln -sf \$WORKDIR/${it.name} \$WORKDIR/renamed/" + it.name.replaceFirst(/_(long|pyrodigal)\./, '.') }.join('\n    ')
+    def genome_arg     = genome_list ? genome_list.collect { "--genome \$WORKDIR/renamed/" + it.name.replaceFirst(/_(long|pyrodigal)\./, '.') }.join(' ') : ''
     def quast_arg            = quast_dir        ? "--quast-output-dir \$WORKDIR/${quast_dir}"               : ''
     def reference_mining_arg = reference_mining ? "--reference-mining-result \$WORKDIR/${reference_mining}" : ''
     def reference_genome_arg = reference_genome ? "--reference-genome \$WORKDIR/${reference_genome}"        : ''
