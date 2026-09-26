@@ -129,6 +129,11 @@ workflow PIPELINE_COMPLETION {
     // The workflow handle is null inside the onComplete closure, so capture it here.
     def wf = workflow
 
+
+    // A channel cannot be read inside onComplete; the count must be captured before it.
+    def bgcquast_run_total = 0
+    bgcquast_runs.subscribe { n -> bgcquast_run_total = n }
+
     //
     // Completion email and summary
     //
@@ -145,10 +150,8 @@ workflow PIPELINE_COMPLETION {
             )
         }
 
-        // The standard summary on error or when bgc-quast ran; otherwise a notice that
-        // the run succeeded without producing anything.
-        def comparison_ran = comparisonProduced(outdir)
-        if (wf.errorMessage || comparison_ran) {
+        // Standard summary on error or when bgc-quast ran, otherwise a no-comparison notice.
+        if (wf.errorMessage || bgcquast_run_total > 0) {
             completionSummary(monochrome_logs)
         }
         else {
@@ -780,22 +783,6 @@ def explainPipelineError() {
     }
     catch (Exception e) {
         log.error(pink("[bgc_quast_ppl] error handler failed: ${e}"))
-    }
-}
-
-//
-// True when the mode's output folder exists and is not empty. The check reads the
-// output folder rather than a channel, because a channel cannot be read on completion.
-//
-def comparisonProduced(outdir) {
-    try {
-        def mode_dir = params.bgc_quast_mode.replaceAll('-', '_')
-        def out_dir  = file("${outdir}/bgc_quast/${mode_dir}")
-        return out_dir.exists() && out_dir.list() && out_dir.list().size() > 0
-    }
-    catch (Exception e) {
-        log.warn("[bgc_quast_ppl] completion check failed: ${e}")
-        return true
     }
 }
 
