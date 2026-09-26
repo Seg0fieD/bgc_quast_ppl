@@ -64,7 +64,8 @@ def bgc_id_from_record(record_name: str) -> Optional[str]:
     Returns None when neither marker is present; the caller drops that row.
     """
     if REGION_MARKER in record_name:
-        # bgc-quast builds `<contig>.reg.<number>` for the region level; see get_antismash_bgc_id in genome_mining_parser.py.
+        # bgc-quast builds `<contig>.reg.<number>` for the region level; 
+        # check get_antismash_bgc_id in genome_mining_parser.py.
         sequence_id, _, region_part = record_name.rpartition(REGION_MARKER)
         if not sequence_id:
             return None
