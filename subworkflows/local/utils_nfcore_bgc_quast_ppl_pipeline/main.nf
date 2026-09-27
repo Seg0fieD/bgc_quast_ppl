@@ -55,11 +55,7 @@ workflow PIPELINE_INITIALISATION {
         workflow.profile.tokenize(',').intersect(['conda', 'mamba']).size() >= 1,
     )
 
-    //
-    // Pipeline-specific parameter checks.
-    //
-    validateInputParameters()
-
+   
     //
     // antiSMASH minimal and full are mutually exclusive.
     //
@@ -177,11 +173,6 @@ workflow PIPELINE_COMPLETION {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-//
-// Pipeline-specific parameter checks; none at present.
-//
-def validateInputParameters() {
-}
 
 //
 // Samplesheet content check for all modes: column order, duplicate names, missing
@@ -623,10 +614,10 @@ def explainPipelineError() {
                              '  --bgc_mincontiglength lower so shorter contigs pass the\n' +
                              '  length filter.' ],
                     [ match: 'Missing output file',
-                      hint : 'antiSMASH finished but found no BGCs in this sample, so it\n' +
-                             '  wrote no HTML result files while the module still requires\n' +
-                             '  them. Mark the antiSMASH HTML outputs as optional so a\n' +
-                             '  no-cluster result is allowed.' ],
+                      hint : 'antiSMASH stopped before writing its results. This is\n' +
+                             '  usually too little memory or disk space. Raise\n' +
+                             '  --max_memory, free some disk, then run again with\n' +
+                             '  -resume. The task folder\'s .command.err has the cause.' ],
                 ],
                 generic   : 'antiSMASH failed. Check that --bgc_antismash_db points at an\n' +
                             '  antiSMASH v8 database and that the input contigs are long\n' +
@@ -810,17 +801,3 @@ def reportNoComparison(monochrome_logs) {
     println "${white}${banner}${reset}"
 }
 
-//
-// Samplesheet channel check: every run of one sample shares a datatype.
-//
-def validateInputSamplesheet(input) {
-    def (metas, fastas) = input[1..2]
-
-    def endedness_ok = metas.collect { meta -> meta.single_end }.unique().size == 1
-    if (!endedness_ok) {
-        error("Please check input samplesheet -> Multiple runs of a sample must be of " +
-            "the same datatype i.e. single-end or paired-end: ${metas[0].id}")
-    }
-
-    return [metas[0], fastas]
-}
