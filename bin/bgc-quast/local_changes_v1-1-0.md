@@ -133,7 +133,8 @@ upstream.
 
 ### `bgc_quast/html_report/build_report.js`
 
-301 lines added; 5 lines replaced.
+303 lines added, 5 removed: a new 285-line block holding the five functions
+below, and 5 lines of the panel dispatch replaced by 18.
 
 Five new functions: `gcfVennRegions`, `drawVennGcf`, `buildVennPicker`,
 `buildGcfSummaryTable` and `initGcfPanel`.
