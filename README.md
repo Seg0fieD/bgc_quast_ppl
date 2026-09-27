@@ -101,7 +101,7 @@ your first run.
 
 | Requirement | Details |
 |---|---|
-| Nextflow | Version **25.10.x**. Tested with 25.10.4 and 25.10.5. Version 26.04 and newer does **not** work. |
+| Nextflow | Version **25.10.x** only. Tested with 25.10.4 and 25.10.5. Other versions stop at the start. Version 26.01 and newer does **not** work. |
 | Docker | Must be installed and **running** before you start. Every tool except bgc-quast runs inside a Docker container. |
 | Python 3.9 to 3.13 | With `pandas`, `biopython` and `pyyaml`. bgc-quast runs directly on your machine, not in a container. See [Important notes](#12-important-notes). |
 | antiSMASH database | Version 8. See [Databases](#6-databases). |
@@ -584,7 +584,7 @@ nextflow run . -profile docker --input samplesheet.csv --outdir results -resume
 | Problem | What to do |
 |---|---|
 | `nextflow: command not found` | Install Nextflow, then run `export NXF_VER=25.10.5`. |
-| Errors about the Nextflow version | Run `export NXF_VER=25.10.5` in this terminal. Versions 26.04 and newer do not work. |
+| Errors about the Nextflow version | Run `export NXF_VER=25.10.5` in this terminal. Only 25.10.x works; 26.01 and newer fail while reading the config. |
 | "Docker does not seem to be running" | Start Docker and run the command again. |
 | "Cannot start. Please fix: ..." | The pipeline checked your input and settings before starting. Fix each listed problem and run again. |
 | antiSMASH or DeepBGC database errors | Check that the paths are absolute and correct, and that the antiSMASH database is version 8. |
