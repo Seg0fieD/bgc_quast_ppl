@@ -17,10 +17,13 @@ include { imNotification          } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NFCORE_PIPELINE   } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NEXTFLOW_PIPELINE } from '../../nf-core/utils_nextflow_pipeline'
 
-// ANSI pink, used for every message that stops the run before any task starts.
+// ANSI pink for messages that stop the run before any task starts; plain text under --monochrome_logs.
 def pink(msg) {
+    if (params.monochrome_logs) {
+        return msg
+    }
     def esc = "\033"
-    return "${esc}[95m${msg}${esc}[0m"
+    return "${esc}[1;38;5;197m${msg}${esc}[0m"
 }
 
 /*
