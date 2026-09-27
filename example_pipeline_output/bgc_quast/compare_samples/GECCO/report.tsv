@@ -1,0 +1,99 @@
+file_label	assembly_10	assembly_20	reference
+Genome mining tool	GECCO	GECCO	GECCO
+# BGCs filtered by length	0	0	0
+# BGCs	6	6	6
+# BGCs (NRPS)	1	1	1
+# BGCs (PKS)	1	1	1
+# BGCs (RiPP)	2	2	2
+# BGCs (terpene)	1	1	1
+# BGCs (unknown)	1	1	1
+# BGCs (complete)	5	4	6
+# BGCs (incomplete)	1	2	0
+# BGCs (NRPS, complete)	1	1	1
+# BGCs (PKS, complete)	0	0	1
+# BGCs (PKS, incomplete)	1	1	0
+# BGCs (RiPP, complete)	2	1	2
+# BGCs (RiPP, incomplete)	0	1	0
+# BGCs (terpene, complete)	1	1	1
+# BGCs (unknown, complete)	1	1	1
+Total BGC span in bp	146483	138557	165747
+Total BGC span in bp (NRPS)	40549	40549	49828
+Total BGC span in bp (PKS)	19843	18580	29828
+Total BGC span in bp (RiPP)	23878	17215	23878
+Total BGC span in bp (terpene)	21182	21182	21182
+Total BGC span in bp (unknown)	41031	41031	41031
+Total BGC span in bp (complete)	126640	109931	165747
+Total BGC span in bp (incomplete)	19843	28626	0
+Total BGC span in bp (NRPS, complete)	40549	40549	49828
+Total BGC span in bp (PKS, complete)	0	0	29828
+Total BGC span in bp (PKS, incomplete)	19843	18580	0
+Total BGC span in bp (RiPP, complete)	23878	7169	23878
+Total BGC span in bp (RiPP, incomplete)	0	10046	0
+Total BGC span in bp (terpene, complete)	21182	21182	21182
+Total BGC span in bp (unknown, complete)	41031	41031	41031
+Mean BGC length in bp	24413.8	23092.8	27624.5
+Mean BGC length in bp (NRPS)	40549.0	40549.0	49828.0
+Mean BGC length in bp (PKS)	19843.0	18580.0	29828.0
+Mean BGC length in bp (RiPP)	11939.0	8607.5	11939.0
+Mean BGC length in bp (terpene)	21182.0	21182.0	21182.0
+Mean BGC length in bp (unknown)	41031.0	41031.0	41031.0
+Mean BGC length in bp (complete)	25328.0	27482.8	27624.5
+Mean BGC length in bp (incomplete)	19843.0	14313.0	0.0
+Mean BGC length in bp (NRPS, complete)	40549.0	40549.0	49828.0
+Mean BGC length in bp (PKS, complete)	0.0	0.0	29828.0
+Mean BGC length in bp (PKS, incomplete)	19843.0	18580.0	0.0
+Mean BGC length in bp (RiPP, complete)	11939.0	7169.0	11939.0
+Mean BGC length in bp (RiPP, incomplete)	0.0	10046.0	0.0
+Mean BGC length in bp (terpene, complete)	21182.0	21182.0	21182.0
+Mean BGC length in bp (unknown, complete)	41031.0	41031.0	41031.0
+Mean BGC length in genes	19.7	18.7	22.8
+Mean BGC length in genes (NRPS)	25.0	25.0	36.0
+Mean BGC length in genes (PKS)	7.0	6.0	15.0
+Mean BGC length in genes (RiPP)	11.5	9.0	11.5
+Mean BGC length in genes (terpene)	20.0	20.0	20.0
+Mean BGC length in genes (unknown)	43.0	43.0	43.0
+Mean BGC length in genes (complete)	22.2	24.2	22.8
+Mean BGC length in genes (incomplete)	7.0	7.5	0.0
+Mean BGC length in genes (NRPS, complete)	25.0	25.0	36.0
+Mean BGC length in genes (PKS, complete)	0.0	0.0	15.0
+Mean BGC length in genes (PKS, incomplete)	7.0	6.0	0.0
+Mean BGC length in genes (RiPP, complete)	11.5	9.0	11.5
+Mean BGC length in genes (RiPP, incomplete)	0.0	9.0	0.0
+Mean BGC length in genes (terpene, complete)	20.0	20.0	20.0
+Mean BGC length in genes (unknown, complete)	43.0	43.0	43.0
+# GCFs	6	6	6
+# GCFs (NRPS)	1	1	1
+# GCFs (PKS)	1	1	1
+# GCFs (RiPP)	2	2	2
+# GCFs (terpene)	1	1	1
+# GCFs (unknown)	1	1	1
+# BGCs in GCFs	6	6	6
+# BGCs in GCFs (NRPS)	1	1	1
+# BGCs in GCFs (PKS)	1	1	1
+# BGCs in GCFs (RiPP)	2	2	2
+# BGCs in GCFs (terpene)	1	1	1
+# BGCs in GCFs (unknown)	1	1	1
+# singleton BGCs	0	0	0
+# singleton BGCs (NRPS)	0	0	0
+# singleton BGCs (PKS)	0	0	0
+# singleton BGCs (RiPP)	0	0	0
+# singleton BGCs (terpene)	0	0	0
+# singleton BGCs (unknown)	0	0	0
+# shared GCFs	6	6	6
+# shared GCFs (NRPS)	1	1	1
+# shared GCFs (PKS)	1	1	1
+# shared GCFs (RiPP)	2	2	2
+# shared GCFs (terpene)	1	1	1
+# shared GCFs (unknown)	1	1	1
+# unique GCFs	0	0	0
+# unique GCFs (NRPS)	0	0	0
+# unique GCFs (PKS)	0	0	0
+# unique GCFs (RiPP)	0	0	0
+# unique GCFs (terpene)	0	0	0
+# unique GCFs (unknown)	0	0	0
+Mean BGCs per GCF	1.0	1.0	1.0
+Mean BGCs per GCF (NRPS)	1.0	1.0	1.0
+Mean BGCs per GCF (PKS)	1.0	1.0	1.0
+Mean BGCs per GCF (RiPP)	1.0	1.0	1.0
+Mean BGCs per GCF (terpene)	1.0	1.0	1.0
+Mean BGCs per GCF (unknown)	1.0	1.0	1.0

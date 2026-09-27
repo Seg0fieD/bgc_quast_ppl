@@ -1,0 +1,54 @@
+file_label	reference	reference	reference	Uniqueness (90% overlap)
+Genome mining tool	antiSMASH	DeepBGC	GECCO	
+NC_003888.3	N/A	1144 - 9307 (Unknown product)	N/A	Shared
+NC_003888.3	N/A	N/A	1144 - 42174 (Unknown product)	Unique
+NC_003888.3	N/A	10407 - 33357 (Unknown product)	N/A	Shared
+NC_003888.3	N/A	37614 - 39812 (Unknown product)	N/A	Shared
+NC_003888.3	N/A	45267 - 121371 (PKS)	N/A	Unique
+NC_003888.3	86694 - 139654 (PKS)	N/A	N/A	Unique
+NC_003888.3	N/A	N/A	98463 - 128290 (PKS)	Shared
+NC_003888.3	N/A	122743 - 128290 (Unknown product)	N/A	Shared
+NC_003888.3	164131 - 192008 (Terpene)	N/A	N/A	Unique
+NC_003888.3	N/A	N/A	168705 - 189886 (Terpene)	Shared
+NC_003888.3	N/A	170911 - 191657 (Terpene)	N/A	Shared
+NC_003888.3	N/A	194760 - 196066 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	211748 - 220764 (PKS)	N/A	Unique
+NC_003888.3	N/A	245986 - 247869 (PKS)	N/A	Unique
+NC_003888.3	246526 - 271084 (RiPP)	N/A	N/A	Unique
+NC_003888.3	N/A	248677 - 249702 (PKS)	N/A	Shared
+NC_003888.3	N/A	N/A	250805 - 267513 (RiPP)	Shared
+NC_003888.3	N/A	251764 - 263220 (RiPP)	N/A	Shared
+NC_003888.3	N/A	297515 - 309131 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	320110 - 322255 (PKS)	N/A	Unique
+NC_003888.3	N/A	329378 - 331365 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	332311 - 341318 (PKS)	N/A	Unique
+NC_003888.3	N/A	345817 - 347706 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	349419 - 350201 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	353792 - 355686 (Terpene)	N/A	Unique
+NC_003888.3	N/A	365623 - 366795 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	370797 - 372478 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	395939 - 429403 (Saccharide)	N/A	Unique
+NC_003888.3	N/A	431962 - 437224 (PKS)	N/A	Unique
+NC_003888.3	N/A	438997 - 446144 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	466429 - 466764 (PKS)	N/A	Unique
+NC_003888.3	N/A	490451 - 492881 (Unknown product)	N/A	Unique
+NC_003888.3	493989 - 552325 (NRPS)	N/A	N/A	Unique
+NC_003888.3	N/A	N/A	494260 - 544087 (NRPS)	Shared
+NC_003888.3	N/A	497375 - 537512 (NRPS)	N/A	Shared
+NC_003888.3	N/A	539123 - 542131 (Unknown product)	N/A	Shared
+NC_003888.3	N/A	543545 - 544087 (Unknown product)	N/A	Shared
+NC_003888.3	N/A	548968 - 549621 (Unknown product)	N/A	Shared
+NC_003888.3	N/A	586987 - 589546 (PKS)	N/A	Unique
+NC_003888.3	597851 - 621488 (Terpene)	N/A	N/A	Unique
+NC_003888.3	N/A	605122 - 610356 (Terpene, PKS)	N/A	Shared
+NC_003888.3	N/A	618788 - 637824 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	681435 - 681821 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	682600 - 696168 (PKS)	N/A	Unique
+NC_003888.3	N/A	720032 - 722964 (Unknown product)	N/A	Unique
+NC_003888.3	N/A	736312 - 748387 (RiPP)	N/A	Unique
+NC_003888.3	N/A	N/A	738595 - 745763 (RiPP)	Shared
+NC_003888.3	791584 - 801799 (RiPP)	N/A	N/A	Unique
+NC_003888.3	N/A	797777 - 809813 (RiPP)	N/A	Unique
+NC_003888.3	N/A	818446 - 823299 (PKS)	N/A	Unique
+NC_003888.3	N/A	847649 - 849232 (Terpene, PKS)	N/A	Unique
+NC_003888.3	N/A	943851 - 964941 (Unknown product)	N/A	Unique

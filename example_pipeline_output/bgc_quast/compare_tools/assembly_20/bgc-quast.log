@@ -1,0 +1,30 @@
+BGC-QUAST version: 1.1.0
+
+Started with command: bgc-quast.py /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/assembly_20.json /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/assembly_20.bgc.tsv /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/assembly_20.clusters.tsv --genome /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/renamed/assembly_20.gbk --threads 2 --output-dir /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out --mode compare-tools --edge-distance 100 --min-bgc-length 0 --merge-distance 0 --overlap-fraction 0.9
+
+System information:
+  OS: Linux-7.0.0-34-generic-x86_64-with-glibc2.39
+  Python version: 3.12
+  CPUs number: 4
+
+Started: 2026-09-27 17:16:10
+
+Logging to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/bgc-quast.log
+Mode COMPARE_TOOLS selected
+The running mode is set to: RunningMode.COMPARE_TOOLS
+
+RESULTS:
+  Text report is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/report.txt
+  HTML report is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/report.html
+  TSV report is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/report.tsv
+  GenBank file with all BGCs predicted by all tools is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/all_tools.bgcs.gbk
+  TSV file with all BGCs predicted by all tools is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/all_tools.bgcs.tsv
+  TSV file with overlapping intervals of BGCs predicted by all tools is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/all_tools.bgcs.overlaps.tsv
+  HTML file with overlapping intervals of BGCs predicted by all tools is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/all_tools.bgcs.overlaps.html
+  Log is saved to /home/segofied/Documents/bgc_quast_ppl/work/04/9d65a06352ba26dd7bb2c62b3e5b7f/bgcquast_out/bgc-quast.log
+
+Finished: 2026-09-27 17:16:11
+Elapsed time: 0:00:00.473672
+WARNINGs: 1
+
+Thank you for using BGC-QUAST!

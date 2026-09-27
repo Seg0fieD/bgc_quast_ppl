@@ -1,0 +1,50 @@
+file_label	assembly_10	assembly_10	assembly_10	Uniqueness (90% overlap)
+Genome mining tool	antiSMASH	DeepBGC	GECCO	
+CONTIG_1	N/A	1144 - 9307 (Unknown product)	N/A	Shared
+CONTIG_1	N/A	N/A	1144 - 42174 (Unknown product)	Unique
+CONTIG_1	N/A	10407 - 33357 (Unknown product)	N/A	Shared
+CONTIG_1	N/A	37614 - 39812 (Unknown product)	N/A	Shared
+CONTIG_1	N/A	45267 - 99808 (Unknown product)	N/A	Unique
+CONTIG_2	1 - 39844 (PKS)	N/A	N/A	Unique
+CONTIG_2	N/A	2 - 19844 (PKS)	2 - 19844 (PKS)	Shared
+CONTIG_2	64321 - 92198 (Terpene)	N/A	N/A	Unique
+CONTIG_2	N/A	N/A	68895 - 90076 (Terpene)	Shared
+CONTIG_2	N/A	71101 - 100107 (Terpene)	N/A	Unique
+CONTIG_3	N/A	11762 - 20778 (PKS)	N/A	Unique
+CONTIG_3	N/A	46000 - 47883 (PKS)	N/A	Unique
+CONTIG_3	46540 - 71098 (RiPP)	N/A	N/A	Unique
+CONTIG_3	N/A	48691 - 49716 (PKS)	N/A	Shared
+CONTIG_3	N/A	N/A	50819 - 67527 (RiPP)	Shared
+CONTIG_3	N/A	51778 - 62333 (RiPP)	N/A	Shared
+CONTIG_4	N/A	1241 - 10915 (Unknown product)	N/A	Unique
+CONTIG_4	N/A	14442 - 40506 (Unknown product)	N/A	Unique
+CONTIG_4	N/A	45005 - 46894 (Unknown product)	N/A	Unique
+CONTIG_4	N/A	48607 - 49389 (Unknown product)	N/A	Unique
+CONTIG_4	N/A	53990 - 54874 (Terpene)	N/A	Unique
+CONTIG_4	N/A	64811 - 65983 (Unknown product)	N/A	Unique
+CONTIG_4	N/A	69985 - 71666 (Unknown product)	N/A	Unique
+CONTIG_5	N/A	372 - 28310 (Saccharide)	N/A	Unique
+CONTIG_5	N/A	30869 - 36131 (PKS)	N/A	Unique
+CONTIG_5	N/A	37904 - 45051 (Unknown product)	N/A	Unique
+CONTIG_6	1 - 51925 (NRPS)	N/A	N/A	Unique
+CONTIG_6	N/A	2 - 37112 (NRPS)	N/A	Shared
+CONTIG_6	N/A	N/A	3139 - 43687 (NRPS)	Shared
+CONTIG_6	N/A	38723 - 41731 (Unknown product)	N/A	Shared
+CONTIG_6	N/A	43145 - 43687 (Unknown product)	N/A	Shared
+CONTIG_6	N/A	48568 - 49221 (Unknown product)	N/A	Shared
+CONTIG_6	N/A	86587 - 90495 (PKS)	N/A	Unique
+CONTIG_7	1 - 21556 (Terpene)	N/A	N/A	Unique
+CONTIG_7	N/A	119 - 12174 (PKS, Terpene)	N/A	Shared
+CONTIG_7	N/A	12494 - 17154 (Unknown product)	N/A	Shared
+CONTIG_7	N/A	18856 - 37234 (Unknown product)	N/A	Unique
+CONTIG_7	N/A	81503 - 81889 (Unknown product)	N/A	Unique
+CONTIG_7	N/A	82668 - 100656 (PKS)	N/A	Unique
+CONTIG_8	N/A	N/A	38006 - 45174 (RiPP)	Shared
+CONTIG_8	N/A	38006 - 46605 (RiPP)	N/A	Unique
+CONTIG_8	90995 - 100957 (RiPP)	N/A	N/A	Unique
+CONTIG_8	N/A	97188 - 100956 (RiPP)	N/A	Shared
+CONTIG_9	N/A	2545 - 8267 (Unknown product)	N/A	Unique
+CONTIG_9	N/A	16900 - 21753 (PKS)	N/A	Unique
+CONTIG_9	N/A	46103 - 47686 (PKS, Terpene)	N/A	Unique
+CONTIG_9	N/A	91119 - 95422 (PKS)	N/A	Unique
+CONTIG_10	N/A	43020 - 64110 (Unknown product)	N/A	Unique
