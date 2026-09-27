@@ -773,8 +773,8 @@ def explainPipelineError() {
                 "${report.trim()}"))
         }
 
-        log.error("Please refer to troubleshooting docs: " +
-            "https://nf-co.re/docs/usage/troubleshooting")
+        log.error("Please refer to the troubleshooting guide: " +
+            "https://github.com/Seg0fieD/bgc_quast_ppl#14-troubleshooting")
     }
     catch (Exception e) {
         log.error(pink("[bgc_quast_ppl] error handler failed: ${e}"))
