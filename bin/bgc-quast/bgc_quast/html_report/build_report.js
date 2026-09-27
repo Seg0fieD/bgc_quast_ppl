@@ -1394,18 +1394,20 @@ function initGcfPanel(panel, bigscape) {
         tableHolder.innerHTML = '';
         tableHolder.appendChild(buildGcfSummaryTable(bigscape, cutoff));
 
-        // Only meaningful when the Venn shows a subset, which is when the picker exists.
+        // Needed only when the Venn shows a subset of the samples.
         const vennNote = (labels.length > 3)
-            ? ' Venn counts cover only the three samples selected above; the table '
-              + 'counts a family as unique when it is found in one sample out of all '
-              + `${labels.length}.`
-            ? `GCF rows in this table use cutoff ${bigscape.default_cutoff}.${vennNote}`
+            ? ' Venn counts cover only the three samples selected above; '
+              + 'the table counts a family as unique when it is found in one '
+              + `sample out of all ${labels.length}.`
+            : '';
 
         note.textContent = (cutoff === bigscape.default_cutoff)
-           + `Re-run bgc-quast with --bigscape-cutoff to change this table.${vennNote}`;
+            ? `GCF rows in this table use cutoff ${bigscape.default_cutoff}.`
+              + vennNote
             : `GCF rows in this table use cutoff ${bigscape.default_cutoff}. `
               + `The GCF overlap panel is showing ${cutoff}. `
-              + `Re-run bgc-quast with --bigscape-cutoff to change this table. ${vennNote}`;
+              + 'Re-run bgc-quast with --bigscape-cutoff to change this table.'
+              + vennNote;
     };
 
     select.addEventListener('change', () => {
