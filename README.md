@@ -601,7 +601,7 @@ nextflow run . -profile docker --input samplesheet.csv --outdir results -resume
 If you use bgc_quast_ppl, please cite this repository and the version you
 used, for example:
 
-> bgc_quast_ppl, version 2.0.0. https://github.com/Seg0fieD/bgc_quast_ppl
+> bgc_quast_ppl, version 2.0.1. https://github.com/Seg0fieD/bgc_quast_ppl
 
 Results can change between versions. See [VERSION_LOG.md](VERSION_LOG.md) for
 what changed in each one.

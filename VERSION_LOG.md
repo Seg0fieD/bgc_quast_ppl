@@ -4,6 +4,21 @@ All notable changes to this pipeline are listed here, newest first.
 
 ---
 
+## v2.0.1 - 2026-09-27
+
+### Fixed
+
+- HTML reports were blank in v2.0.0. A syntax error in the report script
+  stopped the page from loading. The tables, charts and notes now show
+  again.
+
+### Changed
+
+- The BiG-SCAPE steps now run as their own stage, named
+  `BIGSCAPE_ANALYSIS` in the progress display. Results are unchanged.
+
+---
+
 ## v2.0.0 - 2026-09-27
 
 This version moves to bgc-quast 1.1.0 and removes two parameters, so some
