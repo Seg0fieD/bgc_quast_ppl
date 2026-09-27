@@ -4,7 +4,7 @@
 
 .DS_Store*
 
-..pytest_cache/
+.pytest_cache/
 .vscode/
 
 # Nextflow work directory
