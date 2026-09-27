@@ -37,7 +37,9 @@ process BIGSCAPE {
     // Nextflow has no per-file rename. Pair names to staged paths by index and symlink
     // into a flat gbk_input/. The <sample>_ prefix is the join key bgc-quast reverses, and
     // ".region" or "_cluster_" must survive so BiG-SCAPE's --include-gbk filter accepts the file.
-    def stage_cmds = (0..<gbk_list.size())
+    // Sorted so the link order, and so the task script, is identical every run.
+    def stage_cmds = (0..<gbk_list.size()).toList()
+        .sort { i -> name_list[i] }
         .collect { i -> "ln -s \"\$WORKDIR/${gbk_list[i]}\" \"\$WORKDIR/gbk_input/${name_list[i]}\"" }
         .join('\n    ')
 
@@ -46,9 +48,14 @@ process BIGSCAPE {
     mkdir -p \$WORKDIR/gbk_input
     ${stage_cmds}
 
-    # BiG-SCAPE never seeds numpy, so scikit-learn draws a different
-    # tie-breaker each run and borderline BGCs change family. Python imports
-    # sitecustomize at startup, which also covers spawned child processes.
+    # BiG-SCAPE deduplicates input files through a set keyed by string, so
+    # without a fixed hash seed the load order, and with it the orientation
+    # of each compared pair and some distances, changes every run.
+    export PYTHONHASHSEED=0
+
+    # BiG-SCAPE never seeds numpy, so scikit-learn's affinity propagation
+    # draws a different tie-breaker each run. Python imports sitecustomize
+    # at startup, which also covers spawned child processes.
     echo 'import numpy' > \$WORKDIR/sitecustomize.py
     echo 'numpy.random.seed(0)' >> \$WORKDIR/sitecustomize.py
     export PYTHONPATH="\$WORKDIR\${PYTHONPATH:+:\$PYTHONPATH}"
