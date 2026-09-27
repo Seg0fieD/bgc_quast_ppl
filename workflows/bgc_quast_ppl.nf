@@ -16,6 +16,7 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 include { ANNOTATION          } from '../subworkflows/local/annotation'
 include { BGC_PREDICTION      } from '../subworkflows/local/bgc_prediction'
 include { BGCQUAST_COMPARISON } from '../subworkflows/local/bgcquast'
+include { BIGSCAPE_ANALYSIS   } from '../subworkflows/local/bigscape_analysis'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -193,6 +194,20 @@ workflow BGC_QUAST_PPL {
         ch_pred_ge_gbk = BGC_PREDICTION.out.gecco_gbk.branch   { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_db_gbk = BGC_PREDICTION.out.deepbgc_gbk.branch { meta, f -> reference: meta.is_reference; query: true }
 
+        // BiG-SCAPE runs in compare-samples only; otherwise bgc-quast gets the empty map.
+        ch_bigscape_dir = Channel.value([[:]])
+
+        if (params.run_bigscape && params.bgc_quast_mode == 'compare-samples') {
+            BIGSCAPE_ANALYSIS(
+                ch_pred_as_gbk.query,
+                ch_pred_ge_gbk.query,
+                ch_pred_db_gbk.query,
+                ch_pred_db.query,
+            )
+            ch_versions     = ch_versions.mix(BIGSCAPE_ANALYSIS.out.versions)
+            ch_bigscape_dir = BIGSCAPE_ANALYSIS.out.dirs
+        }
+
         BGCQUAST_COMPARISON(
             ch_pred_as.query,
             ch_pred_db.query,
@@ -206,8 +221,7 @@ workflow BGC_QUAST_PPL {
             ch_long_gbks.reference,
             ch_ref_name,
             ch_pred_as_gbk.query,
-            ch_pred_ge_gbk.query,
-            ch_pred_db_gbk.query,
+            ch_bigscape_dir,
             ch_pred_as_gbk.reference,
         )
         
