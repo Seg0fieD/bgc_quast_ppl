@@ -121,7 +121,7 @@ workflow BGC_QUAST_PPL {
     if (params.run_bgc_screening) {
         SEQKIT_SEQ_LENGTH(ch_intermediate_input.fastas.map { meta, fasta, faa, gbk -> [meta, fasta] })
         ch_input_for_annotation = SEQKIT_SEQ_LENGTH.out.fastx
-            .map { meta, fasta -> [meta + [category: 'long'], fasta] }    
+            .map { meta, fasta -> [meta + [category: 'long'], fasta] }
             .filter { meta, fasta ->
                 if (fasta != [] && fasta.isEmpty()) {
                     log.warn("[bgc_quast_ppl] Sample ${meta.id} has no contigs longer than ${params.bgc_mincontiglength} bp. Will not be screened for BGCs.")
@@ -224,7 +224,7 @@ workflow BGC_QUAST_PPL {
             ch_bigscape_dir,
             ch_pred_as_gbk.reference,
         )
-        
+
         ch_versions = ch_versions.mix(BGCQUAST_COMPARISON.out.versions)
         ch_bgcquast_run_count = BGCQUAST_COMPARISON.out.results.count()
     }
