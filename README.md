@@ -24,7 +24,7 @@ genome assemblies and compares the predictions in one report.
 12. [Important notes](#12-important-notes)
 13. [Resuming a run](#13-resuming-a-run)
 14. [Troubleshooting](#14-troubleshooting)
-15. [Credits and citations](#15-credits-and-citations)
+15. [Citations](#15-citations)
 
 ---
 
@@ -538,52 +538,25 @@ interactive `index.html` page.
 
 ## 12. Important notes
 
-**Samples without BGCs.** If a tool finds no BGCs in a sample, that sample
-is left out of that tool's report. The run prints a line naming the sample.
-The same applies to the reference in compare-to-reference mode: with an
-empty reference there is nothing to compare, so no report is made for that
-tool.
-
-**Short contigs.** Contigs shorter than `--bgc_mincontiglength` are removed.
-If a sample has no contigs long enough, it is not screened, and a warning
-says so.
-
-**One gene annotation for all tools.** Each genome is annotated once with
-Pyrodigal, and all three tools get the same genes. So a difference between
-tools comes from how they find BGCs, not from how they find genes. This is
-also why the numbers can differ a little from the bgc-quast example data,
-where each tool found its own genes.
-
-**Gene counts.** The "mean BGC length in genes" row uses Pyrodigal's genes.
-It can be compared between samples of the same run. It should not be
-compared with reports where each tool found its own genes.
-
-**bgc-quast runs outside Docker.** There is no container for bgc-quast. It
-runs with the Python on your computer, so `pandas`, `biopython` and `pyyaml`
-must be installed there (see [Installation](#5-installation)).
-
-**Tested setup.** The pipeline is tested with `-profile docker` on Linux
-(Ubuntu 24.04) and macOS. The `conda`, `singularity` and other profiles exist
-but are not tested.
-
-**BiG-SCAPE and GECCO.** GECCO's BGC files are read by BiG-SCAPE with its
-`--force-gbk` option, which BiG-SCAPE marks as experimental.
-
-**Reproducible family numbers.** BiG-SCAPE is run with fixed random seeds,
-so the same input gives the same gene cluster families every time. For
-figures you publish, you can also reuse one finished BiG-SCAPE result with
-`--bgc_bigscape_dir`, so every later report is built from the same families.
-
-**Pinned Pfam version.** The Pfam download is fixed to release 38.2 on
-purpose. A different Pfam release finds different protein domains, and that
-can change the families.
-
-**Compare family numbers at the same cut-off only.** Family numbers from
-different cut-offs are not related to each other.
-
-**Pre-annotated genomes.** The samplesheet also accepts `gbk` and `protein`
-columns for genomes you have already annotated. They must be given
-together. This route is not tested with this pipeline.
+- **Samples without BGCs** are left out of that tool's report, and the run
+  names them. An empty reference gives no report for that tool.
+- **Short contigs** below `--bgc_mincontiglength` are removed. A sample with
+  none left is skipped, with a warning.
+- **One annotation for all tools.** All three tools get the same Pyrodigal
+  genes, so tool differences come from BGC finding, not gene finding.
+- **Gene counts** come from Pyrodigal. Compare them only within one run.
+- **bgc-quast runs outside Docker.** Your Python needs `pandas`,
+  `biopython` and `pyyaml` (see [Installation](#5-installation)).
+- **Tested setup:** `-profile docker` on Ubuntu 24.04 and macOS. Other
+  profiles are untested.
+- **GECCO in BiG-SCAPE** uses BiG-SCAPE's experimental `--force-gbk` option.
+- **Family numbers are reproducible.** The same input gives the same
+  families. To reuse one result, pass it with `--bgc_bigscape_dir`.
+- **Pfam is pinned to release 38.2**, because other releases can change the
+  families.
+- **Compare family numbers at the same cut-off only.**
+- **Pre-annotated genomes** (`gbk` and `protein` columns, given together)
+  are accepted but untested.
 
 ---
 
@@ -623,12 +596,17 @@ nextflow run . -profile docker --input samplesheet.csv --outdir results -resume
 
 ---
 
-## 15. Credits and citations
+## 15. Citations
 
-bgc_quast_ppl was written by Sego as part of an MSc project at Saarland
-University.
+If you use bgc_quast_ppl, please cite this repository and the version you
+used, for example:
 
-If you use this pipeline, please cite the tools it runs:
+> bgc_quast_ppl, version 2.0.0. https://github.com/Seg0fieD/bgc_quast_ppl
+
+Results can change between versions. See [VERSION_LOG.md](VERSION_LOG.md) for
+what changed in each one.
+
+Please also cite the tools it runs:
 
 - **bgc-quast** - Kushnareva, Tupikina et al., bioRxiv 2026.
   [Preprint](https://www.biorxiv.org/content/10.64898/2026.05.04.722653),
