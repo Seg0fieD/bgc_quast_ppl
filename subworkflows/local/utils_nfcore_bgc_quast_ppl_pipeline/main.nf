@@ -55,7 +55,7 @@ workflow PIPELINE_INITIALISATION {
         workflow.profile.tokenize(',').intersect(['conda', 'mamba']).size() >= 1,
     )
 
-   
+
     //
     // antiSMASH minimal and full are mutually exclusive.
     //
@@ -307,14 +307,15 @@ def validateReferenceSamplesheet(input) {
 // combined with --bgc_antismash_minimal.
 //
 def validateAntismashMode() {
-    def cli = workflow.commandLine ?: ''
-    def minimal_typed = cli.contains('--bgc_antismash_minimal')
-    def full_typed    = cli.contains('--bgc_antismash_full')
+    def hi  = params.monochrome_logs ? '' : "\033[4m"
+    def noh = params.monochrome_logs ? '' : "\033[24m"
 
-    if (minimal_typed && full_typed) {
-        error(pink("[bgc_quast_ppl] --bgc_antismash_minimal and --bgc_antismash_full cannot\n" +
+    if (params.bgc_antismash_minimal && params.bgc_antismash_full) {
+        error(pink("[bgc_quast_ppl] ${hi}--bgc_antismash_minimal${noh} and " +
+            "${hi}--bgc_antismash_full${noh} cannot\n" +
             "                both be set. Minimal is the default; pass\n" +
-            "                --bgc_antismash_full only for the full analysis."))
+            "                ${hi}--bgc_antismash_full${noh} only for the " +
+            "full analysis."))
     }
 }
 
