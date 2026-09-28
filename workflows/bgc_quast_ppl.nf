@@ -40,12 +40,17 @@ workflow BGC_QUAST_PPL {
     main:
 
     ch_versions = Channel.empty()
+    def yellow = params.monochrome_logs ? '' : "\033[1;93m"
+    def reset  = params.monochrome_logs ? '' : "\033[0m"
+    def hi     = params.monochrome_logs ? '' : "\033[4m"
+    def noh    = params.monochrome_logs ? '' : "\033[24m"
     ch_bgcquast_run_count = Channel.value(0)
 
     if (params.bgc_quast_mode == 'compare-samples') {
         ch_samplesheet.count().subscribe { n ->
             if (n == 1) {
-                log.info("[bgc_quast_ppl] Running compare-samples with a single sample.")
+                log.info("[bgc_quast_ppl] Running ${hi}compare-samples${noh}  mode" +
+                    "with a single sample.")
             }
         }
     }
@@ -124,7 +129,10 @@ workflow BGC_QUAST_PPL {
             .map { meta, fasta -> [meta + [category: 'long'], fasta] }
             .filter { meta, fasta ->
                 if (fasta != [] && fasta.isEmpty()) {
-                    log.warn("[bgc_quast_ppl] Sample ${meta.id} has no contigs longer than ${params.bgc_mincontiglength} bp. Will not be screened for BGCs.")
+                    log.warn("${yellow}[bgc_quast_ppl] Sample ${meta.id} " +
+                        "has no contigs longer than " +
+                        "${params.bgc_mincontiglength} bp. Will not be " +
+                        "screened for BGCs.${reset}")
                 }
                 !fasta.isEmpty()
             }
@@ -169,13 +177,17 @@ workflow BGC_QUAST_PPL {
             ch_prepped_input_long.fastas,
             ch_prepped_input_long.faas.filter { meta, file ->
                 if (file != [] && file.isEmpty()) {
-                    log.warn("[bgc_quast_ppl] Annotation of sample ${meta.id} produced an empty FAA file. BGC tools needing it will be skipped.")
+                    log.warn("${yellow}[bgc_quast_ppl] Annotation of sample " +
+                        "${meta.id} produced an empty FAA file. BGC tools " +
+                        "needing it will be skipped.${reset}")
                 }
                 !file.isEmpty()
             },
             ch_prepped_input_long.gbks.filter { meta, file ->
                 if (file != [] && file.isEmpty()) {
-                    log.warn("[bgc_quast_ppl] Annotation of sample ${meta.id} produced an empty GBK file. BGC tools needing it will be skipped.")
+                    log.warn("${yellow}[bgc_quast_ppl] Annotation of sample " +
+                        "${meta.id} produced an empty GBK file. BGC tools " +
+                        "needing it will be skipped.${reset}")
                 }
                 !file.isEmpty()
             },

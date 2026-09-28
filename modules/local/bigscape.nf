@@ -28,9 +28,17 @@ process BIGSCAPE {
     def gbk_list  = gbks  instanceof List ? gbks  : [gbks]
 
     if (name_list.size() != gbk_list.size()) {
+        def pink   = params.monochrome_logs ? '' : "\033[1;38;5;197m"
+        def white  = params.monochrome_logs ? '' : "\033[97m"
+        def creset = params.monochrome_logs ? '' : "\033[0m"
+        def banner = "=".multiply(100)
         error(
-            "[bgc_quast_ppl] BIGSCAPE: got ${name_list.size()} names for ${gbk_list.size()} GBK files.\n" +
-            "                These two lists must be built from the same collect() and pair by index."
+            "\n${white}${banner}${creset}\n" +
+            "${pink}[bgc_quast_ppl] BiG-SCAPE got ${name_list.size()} " +
+            "sample names for ${gbk_list.size()} GBK files.\n" +
+            "                Names and files must pair one to one. " +
+            "Please report this as a bug.${creset}\n" +
+            "${white}${banner}${creset}"
         )
     }
 

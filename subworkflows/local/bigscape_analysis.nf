@@ -21,6 +21,8 @@ workflow BIGSCAPE_ANALYSIS {
 
     def orange = params.monochrome_logs ? '' : "\033[38;5;208m"
     def creset = params.monochrome_logs ? '' : "\033[0m"
+    def hi     = params.monochrome_logs ? '' : "\033[4m"
+    def noh    = params.monochrome_logs ? '' : "\033[24m"
 
     def bs_tools = []
     if (!params.bgc_skip_antismash) { bs_tools << 'antismash' }
@@ -43,10 +45,15 @@ workflow BIGSCAPE_ANALYSIS {
 
         if (!given) {
             error(
-                "[bgc_quast_ppl] --bgc_bigscape_dir contains no per-tool subfolder.\n" +
-                "                Expected at least one of: ${bs_tools.join(', ')}\n" +
+                "\n${white}${banner}${creset}\n" +
+                "${pink}[bgc_quast_ppl] ${hi}--bgc_bigscape_dir${noh} " +
+                "contains no per-tool subfolder.\n" +
+                "                Expected at least one of: " +
+                "${bs_tools.join(', ')}\n" +
                 "                Looked in: ${params.bgc_bigscape_dir}\n" +
-                "                Point it at a previous run's bgc_quast/bigscape/ folder."
+                "                Point it at a previous run's " +
+                "bgc_quast/bigscape/ folder.${creset}\n" +
+                "${white}${banner}${creset}"
             )
         }
 

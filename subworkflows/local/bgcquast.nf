@@ -40,6 +40,7 @@ workflow BGCQUAST_COMPARISON {
     def noh         = params.monochrome_logs ? '' : "\033[24m"
     def white       = params.monochrome_logs ? '' : "\033[97m"
     def creset      = params.monochrome_logs ? '' : "\033[0m"
+    def banner      = "=".multiply(100)
 
     // antiSMASH writes a JSON even with zero regions; GECCO and DeepBGC write no file at all.
     def ch_antismash_json = antismash_json.join(antismash_gbk).map { meta, json, _gbks -> [meta, json] }
@@ -72,7 +73,7 @@ workflow BGCQUAST_COMPARISON {
                     .each { id -> tools_missing_for.get(id, []) << t }
             }
             tools_missing_for.each { id, tools ->
-                no_bgc_notes << "${orange_bold}[bgc_quast_ppl] '${id}': no BGCs predicted, so ${tools.join(', ')} produced no result -- this sample has no column in ${tools.size() > 1 ? 'those reports' : 'that report'}.${creset}".toString()
+                no_bgc_notes << "${orange_bold}[bgc_quast_ppl] '${id}': no BGCs predicted, so ${tools.join(', ')} produced no result - this sample has no column in ${tools.size() > 1 ? 'those reports' : 'that report'}.${creset}".toString()
             }
             active.each { t ->
                 if (ids.every { !(have[t] ?: [] as Set).contains(it) }) {
@@ -211,7 +212,6 @@ workflow BGCQUAST_COMPARISON {
             .mix(per_tool_ref(gecco_clusters, ref_gecco_clusters, 'gecco'))
 
         // Empty means neither the reference nor any query produced a usable prediction.
-        def banner = "=".multiply(100)
 
         ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
             error(
@@ -224,7 +224,15 @@ workflow BGCQUAST_COMPARISON {
         }
     }
     else {
-        error("[bgc_quast_ppl] bgc_quast_mode='${mode}' is not supported yet. Use compare-tools, compare-samples, or compare-to-reference.")
+        error(
+            "\n${white}${banner}${creset}\n" +
+            "${pink}[bgc_quast_ppl] ${hi}--bgc_quast_mode${noh} " +
+            "'${mode}' is not supported.${creset}\n" +
+            "${pink}                Please use ${hi}compare-tools${noh}, " +
+            "${hi}compare-samples${noh} or " +
+            "${hi}compare-to-reference${noh}.${creset}\n" +
+            "${white}${banner}${creset}"
+        )
     }
 
     BGCQUAST(ch_bgcquast_in)

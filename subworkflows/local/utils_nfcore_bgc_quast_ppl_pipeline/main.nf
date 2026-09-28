@@ -26,6 +26,15 @@ def pink(msg) {
     return "${esc}[1;38;5;197m${msg}${esc}[0m"
 }
 
+// Message in pipeline magenta-pink between two white banners; plain under --monochrome_logs.
+def framed(msg) {
+    def white  = params.monochrome_logs ? '' : "\033[97m"
+    def reset  = params.monochrome_logs ? '' : "\033[0m"
+    def banner = "=".multiply(100)
+    return "\n${white}${banner}${reset}\n" + pink(msg) +
+        "\n${white}${banner}${reset}"
+}
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     SUBWORKFLOW TO INITIALISE PIPELINE
@@ -180,9 +189,12 @@ workflow PIPELINE_COMPLETION {
 // which is a normalised temporary file when any name was filled in.
 //
 def validateSamplesheetContent(input) {
+    def hi  = params.monochrome_logs ? '' : "\033[4m"
+    def noh = params.monochrome_logs ? '' : "\033[24m"
+
     def lines = file(input).readLines().findAll { it.trim() }
     if (lines.size() < 2) {
-        error(pink("[bgc_quast_ppl] The input samplesheet is empty.\n" +
+        error(framed("[bgc_quast_ppl] The input samplesheet is empty.\n" +
             "                Provide at least one sample."))
     }
 
@@ -193,9 +205,11 @@ def validateSamplesheetContent(input) {
     // means the columns are jumbled. The type column is checked separately.
     def expected = ['sample', 'fasta']
     if (header.size() < expected.size() || header[0..1] != expected) {
-        error(pink("[bgc_quast_ppl] Samplesheet columns are out of order or missing.\n" +
+        error(framed("[bgc_quast_ppl] Samplesheet columns are out of " +
+            "order or missing.\n" +
             "                Use: sample,fasta,type\n" +
-            "                The type column belongs to compare-to-reference only."))
+            "                The type column belongs to " +
+            "${hi}compare-to-reference${noh} only."))
     }
 
     def si = header.indexOf('sample')
@@ -213,13 +227,15 @@ def validateSamplesheetContent(input) {
         def type  = (ti >= 0 && ti < cells.size()) ? cells[ti].toLowerCase() : ''
 
         if (name && !path) {
-            error(pink("[bgc_quast_ppl] Sample or reference '${name}' has no path.\n" +
+            error(framed("[bgc_quast_ppl] Sample or reference '${name}' " +
+                "has no path.\n" +
                 "                Add the file path or directory for that row."))
         }
 
         // Duplicate names would silently cross-wire two samples downstream.
         if (name && seen.contains(name)) {
-            error(pink("[bgc_quast_ppl] Duplicate sample name '${name}' in the samplesheet.\n" +
+            error(framed("[bgc_quast_ppl] Duplicate sample name '${name}' " +
+                "in the samplesheet.\n" +
                 "                Sample names must be unique."))
         }
 
@@ -249,7 +265,8 @@ def validateSamplesheetContent(input) {
                 : path
             if (!file(expanded).exists()) {
                 def role = (ref_mode && type == 'r') ? 'reference' : 'sample'
-                error(pink("[bgc_quast_ppl] The path for ${role} '${name}' does not exist:\n" +
+                error(framed("[bgc_quast_ppl] The path for ${role} " +
+                    "'${name}' does not exist:\n" +
                     "                ${path}\n" +
                     "                Check the file path or directory."))
             }
@@ -273,11 +290,15 @@ def validateSamplesheetContent(input) {
 // exactly one reference row. Content and empty-cell checks run upstream.
 //
 def validateReferenceSamplesheet(input) {
+    def hi  = params.monochrome_logs ? '' : "\033[4m"
+    def noh = params.monochrome_logs ? '' : "\033[24m"
+
     def lines  = file(input).readLines().findAll { it.trim() }
     def header = lines[0].split(',', -1).collect { it.trim() }
 
     if (!header.contains('type')) {
-        error(pink("[bgc_quast_ppl] compare-to-reference needs a 'type' column in the\n" +
+        error(framed("[bgc_quast_ppl] ${hi}compare-to-reference${noh} " +
+            "needs a 'type' column in the\n" +
             "                samplesheet. Add it and run again."))
     }
 
@@ -289,19 +310,21 @@ def validateReferenceSamplesheet(input) {
         def rownum = idx + 2
         def t      = cells[ti].trim().toLowerCase()
         if (!(t in ['q', 'r'])) {
-            error(pink("[bgc_quast_ppl] compare-to-reference: row ${rownum} has " +
-                "type='${cells[ti].trim()}', which is not valid.\n" +
-                "                Use q/Q for a query or r/R for the reference."))
+            error(framed("[bgc_quast_ppl] ${hi}compare-to-reference${noh}: " +
+                "row ${rownum} has type='${cells[ti].trim()}', " +
+                "which is not valid.\n" +
+                "                Use q/Q for a query or r/R for the " +
+                "reference."))
         }
         if (t == 'r') { ref_count++ }
     }
 
     if (ref_count != 1) {
-        error(pink("[bgc_quast_ppl] compare-to-reference needs exactly one reference row\n" +
+        error(framed("[bgc_quast_ppl] ${hi}compare-to-reference${noh} " +
+            "needs exactly one reference row\n" +
             "                (type r/R). Found ${ref_count}."))
     }
 }
-
 //
 // antiSMASH mode check: minimal is the default, and --bgc_antismash_full cannot be
 // combined with --bgc_antismash_minimal.
@@ -311,10 +334,10 @@ def validateAntismashMode() {
     def noh = params.monochrome_logs ? '' : "\033[24m"
 
     if (params.bgc_antismash_minimal && params.bgc_antismash_full) {
-        error(pink("[bgc_quast_ppl] ${hi}--bgc_antismash_minimal${noh} and " +
-            "${hi}--bgc_antismash_full${noh} cannot\n" +
-            "                both be set. Minimal is the default; pass\n" +
-            "                ${hi}--bgc_antismash_full${noh} only for the " +
+        error(framed("[bgc_quast_ppl] ${hi}--bgc_antismash_minimal${noh} and " +
+            "${hi}--bgc_antismash_full${noh} both flags cannot be set together.\n" +
+            "\n                Minimal is the default; pass " +
+            "${hi}--bgc_antismash_full${noh} only for the " +
             "full analysis."))
     }
 }
@@ -339,7 +362,8 @@ def validatePreRunEnvironment(input) {
     // antiSMASH database, only when antiSMASH runs
     if (!params.bgc_skip_antismash) {
         if (!params.bgc_antismash_db) {
-            problems << "antiSMASH is on but --bgc_antismash_db is not set."
+            problems << "antiSMASH is on but " +
+                "${hi}--bgc_antismash_db${noh} is not set."
         }
         else if (!file(params.bgc_antismash_db).exists()) {
             problems << "antiSMASH database folder not found: ${params.bgc_antismash_db}"
@@ -349,7 +373,8 @@ def validatePreRunEnvironment(input) {
     // DeepBGC database, only when DeepBGC runs
     if (!params.bgc_skip_deepbgc) {
         if (!params.bgc_deepbgc_db) {
-            problems << "DeepBGC is on but --bgc_deepbgc_db is not set."
+            problems << "DeepBGC is on but " +
+                "${hi}--bgc_deepbgc_db${noh} is not set."
         }
         else if (!file(params.bgc_deepbgc_db).exists()) {
             problems << "DeepBGC database folder not found: ${params.bgc_deepbgc_db}"
@@ -358,7 +383,8 @@ def validatePreRunEnvironment(input) {
 
     // QUAST folder override, if given, must exist
     if (params.bgc_quast_quastdir && !file(params.bgc_quast_quastdir).exists()) {
-        problems << "--bgc_quast_quastdir path not found: ${params.bgc_quast_quastdir}"
+        problems << "${hi}--bgc_quast_quastdir${noh} path not found:  " +
+            "${params.bgc_quast_quastdir}"
     }
 
     // BiG-SCAPE binning mode, the only supported value = none
@@ -372,16 +398,20 @@ def validatePreRunEnvironment(input) {
     // BiG-SCAPE, only when it is switched on and the mode actually runs it
     if (params.run_bigscape && params.bgc_quast_mode == 'compare-samples') {
         if (params.bgc_skip_antismash && params.bgc_skip_deepbgc && params.bgc_skip_gecco) {
-            problems << "--run_bigscape is set but every BGC tool is skipped.\n" +
-                "     BiG-SCAPE clusters the BGCs those tools predict, so it has\n" +
-                "     nothing to work on. Enable at least one of antiSMASH, DeepBGC\n" +
+            problems << "${hi}--run_bigscape${noh} is set but every " +
+                "BGC tool is skipped.\n" +
+                "     BiG-SCAPE clusters the BGCs predicted from the tools, so it has\n" +
+                "     nothing to work on. Enable at least one of tools: antiSMASH, DeepBGC\n" +
                 "     or GECCO."
         }
 
         if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
-            warnings << "No --bgc_bigscape_pfam given. Pfam will be downloaded and pressed\n" +
-                "     automatically (about 400 MB, one-off). Pass --save_db to keep it, or\n" +
-                "     --bgc_bigscape_pfam to use a copy you already have."
+            warnings << "No ${hi}--bgc_bigscape_pfam${noh} given. " +
+                "Pfam will be downloaded and pressed\n" +
+                "     automatically (about 400 MB, one-off). " +
+                "Pass ${hi}--save_db${noh} to keep it, or\n" +
+                "     ${hi}--bgc_bigscape_pfam${noh} to use a copy " +
+                "you already have."
         }
 
         if (params.bgc_bigscape_pfam) {
@@ -403,7 +433,8 @@ def validatePreRunEnvironment(input) {
         }
 
         if (params.bgc_bigscape_dir && !file(params.bgc_bigscape_dir).exists()) {
-            problems << "--bgc_bigscape_dir path not found: ${params.bgc_bigscape_dir}"
+            problems << "${hi}--bgc_bigscape_dir${noh} path not found: " +
+                "${params.bgc_bigscape_dir}"
         }
 
         // The report cutoff must be one that will exist. --bgc_bigscape_dir is a parent
@@ -430,7 +461,8 @@ def validatePreRunEnvironment(input) {
             if (!cuts.any { Math.abs(it - want) < 1e-9 }) {
                 problems << "Cutoff ${params.bgc_bigscape_cutoff} is not available for ${whose}.\n" +
                     "     Available cutoffs: ${cuts.join(', ')}\n" +
-                    "     Choose one of those with --bgc_bigscape_cutoff."
+                    "     Choose one of those with " +
+                    "${hi}--bgc_bigscape_cutoff${noh}."
             }
         }
 
@@ -442,10 +474,11 @@ def validatePreRunEnvironment(input) {
             }
 
             if (!supplied) {
-                problems << "--bgc_bigscape_dir has no per-tool subfolder.\n" +
+                problems << "${hi}--bgc_bigscape_dir${noh} has no " +
+                    "per-tool subfolder.\n" +
                     "     Looked in: ${params.bgc_bigscape_dir}\n" +
                     "     Expected at least one of: ${bs_tools.join(', ')}\n" +
-                    "     Point it at a previous run's bgc_quast/bigscape/ folder."
+                    "     Point it at a previous run's 'bgc_quast/bigscape/' folder."
             }
             else {
                 supplied.each { tool, dir ->
@@ -569,12 +602,21 @@ def validatePreRunEnvironment(input) {
         }
     }
 
-    warnings.each { log.warn("[bgc_quast_ppl] ${it}") }
+    def yellow = params.monochrome_logs ? '' : "\033[1;93m"
+    def reset  = params.monochrome_logs ? '' : "\033[0m"
+    warnings.each {
+        log.warn("${yellow}[bgc_quast_ppl] " +
+            it.replace('\n     ', '\n                      ') +
+            "${reset}")
+    }
 
     // Every blocking problem is printed together, then the run halts.
     if (problems) {
-        def msg = problems.collect { " - ${it}" }.join('\n')
-        error(pink("[bgc_quast_ppl] Cannot start. Please fix:\n${msg}"))
+        def msg = problems.collect {
+            "                - " +
+                it.replace('\n     ', '\n                  ')
+        }.join('\n')
+        error(framed("[bgc_quast_ppl] Cannot start. Please fix:\n${msg}"))
     }
 }
 
@@ -770,21 +812,23 @@ def explainPipelineError() {
               "It names the failing task and its work folder; open " +
               "${hi}.command.err${noh} there for the whole error output."
 
-        // println, not log.error, so the banners stay uncoloured.
-        println ''
-        println "${white}${banner}${reset}"
-        println "${red}${title}${reset}"
-        println ''
-        detail.readLines().each { println "${red}  ${it}${reset}" }
-        println "${white}${banner}${reset}"
+        // log.error, not println, so it prints after Nextflow's error report.
+        def body = ["${red}${title}${reset}"]
+        detail.readLines().each { line ->
+            def text = line.replaceFirst(/^  /, '')
+                .replaceAll(/(?<![\w-])(--?[a-z][\w-]*)/, "${hi}\$1${noh}")
+            body << "${red}                ${text}${reset}"
+        }
+        body << "${red}                Troubleshooting: " +
+            "https://github.com/Seg0fieD/bgc_quast_ppl" +
+            "#14-troubleshooting${reset}"
+        log.error("\n${white}${banner}${reset}\n" + body.join('\n') +
+            "\n${white}${banner}${reset}")
 
         if (params.bgc_quast_debug && report.trim()) {
-            log.error(pink("[bgc_quast_ppl] --bgc_quast_debug: full error report below:\n" +
-                "${report.trim()}"))
+            log.error(pink("[bgc_quast_ppl] ${hi}--bgc_quast_debug${noh}: " +
+                "full error report below:\n${report.trim()}"))
         }
-
-        log.error("Please refer to the troubleshooting guide: " +
-            "https://github.com/Seg0fieD/bgc_quast_ppl#14-troubleshooting")
     }
     catch (Exception e) {
         log.error(pink("[bgc_quast_ppl] error handler failed: ${e}"))
@@ -799,16 +843,23 @@ def reportNoComparison(monochrome_logs) {
     def red    = monochrome_logs ? '' : "\033[1;31m"
     def white  = monochrome_logs ? '' : "\033[97m"
     def reset  = monochrome_logs ? '' : "\033[0m"
+    def hi     = monochrome_logs ? '' : "\033[4m"
+    def noh    = monochrome_logs ? '' : "\033[24m"
     def banner = "=".multiply(100)
     println ''
     println "${white}${banner}${reset}"
-    println "${red}[bgc_quast_ppl] Pipeline did NOT complete successfully.${reset}"
-    println ''
-    println "${red}  No BGC comparison was produced. bgc-quast never ran, usually because every${reset}"
-    println "${red}  sample was dropped before prediction (for example all contigs were shorter than${reset}"
-    println "${red}  ${params.bgc_mincontiglength} bp, or annotation produced no genes).${reset}"
-    println ''
-    println "${red}  Use longer or better assemblies, or lower --bgc_mincontiglength, then run again.${reset}"
+    println "${red}[bgc_quast_ppl] Pipeline did NOT complete " +
+            "successfully.${reset}"
+    println "${red}                No BGC comparison was produced. " +
+            "bgc-quast never ran, usually${reset}"
+    println "${red}                because every sample was dropped " +
+            "before prediction (for example${reset}"
+    println "${red}                all contigs were shorter than " +
+            "${params.bgc_mincontiglength} bp, or annotation${reset}"
+    println "${red}                produced no genes). Use longer or " +
+            "better assemblies, or lower${reset}"
+    println "${red}                ${hi}--bgc_mincontiglength${noh}, " +
+            "then run again.${reset}"
     println "${white}${banner}${reset}"
 }
 
