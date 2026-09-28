@@ -271,8 +271,8 @@ nextflow run . \
   --bgc_quast_mode compare-samples \
   --bgc_antismash_db /absolute/path/to/antismash_db_v8 \
   --bgc_deepbgc_db /absolute/path/to/deepbgc_db \
-  --max_cpus 4 \
-  --max_memory 24.GB
+  --max_cpus 2 \
+  --max_memory 16.GB
 ```
 
 ### Compare tools
@@ -295,8 +295,8 @@ nextflow run . \
   --bgc_quast_mode compare-to-reference \
   --bgc_antismash_db /absolute/path/to/antismash_db_v8 \
   --bgc_deepbgc_db /absolute/path/to/deepbgc_db \
-  --max_cpus 4 \
-  --max_memory 24.GB
+  --max_cpus 2 \
+  --max_memory 16.GB
 ```
 
 ### Compare samples with gene cluster families (BiG-SCAPE)
@@ -311,8 +311,8 @@ nextflow run . \
   --bgc_bigscape_pfam /absolute/path/to/Pfam-A.hmm \
   --bgc_antismash_db /absolute/path/to/antismash_db_v8 \
   --bgc_deepbgc_db /absolute/path/to/deepbgc_db \
-  --max_cpus 4 \
-  --max_memory 32.GB
+  --max_cpus 2 \
+  --max_memory 16.GB
 ```
 
 ### See all parameters in the terminal
@@ -518,7 +518,7 @@ Only the folder of the mode you ran is created. A skipped tool has no folder.
 | File | Contents |
 |---|---|
 | `report.html` | The interactive report. Open it in a web browser. **Start here.** |
-| `report.tsv` | The same numbers as a table, for Excel, R or Python. |
+| `report.tsv` | The same numbers as a table. |
 | `report.txt` | The same numbers as plain text. |
 | `bgc-quast.log` | The log of the bgc-quast run. |
 
