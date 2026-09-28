@@ -923,13 +923,10 @@
                     "type": "string",
                     "default": "none",
                     "enum": [
-                        "none",
-                        "class",
-                        "category",
-                        "legacy"
+                        "none"
                     ],
-                    "description": "BiG-SCAPE binning mode. Only 'none' is wired; the others are reserved.",
-                    "help_text": "Passed to BiG-SCAPE --classify. 'none' with --mix gives one bin and one family per BGC, which is what the parser expects.",
+                    "description": "BiG-SCAPE binning mode. Fixed to 'none'; no other mode is supported.",
+                    "help_text": "Passed to BiG-SCAPE --classify. With --mix, 'none' puts every BGC into a single bin, and that bin is the one bgc-quast reads. Any other binning mode would only add bins the report never reads, so it is not accepted.",
                     "fa_icon": "fas fa-layer-group"
                 }
             }

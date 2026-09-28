@@ -430,7 +430,7 @@ together.
 | `--bgc_bigscape_cutoffs` | `0.3,0.5,0.7` | Family cut-offs to compute, separated by commas. A lower cut-off makes smaller, tighter families. You can switch between them in the HTML report. |
 | `--bgc_bigscape_cutoff` | `0.3` | The cut-off shown in the report table. It must be one of `--bgc_bigscape_cutoffs`. |
 | `--bgc_bigscape_dir` | - | Reuse BiG-SCAPE results from an earlier run. Point it at that run's `bgc_quast/bigscape/` folder. Tools found there are not run again. |
-| `--bgc_bigscape_classify` | `none` | How BiG-SCAPE sorts BGCs before grouping. Only `none` works in this pipeline. |
+| `--bgc_bigscape_classify` | `none` | How BiG-SCAPE sorts BGCs into bins before grouping. Fixed to `none`, because the report reads the single mixed bin. |
 
 ### 10.8 Gene annotation
 
@@ -618,7 +618,10 @@ Please also cite the tools it runs:
 - **QUAST** - [QUAST](https://quast.sourceforge.net/)
 - **Pyrodigal** - [Pyrodigal](https://github.com/althonos/pyrodigal)
 - **SeqKit** - [SeqKit](https://bioinf.shenwei.me/seqkit/)
-- **nf-core/funcscan** - [doi:10.5281/zenodo.7643099](https://doi.org/10.5281/zenodo.7643099)
+- **nf-core/funcscan** -
+  [docs 3.0.0](https://nf-co.re/funcscan/3.0.0),
+  [GitHub 3.0.0](https://github.com/nf-core/funcscan/tree/3.0.0),
+  [doi:10.5281/zenodo.7643099](https://doi.org/10.5281/zenodo.7643099)
 - **nf-core** - Ewels et al., *Nature Biotechnology* 2020.
   [doi:10.1038/s41587-020-0439-x](https://doi.org/10.1038/s41587-020-0439-x)
 - **Nextflow** - [nextflow.io](https://www.nextflow.io/)

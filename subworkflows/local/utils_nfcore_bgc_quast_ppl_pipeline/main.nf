@@ -327,6 +327,8 @@ def validateAntismashMode() {
 def validatePreRunEnvironment(input) {
     def problems = []
     def warnings = []
+    def hi  = params.monochrome_logs ? '' : "\033[4m"
+    def noh = params.monochrome_logs ? '' : "\033[24m"
 
     // Samplesheet file exists
     def sheet = input ? file(input) : null
@@ -357,6 +359,14 @@ def validatePreRunEnvironment(input) {
     // QUAST folder override, if given, must exist
     if (params.bgc_quast_quastdir && !file(params.bgc_quast_quastdir).exists()) {
         problems << "--bgc_quast_quastdir path not found: ${params.bgc_quast_quastdir}"
+    }
+
+    // BiG-SCAPE binning mode, the only supported value = none
+    if (params.bgc_bigscape_classify != 'none') {
+        problems << "${hi}--bgc_bigscape_classify${noh} must be 'none', " +
+            "not '${params.bgc_bigscape_classify}'.\n" +
+            "     bgc-quast reads the single mixed bin, so another binning\n" +
+            "     mode would only add bins that the report never reads."
     }
 
     // BiG-SCAPE, only when it is switched on and the mode actually runs it
