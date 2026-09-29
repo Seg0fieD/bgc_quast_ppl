@@ -2,19 +2,19 @@ process BIGSCAPE {
     tag "${prefix}"
     label 'process_high'
 
-    // Container is the tested route; conda is here so a conda user is not blocked.
+    // Tested with the container; conda is kept for users without Docker.
     conda "bioconda::bigscape=2.0.3"
     container "quay.io/biocontainers/bigscape:2.0.3--pyhdfd78af_0"
 
     input:
-    val  prefix                             // tool name: antismash, gecco or deepbgc
-    val  names                              // <sample_label>_<original_gbk_filename>, one per gbk
-    path gbks, stageAs: 'raw*/*'            // BGC region or cluster GBKs, all samples
-    path pfam_dir                           // folder holding the .hmm plus .h3f .h3i .h3m .h3p
-    val  pfam_name                          // basename of the .hmm inside pfam_dir
+    val  prefix                  // tool name: antismash, gecco or deepbgc
+    val  names                   // <sample>_<GBK file name>, one per GBK
+    path gbks, stageAs: 'raw*/*' // region or cluster GBKs of all samples
+    path pfam_dir                // .hmm file with its .h3f .h3i .h3m .h3p
+    val  pfam_name               // file name of the .hmm inside pfam_dir
 
     output:
-    // Folder is named for the tool, and conf/modules.config publishes it under bigscape/.
+    // One folder per tool, published under bigscape/ by conf/modules.config.
     tuple val(prefix), path("${prefix}")                             , emit: results
     path "${prefix}/output_files/**/*_clustering_c*.tsv"             , emit: clustering, optional: true
     path "versions.yml"                                              , emit: versions
@@ -42,10 +42,8 @@ process BIGSCAPE {
         )
     }
 
-    // Nextflow has no per-file rename. Pair names to staged paths by index and symlink
-    // into a flat gbk_input/. The <sample>_ prefix is the join key bgc-quast reverses, and
-    // ".region" or "_cluster_" must survive so BiG-SCAPE's --include-gbk filter accepts the file.
-    // Sorted so the link order, and so the task script, is identical every run.
+    // GBKs symlinked under their paired names, sorted for a stable task hash.
+    // Names keep <sample>_ for bgc-quast, .region/_cluster_ for BiG-SCAPE.
     def stage_cmds = (0..<gbk_list.size()).toList()
         .sort { i -> name_list[i] }
         .collect { i -> "ln -s \"\$WORKDIR/${gbk_list[i]}\" \"\$WORKDIR/gbk_input/${name_list[i]}\"" }
@@ -56,14 +54,10 @@ process BIGSCAPE {
     mkdir -p \$WORKDIR/gbk_input
     ${stage_cmds}
 
-    # BiG-SCAPE deduplicates input files through a set keyed by string, so
-    # without a fixed hash seed the load order, and with it the orientation
-    # of each compared pair and some distances, changes every run.
+    # Fixed hash seed, so BiG-SCAPE loads its inputs in one order every run.
     export PYTHONHASHSEED=0
 
-    # BiG-SCAPE never seeds numpy, so scikit-learn's affinity propagation
-    # draws a different tie-breaker each run. Python imports sitecustomize
-    # at startup, which also covers spawned child processes.
+    # Seeds numpy in every Python process, so affinity propagation is stable.
     echo 'import numpy' > \$WORKDIR/sitecustomize.py
     echo 'numpy.random.seed(0)' >> \$WORKDIR/sitecustomize.py
     export PYTHONPATH="\$WORKDIR\${PYTHONPATH:+:\$PYTHONPATH}"

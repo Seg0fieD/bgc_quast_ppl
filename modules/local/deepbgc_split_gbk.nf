@@ -61,8 +61,8 @@ process DEEPBGC_SPLIT_GBK {
             if column not in rows[0]:
                 fail("%s has no '%s' column." % (tsv.name, column))
 
-    # bgc-quast numbers each BGC by its position among the rows of this TSV, so the
-    # number is taken from here and never from the GBK, whose LOCUS can be truncated.
+    # BGC number is its row position in this TSV, as bgc-quast numbers it;
+    # never taken from the GBK LOCUS name, which can be truncated.
     counter = defaultdict(int)
     expected = {}
     order = []
@@ -97,7 +97,7 @@ process DEEPBGC_SPLIT_GBK {
         seen.append(candidate_id)
 
         sequence_id, number = expected[candidate_id]
-        # BiG-SCAPE rejects a cluster feature without this note; --force-gbk cannot rescue it.
+        # BiG-SCAPE rejects a cluster without this note, --force-gbk or not.
         clusters[0].qualifiers["note"] = ["Cluster number: %d" % number]
         target = out_dir / ("%s_cluster_%d.gbk" % (sequence_id, number))
         if target.exists():

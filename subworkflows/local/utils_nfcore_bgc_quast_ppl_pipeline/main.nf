@@ -1,11 +1,6 @@
-//
-// Subworkflow with functionality specific to the bgc_quast_ppl pipeline
-//
-
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT FUNCTIONS / MODULES / SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Pipeline initialisation and completion for bgc_quast_ppl: pre-run checks,
+    samplesheet parsing, failure explainer and completion notices.
 */
 
 include { UTILS_NFSCHEMA_PLUGIN   } from '../../nf-core/utils_nfschema_plugin'
@@ -17,46 +12,18 @@ include { imNotification          } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NFCORE_PIPELINE   } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NEXTFLOW_PIPELINE } from '../../nf-core/utils_nextflow_pipeline'
 
-// ANSI pink for messages that stop the run before any task starts; plain text under --monochrome_logs.
-def pink(msg) {
-    if (params.monochrome_logs) {
-        return msg
-    }
-    def esc = "\033"
-    return "${esc}[1;38;5;197m${msg}${esc}[0m"
-}
-
-// Message in pipeline magenta-pink between two white banners; plain under --monochrome_logs.
-def framed(msg) {
-    def white  = params.monochrome_logs ? '' : "\033[97m"
-    def reset  = params.monochrome_logs ? '' : "\033[0m"
-    def banner = "=".multiply(100)
-    return "\n${white}${banner}${reset}\n" + pink(msg) +
-        "\n${white}${banner}${reset}"
-}
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    SUBWORKFLOW TO INITIALISE PIPELINE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
 workflow PIPELINE_INITIALISATION {
     take:
-    version           // boolean: Display version and exit
-    validate_params   // boolean: Validate parameters against the schema at runtime
-    monochrome_logs   // boolean: Do not use coloured log outputs
-    nextflow_cli_args //   array: List of positional nextflow CLI args
-    outdir            //  string: The output directory where results will be saved
-    input             //  string: Path to input samplesheet
+    version           // boolean: print the version and exit
+    validate_params   // boolean: validate parameters against the schema
+    monochrome_logs   // boolean: plain log output, no colour codes
+    nextflow_cli_args // list: positional Nextflow command-line arguments
+    outdir            // string: output directory
+    input             // string: samplesheet path
 
     main:
-
     ch_versions = Channel.empty()
 
-    //
-    // Version flag, and the run's parameter dump written to the output folder.
-    //
     UTILS_NEXTFLOW_PIPELINE(
         version,
         true,
@@ -64,49 +31,24 @@ workflow PIPELINE_INITIALISATION {
         workflow.profile.tokenize(',').intersect(['conda', 'mamba']).size() >= 1,
     )
 
-
-    //
-    // antiSMASH minimal and full are mutually exclusive.
-    //
+    // Pipeline checks run before nf-schema, so their messages print first.
     validateAntismashMode()
-
-    //
-    // Samplesheet content check for every mode. Runs before nf-schema so the
-    // per-sample messages appear first. Returns the samplesheet to parse.
-    //
     def sheet = validateSamplesheetContent(input)
-
-    //
-    // compare-to-reference: the type column and a single reference row.
-    //
     if (params.bgc_quast_mode == 'compare-to-reference') {
         validateReferenceSamplesheet(sheet)
     }
-
-    //
-    // Pre-run environment checks: paths, databases, Docker.
-    //
     validatePreRunEnvironment(input)
 
-    //
-    // Validate parameters against the schema and print the parameter summary.
-    //
     UTILS_NFSCHEMA_PLUGIN(
         workflow,
         validate_params,
         null,
     )
 
-    //
-    // Check the config provided to the pipeline.
-    //
     UTILS_NFCORE_PIPELINE(
         nextflow_cli_args
     )
 
-    //
-    // Samplesheet channel built from --input.
-    //
     Channel.fromList(samplesheetToList(sheet, "${projectDir}/assets/schema_input.json"))
         .set { ch_samplesheet }
 
@@ -115,36 +57,24 @@ workflow PIPELINE_INITIALISATION {
     versions    = ch_versions
 }
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    SUBWORKFLOW FOR PIPELINE COMPLETION
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
 workflow PIPELINE_COMPLETION {
     take:
-    email           //  string: email address
-    email_on_fail   //  string: email address sent on pipeline failure
-    plaintext_email // boolean: Send plain-text email instead of HTML
-    outdir          //    path: Path to output directory where results will be published
-    monochrome_logs // boolean: Disable ANSI colour codes in log output
-    hook_url        //  string: hook URL for notifications
-    bgcquast_runs   // channel: val(Integer) number of bgc-quast runs that produced results
+    email           // string: address for the completion email
+    email_on_fail   // string: address for the email on failure
+    plaintext_email // boolean: plain-text email instead of HTML
+    outdir          // path: output directory
+    monochrome_logs // boolean: plain log output, no colour codes
+    hook_url        // string: webhook URL for notifications
+    bgcquast_runs   // channel: val(Integer), bgc-quast runs with results
 
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
 
-    // The workflow handle is null inside the onComplete closure, so capture it here.
-    def wf = workflow
-
-
-    // A channel cannot be read inside onComplete; the count must be captured before it.
+    // workflow is null inside onComplete; a channel cannot be read there.
+    def wf                 = workflow
     def bgcquast_run_total = 0
     bgcquast_runs.subscribe { n -> bgcquast_run_total = n }
 
-    //
-    // Completion email and summary
-    //
     workflow.onComplete {
         if (email || email_on_fail) {
             completionEmail(
@@ -158,12 +88,11 @@ workflow PIPELINE_COMPLETION {
             )
         }
 
-        // Standard summary on error or when bgc-quast ran, otherwise a no-comparison notice.
         if (wf.errorMessage || bgcquast_run_total > 0) {
             completionSummary(monochrome_logs)
         }
         else {
-            reportNoComparison(monochrome_logs)
+            reportNoComparison()
         }
 
         if (hook_url) {
@@ -177,39 +106,84 @@ workflow PIPELINE_COMPLETION {
 }
 
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Terminal escape codes: colours, underline (hi/noh) and reset; all empty
+    under --monochrome_logs.
 */
+def style() {
+    def on = !params.monochrome_logs
+    return [
+        pink  : on ? "\033[1;38;5;197m" : '',
+        red   : on ? "\033[1;31m"       : '',
+        yellow: on ? "\033[1;93m"       : '',
+        white : on ? "\033[97m"         : '',
+        hi    : on ? "\033[4m"          : '',
+        noh   : on ? "\033[24m"         : '',
+        reset : on ? "\033[0m"          : '',
+    ]
+}
 
+/*
+    Message block: the first line prefixed with [bgc_quast_ppl], every later
+    line indented by the given number of spaces.
+*/
+def block(lines, indent) {
+    def pad = ' '.multiply(indent)
+    def out = ["[bgc_quast_ppl] ${lines[0]}"]
+    lines.drop(1).each { line -> out << "${pad}${line}" }
+    return out.join('\n')
+}
 
-//
-// Samplesheet content check for all modes: column order, duplicate names, missing
-// paths, and auto-naming of blank sample cells. Returns the samplesheet to parse,
-// which is a normalised temporary file when any name was filled in.
-//
+/*
+    Start-up error text: message lines in pink between two white banners.
+*/
+def framed(lines) {
+    def s      = style()
+    def banner = "=".multiply(100)
+    return "\n${s.white}${banner}${s.reset}\n" +
+        "${s.pink}${block(lines, 16)}${s.reset}\n" +
+        "${s.white}${banner}${s.reset}"
+}
+
+/*
+    Samplesheet contents: trimmed header cells and trimmed cells of each
+    non-blank data row; both empty for a sheet without a data row.
+*/
+def readSheet(path) {
+    def lines = file(path).readLines().findAll { it.trim() }
+    def cells = lines.collect { line ->
+        line.split(',', -1).collect { it.trim() }
+    }
+    if (cells.size() < 2) {
+        return [header: cells ? cells[0] : [], rows: []]
+    }
+    return [header: cells[0], rows: cells.drop(1)]
+}
+
+/*
+    Samplesheet check for every mode: column order, missing paths, duplicate
+    names, and names filled in from the file name. Returns the sheet to parse,
+    a rewritten temporary copy when any name was filled in.
+*/
 def validateSamplesheetContent(input) {
-    def hi  = params.monochrome_logs ? '' : "\033[4m"
-    def noh = params.monochrome_logs ? '' : "\033[24m"
-
-    def lines = file(input).readLines().findAll { it.trim() }
-    if (lines.size() < 2) {
-        error(framed("[bgc_quast_ppl] The input samplesheet is empty.\n" +
-            "                Provide at least one sample."))
+    def s     = style()
+    def sheet = readSheet(input)
+    if (!sheet.rows) {
+        error(framed([
+            "The input samplesheet is empty.",
+            "Provide at least one sample.",
+        ]))
     }
 
-    def header   = lines[0].split(',', -1).collect { it.trim() }
+    def header   = sheet.header
     def ref_mode = params.bgc_quast_mode == 'compare-to-reference'
 
-    // The first two columns must be sample,fasta in that order. Anything else usually
-    // means the columns are jumbled. The type column is checked separately.
-    def expected = ['sample', 'fasta']
-    if (header.size() < expected.size() || header[0..1] != expected) {
-        error(framed("[bgc_quast_ppl] Samplesheet columns are out of " +
-            "order or missing.\n" +
-            "                Use: sample,fasta,type\n" +
-            "                The type column belongs to " +
-            "${hi}compare-to-reference${noh} only."))
+    if (header.size() < 2 || header[0..1] != ['sample', 'fasta']) {
+        error(framed([
+            "Samplesheet columns are out of order or missing.",
+            "Use: sample,fasta,type",
+            "The type column belongs to " +
+                "${s.hi}compare-to-reference${s.noh} only.",
+        ]))
     }
 
     def si = header.indexOf('sample')
@@ -217,30 +191,28 @@ def validateSamplesheetContent(input) {
     def ti = header.indexOf('type')
 
     def rewritten = false
-    def out_lines = [lines[0]]
+    def out_lines = [header.join(',')]
     def seen      = [] as Set
 
-    lines[1..-1].eachWithIndex { line, idx ->
-        def cells = line.split(',', -1).collect { it.trim() }
-        def name  = si < cells.size() ? cells[si] : ''
-        def path  = fi < cells.size() ? cells[fi] : ''
-        def type  = (ti >= 0 && ti < cells.size()) ? cells[ti].toLowerCase() : ''
+    sheet.rows.each { cells ->
+        def name = si < cells.size() ? cells[si] : ''
+        def path = fi < cells.size() ? cells[fi] : ''
+        def type = (ti >= 0 && ti < cells.size()) ? cells[ti].toLowerCase() : ''
 
         if (name && !path) {
-            error(framed("[bgc_quast_ppl] Sample or reference '${name}' " +
-                "has no path.\n" +
-                "                Add the file path or directory for that row."))
+            error(framed([
+                "Sample or reference '${name}' has no path.",
+                "Add the file path or directory for that row.",
+            ]))
         }
 
-        // Duplicate names would silently cross-wire two samples downstream.
         if (name && seen.contains(name)) {
-            error(framed("[bgc_quast_ppl] Duplicate sample name '${name}' " +
-                "in the samplesheet.\n" +
-                "                Sample names must be unique."))
+            error(framed([
+                "Duplicate sample name '${name}' in the samplesheet.",
+                "Sample names must be unique.",
+            ]))
         }
 
-        // A blank sample cell is filled from the file name, with a _query or _ref
-        // suffix in compare-to-reference mode and a number if that name is taken.
         if (!name && path) {
             def base   = file(path).name.replaceFirst(/\.(fasta|fas|fna|fa)(\.gz)?$/, '')
             def suffix = ref_mode ? (type == 'r' ? '_ref' : '_query') : ''
@@ -250,11 +222,11 @@ def validateSamplesheetContent(input) {
                 cand = "${base}${suffix}_${n}"
                 n++
             }
-            name = cand
+            name      = cand
             cells[si] = name
+            rewritten = true
             log.info("[bgc_quast_ppl] No sample name given for ${path}; " +
                 "using '${name}' from the file name.")
-            rewritten = true
         }
 
         seen << name
@@ -265,17 +237,17 @@ def validateSamplesheetContent(input) {
                 : path
             if (!file(expanded).exists()) {
                 def role = (ref_mode && type == 'r') ? 'reference' : 'sample'
-                error(framed("[bgc_quast_ppl] The path for ${role} " +
-                    "'${name}' does not exist:\n" +
-                    "                ${path}\n" +
-                    "                Check the file path or directory."))
+                error(framed([
+                    "The path for ${role} '${name}' does not exist:",
+                    "${path}",
+                    "Check the file path or directory.",
+                ]))
             }
         }
 
         out_lines << cells.join(',')
     }
 
-    // A new file is written only when a name was filled in.
     if (rewritten) {
         def tmp = File.createTempFile('bgc_quast_ppl_samplesheet_', '.csv')
         tmp.deleteOnExit()
@@ -285,581 +257,654 @@ def validateSamplesheetContent(input) {
     return input
 }
 
-//
-// compare-to-reference samplesheet check: a type column, valid q/r values, and
-// exactly one reference row. Content and empty-cell checks run upstream.
-//
+/*
+    compare-to-reference samplesheet check: a type column, q/r values only,
+    and exactly one reference row.
+*/
 def validateReferenceSamplesheet(input) {
-    def hi  = params.monochrome_logs ? '' : "\033[4m"
-    def noh = params.monochrome_logs ? '' : "\033[24m"
+    def s     = style()
+    def mode  = "${s.hi}compare-to-reference${s.noh}"
+    def sheet = readSheet(input)
 
-    def lines  = file(input).readLines().findAll { it.trim() }
-    def header = lines[0].split(',', -1).collect { it.trim() }
-
-    if (!header.contains('type')) {
-        error(framed("[bgc_quast_ppl] ${hi}compare-to-reference${noh} " +
-            "needs a 'type' column in the\n" +
-            "                samplesheet. Add it and run again."))
+    if (!sheet.header.contains('type')) {
+        error(framed([
+            "${mode} needs a 'type' column in the",
+            "samplesheet. Add it and run again.",
+        ]))
     }
 
-    def ti        = header.indexOf('type')
+    def ti        = sheet.header.indexOf('type')
     def ref_count = 0
 
-    lines[1..-1].eachWithIndex { line, idx ->
-        def cells  = line.split(',', -1)
-        def rownum = idx + 2
-        def t      = cells[ti].trim().toLowerCase()
+    sheet.rows.eachWithIndex { cells, idx ->
+        def raw = ti < cells.size() ? cells[ti] : ''
+        def t   = raw.toLowerCase()
         if (!(t in ['q', 'r'])) {
-            error(framed("[bgc_quast_ppl] ${hi}compare-to-reference${noh}: " +
-                "row ${rownum} has type='${cells[ti].trim()}', " +
-                "which is not valid.\n" +
-                "                Use q/Q for a query or r/R for the " +
-                "reference."))
+            error(framed([
+                "${mode}: row ${idx + 2} has type='${raw}', " +
+                    "which is not valid.",
+                "Use q/Q for a query or r/R for the reference.",
+            ]))
         }
-        if (t == 'r') { ref_count++ }
+        if (t == 'r') {
+            ref_count++
+        }
     }
 
     if (ref_count != 1) {
-        error(framed("[bgc_quast_ppl] ${hi}compare-to-reference${noh} " +
-            "needs exactly one reference row\n" +
-            "                (type r/R). Found ${ref_count}."))
+        error(framed([
+            "${mode} needs exactly one reference row",
+            "(type r/R). Found ${ref_count}.",
+        ]))
     }
 }
-//
-// antiSMASH mode check: minimal is the default, and --bgc_antismash_full cannot be
-// combined with --bgc_antismash_minimal.
-//
+
+/*
+    antiSMASH mode check: --bgc_antismash_minimal and --bgc_antismash_full
+    are mutually exclusive.
+*/
 def validateAntismashMode() {
-    def hi  = params.monochrome_logs ? '' : "\033[4m"
-    def noh = params.monochrome_logs ? '' : "\033[24m"
+    def s    = style()
+    def mini = "${s.hi}--bgc_antismash_minimal${s.noh}"
+    def full = "${s.hi}--bgc_antismash_full${s.noh}"
 
     if (params.bgc_antismash_minimal && params.bgc_antismash_full) {
-        error(framed("[bgc_quast_ppl] ${hi}--bgc_antismash_minimal${noh} and " +
-            "${hi}--bgc_antismash_full${noh} both flags cannot be set together.\n" +
-            "\n                Minimal is the default; pass " +
-            "${hi}--bgc_antismash_full${noh} only for the " +
-            "full analysis."))
+        error(framed([
+            "${mini} and ${full} cannot be set together.",
+            "Minimal is the default; pass ${full} only for the full analysis.",
+        ]))
     }
 }
 
-//
-// Pre-run environment check: samplesheet, tool databases, BiG-SCAPE inputs, Docker
-// and the output folder. Problems are collected and halt the run; warnings print
-// and the run continues.
-//
+/*
+    BiG-SCAPE cutoffs present in a BiG-SCAPE output_files folder, read from
+    the _c<cutoff> suffix of each subfolder name.
+*/
+def cutoffsIn(dir) {
+    def found = []
+    dir.listFiles().each { d ->
+        def m = (d.name =~ /_c([0-9]*\.?[0-9]+)$/)
+        if (d.isDirectory() && m) {
+            found << (m[0][1] as Double)
+        }
+    }
+    return found.unique().sort()
+}
+
+/*
+    Problem lines for a --bgc_bigscape_cutoff missing from the given cutoffs;
+    null when the cutoff is present.
+*/
+def cutoffProblem(cuts, whose) {
+    def s    = style()
+    def want = params.bgc_bigscape_cutoff as Double
+    if (cuts.any { Math.abs(it - want) < 1e-9 }) {
+        return null
+    }
+    return [
+        "Cutoff ${params.bgc_bigscape_cutoff} is not available for ${whose}.",
+        "Available cutoffs: ${cuts.join(', ')}",
+        "Choose one of those with ${s.hi}--bgc_bigscape_cutoff${s.noh}.",
+    ]
+}
+
+/*
+    BiG-SCAPE pre-run check, compare-samples with --run_bigscape only: active
+    tools, Pfam database, supplied results folder, cutoff, sample names.
+    Appends to the given problem and warning lists.
+*/
+def checkBigscape(input, problems, warnings) {
+    def s = style()
+
+    if (params.bgc_skip_antismash && params.bgc_skip_deepbgc && params.bgc_skip_gecco) {
+        problems << [
+            "${s.hi}--run_bigscape${s.noh} is set but every " +
+                "BGC tool is skipped.",
+            "BiG-SCAPE clusters the BGCs predicted from the tools, so it has",
+            "nothing to work on. Enable at least one of tools: " +
+                "antiSMASH, DeepBGC",
+            "or GECCO.",
+        ]
+    }
+
+    def pfam_flag = "${s.hi}--bgc_bigscape_pfam${s.noh}"
+
+    if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
+        warnings << [
+            "No ${pfam_flag} given. Pfam will be downloaded and pressed",
+            "automatically (about 400 MB, one-off). " +
+                "Pass ${s.hi}--save_db${s.noh} to keep it, or",
+            "${pfam_flag} to use a copy you already have.",
+        ]
+    }
+
+    if (params.bgc_bigscape_pfam) {
+        def hmm = file(params.bgc_bigscape_pfam)
+        if (!hmm.exists()) {
+            problems << [
+                "Pfam file not found: ${params.bgc_bigscape_pfam}",
+                "This must be the .hmm file, not the folder holding it.",
+            ]
+        }
+        else {
+            def missing = ['h3f', 'h3i', 'h3m', 'h3p'].findAll {
+                !file("${hmm}.${it}").exists()
+            }
+            if (missing) {
+                problems << [
+                    "Pfam is not pressed. Missing beside ${hmm.name}: " +
+                        "${missing.collect { '.' + it }.join(' ')}",
+                    "Fix: run  hmmpress ${hmm}",
+                ]
+            }
+        }
+    }
+
+    def dir_flag = "${s.hi}--bgc_bigscape_dir${s.noh}"
+    def bs_dir   = params.bgc_bigscape_dir ? file(params.bgc_bigscape_dir) : null
+
+    if (bs_dir && !bs_dir.exists()) {
+        problems << ["${dir_flag} path not found: ${params.bgc_bigscape_dir}"]
+    }
+
+    def bs_tools = []
+    if (!params.bgc_skip_antismash) { bs_tools << 'antismash' }
+    if (!params.bgc_skip_gecco)     { bs_tools << 'gecco' }
+    if (!params.bgc_skip_deepbgc)   { bs_tools << 'deepbgc' }
+
+    def listed = params.bgc_bigscape_cutoffs.toString()
+        .split(',').collect { it.trim() as Double }
+
+    // Each supplied tool folder is checked on its own; tools still to run
+    // are checked against --bgc_bigscape_cutoffs.
+    if (!bs_dir) {
+        def p = cutoffProblem(listed, 'this run')
+        if (p) { problems << p }
+    }
+    else if (bs_dir.exists()) {
+        def supplied = [:]
+        bs_tools.each { t ->
+            def d = file("${params.bgc_bigscape_dir}/${t}")
+            if (d.exists() && d.isDirectory()) { supplied[t] = d }
+        }
+
+        if (!supplied) {
+            problems << [
+                "${dir_flag} has no per-tool subfolder.",
+                "Looked in: ${params.bgc_bigscape_dir}",
+                "Expected at least one of: ${bs_tools.join(', ')}",
+                "Point it at a previous run's 'bgc_quast/bigscape/' folder.",
+            ]
+        }
+        else {
+            def not_bigscape = [
+                "Each per-tool subfolder must be a folder BiG-SCAPE",
+                "wrote, holding 'output_files'.",
+            ]
+            supplied.each { tool, dir ->
+                def of    = file("${dir}/output_files")
+                def found = of.exists() ? cutoffsIn(of) : []
+                if (!of.exists()) {
+                    problems << [
+                        "No BiG-SCAPE results for ${tool}.",
+                        "Looked for: ${of}",
+                    ] + not_bigscape
+                }
+                else if (!found) {
+                    problems << [
+                        "No BiG-SCAPE results for ${tool}.",
+                        "${of} holds no cutoff folders.",
+                    ] + not_bigscape
+                }
+                else {
+                    def p = cutoffProblem(found, "the supplied ${tool} folder")
+                    if (p) { problems << p }
+                }
+            }
+
+            def to_run = bs_tools.findAll { !supplied.containsKey(it) }
+            if (to_run) {
+                def whose = "the tools still to run (${to_run.join(', ')})"
+                def p     = cutoffProblem(listed, whose)
+                if (p) { problems << p }
+            }
+        }
+    }
+
+    // A BGC file-name marker inside a sample name breaks the report join.
+    def markers = []
+    if (!params.bgc_skip_antismash) { markers << '.region' }
+    if (!params.bgc_skip_gecco || !params.bgc_skip_deepbgc) { markers << '_cluster_' }
+
+    def sheet = (input && file(input).exists()) ? readSheet(input) : null
+    def si    = sheet ? sheet.header.indexOf('sample') : -1
+
+    if (markers && si >= 0) {
+        sheet.rows.eachWithIndex { cells, idx ->
+            def name = si < cells.size() ? cells[si] : ''
+            def hit  = markers.find { name.contains(it) }
+            if (hit) {
+                problems << [
+                    "Sample name contains '${hit}' (row ${idx + 2}): ${name}",
+                    "BiG-SCAPE results are joined on the file name, and",
+                    "'${hit}' in a sample id breaks that. Rename the sample.",
+                ]
+            }
+        }
+    }
+}
+
+/*
+    Pre-run environment check: samplesheet, tool databases, BiG-SCAPE
+    inputs, Docker and output folder. Problems halt the run together;
+    warnings print and the run continues.
+*/
 def validatePreRunEnvironment(input) {
+    def s        = style()
     def problems = []
     def warnings = []
-    def hi  = params.monochrome_logs ? '' : "\033[4m"
-    def noh = params.monochrome_logs ? '' : "\033[24m"
 
-    // Samplesheet file exists
-    def sheet = input ? file(input) : null
-    if (!sheet || !sheet.exists()) {
-        problems << "Samplesheet not found: ${input}"
+    def sheet_ok = input && file(input).exists()
+    if (!sheet_ok) {
+        problems << ["Samplesheet not found: ${input}"]
     }
 
-    // antiSMASH database, only when antiSMASH runs
     if (!params.bgc_skip_antismash) {
         if (!params.bgc_antismash_db) {
-            problems << "antiSMASH is on but " +
-                "${hi}--bgc_antismash_db${noh} is not set."
+            problems << ["antiSMASH is on but " +
+                "${s.hi}--bgc_antismash_db${s.noh} is not set."]
         }
         else if (!file(params.bgc_antismash_db).exists()) {
-            problems << "antiSMASH database folder not found: ${params.bgc_antismash_db}"
+            problems << ["antiSMASH database folder not found: " +
+                "${params.bgc_antismash_db}"]
         }
     }
 
-    // DeepBGC database, only when DeepBGC runs
     if (!params.bgc_skip_deepbgc) {
         if (!params.bgc_deepbgc_db) {
-            problems << "DeepBGC is on but " +
-                "${hi}--bgc_deepbgc_db${noh} is not set."
+            problems << ["DeepBGC is on but " +
+                "${s.hi}--bgc_deepbgc_db${s.noh} is not set."]
         }
         else if (!file(params.bgc_deepbgc_db).exists()) {
-            problems << "DeepBGC database folder not found: ${params.bgc_deepbgc_db}"
+            problems << ["DeepBGC database folder not found: " +
+                "${params.bgc_deepbgc_db}"]
         }
     }
 
-    // QUAST folder override, if given, must exist
     if (params.bgc_quast_quastdir && !file(params.bgc_quast_quastdir).exists()) {
-        problems << "${hi}--bgc_quast_quastdir${noh} path not found:  " +
-            "${params.bgc_quast_quastdir}"
+        problems << ["${s.hi}--bgc_quast_quastdir${s.noh} path not found: " +
+            "${params.bgc_quast_quastdir}"]
     }
 
-    // BiG-SCAPE binning mode, the only supported value = none
+    // bgc-quast reads only the mix bin, so no other binning mode is useful.
     if (params.bgc_bigscape_classify != 'none') {
-        problems << "${hi}--bgc_bigscape_classify${noh} must be 'none', " +
-            "not '${params.bgc_bigscape_classify}'.\n" +
-            "     bgc-quast reads the single mixed bin, so another binning\n" +
-            "     mode would only add bins that the report never reads."
+        problems << [
+            "${s.hi}--bgc_bigscape_classify${s.noh} must be 'none', " +
+                "not '${params.bgc_bigscape_classify}'.",
+            "bgc-quast reads the single mixed bin, so another binning",
+            "mode would only add bins that the report never reads.",
+        ]
     }
 
-    // BiG-SCAPE, only when it is switched on and the mode actually runs it
     if (params.run_bigscape && params.bgc_quast_mode == 'compare-samples') {
-        if (params.bgc_skip_antismash && params.bgc_skip_deepbgc && params.bgc_skip_gecco) {
-            problems << "${hi}--run_bigscape${noh} is set but every " +
-                "BGC tool is skipped.\n" +
-                "     BiG-SCAPE clusters the BGCs predicted from the tools, so it has\n" +
-                "     nothing to work on. Enable at least one of tools: antiSMASH, DeepBGC\n" +
-                "     or GECCO."
-        }
-
-        if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
-            warnings << "No ${hi}--bgc_bigscape_pfam${noh} given. " +
-                "Pfam will be downloaded and pressed\n" +
-                "     automatically (about 400 MB, one-off). " +
-                "Pass ${hi}--save_db${noh} to keep it, or\n" +
-                "     ${hi}--bgc_bigscape_pfam${noh} to use a copy " +
-                "you already have."
-        }
-
-        if (params.bgc_bigscape_pfam) {
-            def hmm = file(params.bgc_bigscape_pfam)
-            if (!hmm.exists()) {
-                problems << "Pfam file not found: ${params.bgc_bigscape_pfam}\n" +
-                    "     This must be the .hmm file, not the folder holding it."
-            }
-            else {
-                def missing = ['h3f', 'h3i', 'h3m', 'h3p'].findAll {
-                    !file("${hmm}.${it}").exists()
-                }
-                if (missing) {
-                    problems << "Pfam is not pressed. Missing beside ${hmm.name}: " +
-                        "${missing.collect { '.' + it }.join(' ')}\n" +
-                        "     Fix: run  hmmpress ${hmm}"
-                }
-            }
-        }
-
-        if (params.bgc_bigscape_dir && !file(params.bgc_bigscape_dir).exists()) {
-            problems << "${hi}--bgc_bigscape_dir${noh} path not found: " +
-                "${params.bgc_bigscape_dir}"
-        }
-
-        // The report cutoff must be one that will exist. --bgc_bigscape_dir is a parent
-        // of per-tool subfolders, so every supplied folder is checked on its own, and
-        // any tool still due to run is checked against the cutoff list instead.
-        def want     = params.bgc_bigscape_cutoff as Double
-        def bs_tools = []
-        if (!params.bgc_skip_antismash) { bs_tools << 'antismash' }
-        if (!params.bgc_skip_gecco)     { bs_tools << 'gecco' }
-        if (!params.bgc_skip_deepbgc)   { bs_tools << 'deepbgc' }
-
-        def cutoffsIn = { dir ->
-            def found = []
-            dir.listFiles().each { d ->
-                if (d.isDirectory()) {
-                    def m = (d.name =~ /_c([0-9]*\.?[0-9]+)$/)
-                    if (m) { found << (m[0][1] as Double) }
-                }
-            }
-            found.unique().sort()
-        }
-
-        def checkCutoffList = { cuts, whose ->
-            if (!cuts.any { Math.abs(it - want) < 1e-9 }) {
-                problems << "Cutoff ${params.bgc_bigscape_cutoff} is not available for ${whose}.\n" +
-                    "     Available cutoffs: ${cuts.join(', ')}\n" +
-                    "     Choose one of those with " +
-                    "${hi}--bgc_bigscape_cutoff${noh}."
-            }
-        }
-
-        if (params.bgc_bigscape_dir && file(params.bgc_bigscape_dir).exists()) {
-            def supplied = [:]
-            bs_tools.each { t ->
-                def d = file("${params.bgc_bigscape_dir}/${t}")
-                if (d.exists() && d.isDirectory()) { supplied[t] = d }
-            }
-
-            if (!supplied) {
-                problems << "${hi}--bgc_bigscape_dir${noh} has no " +
-                    "per-tool subfolder.\n" +
-                    "     Looked in: ${params.bgc_bigscape_dir}\n" +
-                    "     Expected at least one of: ${bs_tools.join(', ')}\n" +
-                    "     Point it at a previous run's 'bgc_quast/bigscape/' folder."
-            }
-            else {
-                supplied.each { tool, dir ->
-                    def of = file("${dir}/output_files")
-                    if (!of.exists()) {
-                        problems << "No BiG-SCAPE results for ${tool}.\n" +
-                            "     Looked for: ${of}\n" +
-                            "     Each per-tool subfolder must be a folder BiG-SCAPE\n" +
-                            "     wrote, holding 'output_files'."
-                    }
-                    else {
-                        def found = cutoffsIn(of)
-                        if (!found) {
-                            problems << "No BiG-SCAPE results for ${tool}.\n" +
-                                "     ${of} holds no cutoff folders.\n" +
-                                "     Each per-tool subfolder must be a folder BiG-SCAPE\n" +
-                                "     wrote, holding 'output_files'."
-                        }
-                        else {
-                            checkCutoffList(found, "the supplied ${tool} folder")
-                        }
-                    }
-                }
-
-                // Tools without a supplied folder still run, so they are checked against
-                // the cutoff list rather than a folder.
-                def willRun = bs_tools.findAll { !supplied.containsKey(it) }
-                if (willRun) {
-                    def cuts = params.bgc_bigscape_cutoffs.toString()
-                        .split(',').collect { it.trim() as Double }
-                    checkCutoffList(cuts, "the tools still to run (${willRun.join(', ')})")
-                }
-            }
-        }
-        else if (!params.bgc_bigscape_dir) {
-            def cuts = params.bgc_bigscape_cutoffs.toString()
-                .split(',').collect { it.trim() as Double }
-            checkCutoffList(cuts, 'this run')
-        }
-
-        // A BGC file-name marker inside a sample id breaks the id the report joins on.
-        // antiSMASH writes ".region", GECCO and DeepBGC write "_cluster_".
-        def markers = []
-        if (!params.bgc_skip_antismash) { markers << '.region' }
-        if (!params.bgc_skip_gecco || !params.bgc_skip_deepbgc) { markers << '_cluster_' }
-
-        if (markers && sheet && sheet.exists()) {
-            def blines = sheet.readLines().findAll { it.trim() }
-            if (blines.size() >= 2) {
-                def bheader = blines[0].split(',', -1).collect { it.trim() }
-                def bsi     = bheader.indexOf('sample')
-                if (bsi >= 0) {
-                    blines[1..-1].eachWithIndex { line, idx ->
-                        def cells = line.split(',', -1)
-                        if (bsi < cells.size()) {
-                            def name = cells[bsi].trim()
-                            def hit  = markers.find { name.contains(it) }
-                            if (hit) {
-                                problems << "Sample name contains '${hit}' (row ${idx + 2}): ${name}\n" +
-                                    "     BiG-SCAPE results are joined on the file name, and\n" +
-                                    "     '${hit}' in a sample id breaks that. Rename the sample."
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        checkBigscape(input, problems, warnings)
     }
 
-    // FASTA files listed in the samplesheet
-    if (sheet && sheet.exists()) {
-        def lines = sheet.readLines().findAll { it.trim() }
-        if (lines.size() >= 2) {
-            def header = lines[0].split(',', -1).collect { it.trim() }
-            def fi = header.indexOf('fasta')
-            if (fi >= 0) {
-                lines[1..-1].eachWithIndex { line, idx ->
-                    def cells  = line.split(',', -1)
-                    def rownum = idx + 2
-                    if (fi < cells.size()) {
-                        def fp = cells[fi].trim()
-                        if (fp) {
-                            if (!file(fp).exists()) {
-                                problems << "FASTA not found (row ${rownum}): ${fp}"
-                            }
-                            else if (!(fp ==~ /(?i).*\.(fa|fasta|fna)(\.gz)?$/)) {
-                                warnings << "Row ${rownum} file may not be FASTA: ${fp}"
-                            }
-                        }
-                    }
-                }
+    if (sheet_ok) {
+        def sheet = readSheet(input)
+        def fi    = sheet.header.indexOf('fasta')
+        sheet.rows.eachWithIndex { cells, idx ->
+            def fp = (fi >= 0 && fi < cells.size()) ? cells[fi] : ''
+            if (!fp) {
+                return
+            }
+            if (!file(fp).exists()) {
+                problems << ["FASTA not found (row ${idx + 2}): ${fp}"]
+            }
+            else if (!(fp ==~ /(?i).*\.(fa|fasta|fna)(\.gz)?$/)) {
+                warnings << ["Row ${idx + 2} file may not be FASTA: ${fp}"]
             }
         }
     }
 
-    // Docker, only when the docker engine is active
     if (workflow.containerEngine == 'docker') {
         try {
             def p = ['docker', 'info'].execute()
             p.waitForOrKill(8000)
             if (p.exitValue() != 0) {
-                problems << "Docker does not seem to be running. Start Docker Desktop and retry."
+                problems << ["Docker does not seem to be running. " +
+                    "Start Docker Desktop and retry."]
             }
         }
-        catch (Exception e) {
-            warnings << "Could not check Docker status. Make sure Docker Desktop is running."
+        catch (Exception ignored) {
+            warnings << ["Could not check Docker status. " +
+                "Make sure Docker Desktop is running."]
         }
     }
 
-    // Output folder writable, warning only
     if (params.outdir) {
         try {
             def od = file(params.outdir)
             if (od.exists() && !od.canWrite()) {
-                warnings << "Output folder may not be writable: ${params.outdir}"
+                warnings << ["Output folder may not be writable: " +
+                    "${params.outdir}"]
             }
         }
-        catch (Exception e) {
-            // ignore
+        catch (Exception ignored) {
         }
     }
 
-    def yellow = params.monochrome_logs ? '' : "\033[1;93m"
-    def reset  = params.monochrome_logs ? '' : "\033[0m"
-    warnings.each {
-        log.warn("${yellow}[bgc_quast_ppl] " +
-            it.replace('\n     ', '\n                      ') +
-            "${reset}")
+    // Nextflow prints "WARN: " before each warning, hence 22 spaces.
+    warnings.each { lines ->
+        log.warn("${s.yellow}${block(lines, 22)}${s.reset}")
     }
 
-    // Every blocking problem is printed together, then the run halts.
     if (problems) {
-        def msg = problems.collect {
-            "                - " +
-                it.replace('\n     ', '\n                  ')
-        }.join('\n')
-        error(framed("[bgc_quast_ppl] Cannot start. Please fix:\n${msg}"))
+        def fix = ["Cannot start. Please fix:"]
+        problems.each { lines ->
+            fix << "- ${lines[0]}"
+            lines.drop(1).each { line -> fix << "  ${line}" }
+        }
+        error(framed(fix))
     }
 }
 
-//
-// Failure explainer: the step that failed and what to do about it, matched on the
-// process name and on known error signatures. The raw report is printed only with
-// --bgc_quast_debug.
-//
+/*
+    Failure catalogue: per step, the process name to match, a display name,
+    hints keyed by known error signature, and a fallback hint.
+*/
+def failureCatalogue() {
+    def antismash_db = [
+        'antiSMASH could not load its database. The folder given in',
+        '--bgc_antismash_db is incomplete or is not a version 8',
+        'database. This pipeline runs antiSMASH v8 and needs a',
+        'matching v8 database.',
+    ]
+    def antismash_short = [
+        'No contig in this sample was long enough for antiSMASH to',
+        'scan. Use a longer or better assembly, or set',
+        '--bgc_mincontiglength lower so shorter contigs pass the',
+        'length filter.',
+    ]
+    def antismash_output = [
+        'antiSMASH stopped before writing its results. This is',
+        'usually too little memory or disk space. Raise',
+        '--max_memory, free some disk, then run again with',
+        '-resume. The task folder\'s .command.err has the cause.',
+    ]
+    def antismash_generic = [
+        'antiSMASH failed. Check that --bgc_antismash_db points at an',
+        'antiSMASH v8 database and that the input contigs are long',
+        'enough to scan.',
+    ]
+    def split_path = [
+        'A contig name in the DeepBGC .bgc.tsv holds a slash or a',
+        'space, so it cannot become a file name. Rename the contigs',
+        'in the input assembly.',
+    ]
+    def split_number = [
+        'A contig name in the DeepBGC .bgc.tsv reads as a number, so',
+        'the split and bgc-quast would build different identifiers.',
+        'Rename that contig.',
+    ]
+    def split_record = [
+        'A record in the DeepBGC GenBank file does not hold exactly',
+        'one cluster feature, so it is not a normal DeepBGC result.',
+        'Re-run that sample.',
+    ]
+    def split_generic = [
+        'Splitting the DeepBGC GenBank file failed. The message above',
+        'names the record or TSV row that could not be matched. The',
+        'GenBank file and the .bgc.tsv must come from one DeepBGC run.',
+    ]
+    def deepbgc_db = [
+        'DeepBGC could not find its model files. Set --bgc_deepbgc_db',
+        'to the folder holding the downloaded DeepBGC database.',
+    ]
+    def deepbgc_generic = [
+        'DeepBGC failed. Check that --bgc_deepbgc_db points at the',
+        'downloaded DeepBGC database folder.',
+    ]
+    def gecco_generic = [
+        'GECCO failed. Check that the sample was annotated and has',
+        'predicted genes to scan.',
+    ]
+    def quast_generic = [
+        'QUAST failed. Check the query contigs and the reference genome',
+        'given in the samplesheet.',
+    ]
+    def pfam_network = [
+        'Could not reach the Pfam FTP server. Check the network, or',
+        'download Pfam-A.hmm yourself and pass it with',
+        '--bgc_bigscape_pfam.',
+    ]
+    def pfam_http = [
+        'The Pfam download URL returned an error, so the pinned release',
+        'may have moved. Check --bgc_bigscape_pfam_url, or download',
+        'Pfam-A.hmm yourself and pass it with --bgc_bigscape_pfam.',
+    ]
+    def pfam_disk = [
+        'Not enough disk for Pfam. It needs roughly 4 GB free in the',
+        'Nextflow work directory once unpacked and pressed.',
+    ]
+    def pfam_press = [
+        'The Pfam file downloaded but could not be pressed, so it is',
+        'probably truncated. Delete the work directory and run again.',
+    ]
+    def pfam_generic = [
+        'Downloading Pfam failed. Download Pfam-A.hmm yourself, run',
+        'hmmpress on it, and pass it with --bgc_bigscape_pfam.',
+    ]
+    def bigscape_domains = [
+        'BiG-SCAPE found no protein domains, so every distance came out',
+        '1.0 and no families were built. The Pfam database given in',
+        '--bgc_bigscape_pfam is wrong or empty. Check it is a real',
+        'Pfam-A.hmm with its .h3f/.h3i/.h3m/.h3p files beside it.',
+    ]
+    def bigscape_press = [
+        'BiG-SCAPE tried to press the Pfam database and could not write',
+        'to that folder. Run  hmmpress /path/to/Pfam-A.hmm  once by',
+        'hand, then run the pipeline again.',
+    ]
+    def bigscape_output = [
+        'BiG-SCAPE produced no output_files/ folder, which means no BGCs',
+        'reached it. Check that the tool it ran for found clusters,',
+        'a run where every sample has zero BGCs gives it nothing to',
+        'cluster.',
+    ]
+    def bigscape_input = [
+        'BiG-SCAPE read zero GBK files. Its --include-gbk filter needs',
+        '"region" or "cluster" in each file name. antiSMASH writes',
+        '"region", GECCO and DeepBGC write "_cluster_". Check the',
+        'staged names in gbk_input/ inside the failed task folder.',
+    ]
+    def bigscape_generic = [
+        'BiG-SCAPE failed. Check --bgc_bigscape_pfam points at a pressed',
+        'Pfam-A.hmm file and that the tool it ran for produced BGC GBKs.',
+    ]
+    def bgcquast_cutoff = [
+        'The BiG-SCAPE cutoff you asked for is not in the results. The',
+        'message above lists the cutoffs that are there. Pick one of',
+        'them with --bgc_bigscape_cutoff.',
+    ]
+    def bgcquast_bigscape = [
+        'The BiG-SCAPE folder is empty or is the wrong folder.',
+        '--bgc_bigscape_dir should point at a parent holding per-tool',
+        'subfolders (antismash/, gecco/, deepbgc/), each containing',
+        '"output_files".',
+    ]
+    def bgcquast_generic = [
+        'bgc-quast failed. Check that the prediction files, the query',
+        'FASTA and the QUAST output folder all reached this step.',
+    ]
+
+    // First match wins, so a longer process name precedes its prefix.
+    return [
+        [
+            process   : 'ANTISMASH_ANTISMASH',
+            name      : 'antiSMASH',
+            signatures: [
+                'Modules failing prerequisites'   : antismash_db,
+                'No matching database in location': antismash_db,
+                'too short'                       : antismash_short,
+                'Missing output file'             : antismash_output,
+            ],
+            generic   : antismash_generic,
+        ],
+        [
+            process   : 'DEEPBGC_SPLIT_GBK',
+            name      : 'DeepBGC GBK split',
+            signatures: [
+                'cannot be used in a file name'    : split_path,
+                'changes type when bgc-quast reads': split_number,
+                'cluster features, expected 1'     : split_record,
+            ],
+            generic   : split_generic,
+        ],
+        [
+            process   : 'DEEPBGC',
+            name      : 'DeepBGC',
+            signatures: [
+                'DEEPBGC_DOWNLOADS_DIR'                  : deepbgc_db,
+                'DeepBGC models directory does not exist': deepbgc_db,
+            ],
+            generic   : deepbgc_generic,
+        ],
+        [
+            process   : 'GECCO',
+            name      : 'GECCO',
+            signatures: [:],
+            generic   : gecco_generic,
+        ],
+        [
+            process   : 'QUAST',
+            name      : 'QUAST',
+            signatures: [:],
+            generic   : quast_generic,
+        ],
+        [
+            process   : 'BIGSCAPE_DOWNLOAD_DB',
+            name      : 'Pfam download',
+            signatures: [
+                'ConnectionError'         : pfam_network,
+                'HTTPError'               : pfam_http,
+                'No space left on device' : pfam_disk,
+                'hmmpress did not produce': pfam_press,
+            ],
+            generic   : pfam_generic,
+        ],
+        [
+            process   : 'BIGSCAPE',
+            name      : 'BiG-SCAPE',
+            signatures: [
+                '0 hsps found in this run': bigscape_domains,
+                'hmmpress'                : bigscape_press,
+                'Missing output file'     : bigscape_output,
+                'No files found'          : bigscape_input,
+            ],
+            generic   : bigscape_generic,
+        ],
+        [
+            process   : 'BGCQUAST',
+            name      : 'bgc-quast',
+            signatures: [
+                'was not found in the output'  : bgcquast_cutoff,
+                'No BiG-SCAPE clustering files': bgcquast_bigscape,
+            ],
+            generic   : bgcquast_generic,
+        ],
+    ]
+}
+
+/*
+    Failure message: the failed step and a hint matched on its error report,
+    in red between white banners; the raw report only with --bgc_quast_debug.
+*/
 def explainPipelineError() {
+    def s = style()
     try {
         def report = (workflow.errorReport ?: '') + '\n' + (workflow.errorMessage ?: '')
 
-        // Failed step name: last ':' segment, trailing "(sample)" removed.
+        // Failed step: last ':' segment of the process, "(sample)" removed.
         def leaf = ''
-        def pm = (report =~ /Process `([^`]+)`/)
+        def pm   = (report =~ /Process `([^`]+)`/)
         if (pm.find()) {
-            def full = pm.group(1).replaceAll(/\s*\(.*\)$/, '')
-            leaf = full.tokenize(':')[-1]
+            leaf = pm.group(1).replaceAll(/\s*\(.*\)$/, '').tokenize(':')[-1]
         }
 
-        // No process name means the run stopped on one of the checks above, which
-        // already printed its own message.
+        // No process name: a start-up check stopped the run and printed.
         if (!leaf) {
             return
         }
 
-        // Per step: process to match, display name, known error signatures, and a
-        // fallback. Matching is exact or by prefix, and the first hit wins, so a more
-        // specific process name must be listed before a shorter one it starts with.
-        def tools = [
-            [
-                process   : 'ANTISMASH_ANTISMASH',
-                name      : 'antiSMASH',
-                signatures: [
-                    [ match: 'Modules failing prerequisites',
-                      hint : 'antiSMASH could not load its database. The folder given in\n' +
-                             '  --bgc_antismash_db is incomplete or is not a version 8\n' +
-                             '  database. This pipeline runs antiSMASH v8 and needs a\n' +
-                             '  matching v8 database.' ],
-                    [ match: 'No matching database in location',
-                      hint : 'antiSMASH could not load its database. The folder given in\n' +
-                             '  --bgc_antismash_db is incomplete or is not a version 8\n' +
-                             '  database. This pipeline runs antiSMASH v8 and needs a\n' +
-                             '  matching v8 database.' ],
-                    [ match: 'too short',
-                      hint : 'No contig in this sample was long enough for antiSMASH to\n' +
-                             '  scan. Use a longer or better assembly, or set\n' +
-                             '  --bgc_mincontiglength lower so shorter contigs pass the\n' +
-                             '  length filter.' ],
-                    [ match: 'Missing output file',
-                      hint : 'antiSMASH stopped before writing its results. This is\n' +
-                             '  usually too little memory or disk space. Raise\n' +
-                             '  --max_memory, free some disk, then run again with\n' +
-                             '  -resume. The task folder\'s .command.err has the cause.' ],
-                ],
-                generic   : 'antiSMASH failed. Check that --bgc_antismash_db points at an\n' +
-                            '  antiSMASH v8 database and that the input contigs are long\n' +
-                            '  enough to scan.',
-            ],
-            [
-                process   : 'DEEPBGC_SPLIT_GBK',
-                name      : 'DeepBGC GBK split',
-                signatures: [
-                    [ match: 'cannot be used in a file name',
-                      hint : 'A contig name in the DeepBGC .bgc.tsv holds a slash or a\n' +
-                             '  space, so it cannot become a file name. Rename the contigs\n' +
-                             '  in the input assembly.' ],
-                    [ match: 'changes type when bgc-quast reads',
-                      hint : 'A contig name in the DeepBGC .bgc.tsv reads as a number, so\n' +
-                             '  the split and bgc-quast would build different identifiers.\n' +
-                             '  Rename that contig.' ],
-                    [ match: 'cluster features, expected 1',
-                      hint : 'A record in the DeepBGC GenBank file does not hold exactly\n' +
-                             '  one cluster feature, so it is not a normal DeepBGC result.\n' +
-                             '  Re-run that sample.' ],
-                ],
-                generic   : 'Splitting the DeepBGC GenBank file failed. The message above\n' +
-                            '  names the record or TSV row that could not be matched. The\n' +
-                            '  GenBank file and the .bgc.tsv must come from one DeepBGC run.',
-            ],
-            [
-                process   : 'DEEPBGC',
-                name      : 'DeepBGC',
-                signatures: [
-                    [ match: 'DEEPBGC_DOWNLOADS_DIR',
-                      hint : 'DeepBGC could not find its model files. Set --bgc_deepbgc_db\n' +
-                             '  to the folder holding the downloaded DeepBGC database.' ],
-                    [ match: 'DeepBGC models directory does not exist',
-                      hint : 'DeepBGC could not find its model files. Set --bgc_deepbgc_db\n' +
-                             '  to the folder holding the downloaded DeepBGC database.' ],
-                ],
-                generic   : 'DeepBGC failed. Check that --bgc_deepbgc_db points at the\n' +
-                            '  downloaded DeepBGC database folder.',
-            ],
-            [
-                process   : 'GECCO',
-                name      : 'GECCO',
-                signatures: [],
-                generic   : 'GECCO failed. Check that the sample was annotated and has\n' +
-                            '  predicted genes to scan.',
-            ],
-            [
-                process   : 'QUAST',
-                name      : 'QUAST',
-                signatures: [],
-                generic   : 'QUAST failed. Check the query contigs and the reference genome\n' +
-                            '  given in the samplesheet.',
-            ],
-            [
-                process   : 'BIGSCAPE_DOWNLOAD_DB',
-                name      : 'Pfam download',
-                signatures: [
-                    [ match: 'ConnectionError',
-                      hint : 'Could not reach the Pfam FTP server. Check the network, or\n' +
-                             '  download Pfam-A.hmm yourself and pass it with\n' +
-                             '  --bgc_bigscape_pfam.' ],
-                    [ match: 'HTTPError',
-                      hint : 'The Pfam download URL returned an error, so the pinned release\n' +
-                             '  may have moved. Check --bgc_bigscape_pfam_url, or download\n' +
-                             '  Pfam-A.hmm yourself and pass it with --bgc_bigscape_pfam.' ],
-                    [ match: 'No space left on device',
-                      hint : 'Not enough disk for Pfam. It needs roughly 4 GB free in the\n' +
-                             '  Nextflow work directory once unpacked and pressed.' ],
-                    [ match: 'hmmpress did not produce',
-                      hint : 'The Pfam file downloaded but could not be pressed, so it is\n' +
-                             '  probably truncated. Delete the work directory and run again.' ],
-                ],
-                generic   : 'Downloading Pfam failed. Download Pfam-A.hmm yourself, run\n' +
-                            '  hmmpress on it, and pass it with --bgc_bigscape_pfam.',
-            ],
-            [
-                process   : 'BIGSCAPE',
-                name      : 'BiG-SCAPE',
-                signatures: [
-                    [ match: '0 hsps found in this run',
-                      hint : 'BiG-SCAPE found no protein domains, so every distance came out\n' +
-                             '  1.0 and no families were built. The Pfam database given in\n' +
-                             '  --bgc_bigscape_pfam is wrong or empty. Check it is a real\n' +
-                             '  Pfam-A.hmm with its .h3f/.h3i/.h3m/.h3p files beside it.' ],
-                    [ match: 'hmmpress',
-                      hint : 'BiG-SCAPE tried to press the Pfam database and could not write\n' +
-                             '  to that folder. Run  hmmpress /path/to/Pfam-A.hmm  once by\n' +
-                             '  hand, then run the pipeline again.' ],
-                    [ match: 'Missing output file',
-                      hint : 'BiG-SCAPE produced no output_files/ folder, which means no BGCs\n' +
-                             '  reached it. Check that the tool it ran for found clusters, \n' +
-                             '  a run where every sample has zero BGCs gives it nothing to\n' +
-                             '  cluster.' ],
-                    [ match: 'No files found',
-                      hint : 'BiG-SCAPE read zero GBK files. Its --include-gbk filter needs\n' +
-                             '  "region" or "cluster" in each file name. antiSMASH writes\n' +
-                             '  "region", GECCO and DeepBGC write "_cluster_". Check the\n' +
-                             '  staged names in gbk_input/ inside the failed task folder.' ],
-                ],
-                generic   : 'BiG-SCAPE failed. Check --bgc_bigscape_pfam points at a pressed\n' +
-                            '  Pfam-A.hmm file and that the tool it ran for produced BGC GBKs.',
-            ],
-            [
-                process   : 'BGCQUAST',
-                name      : 'bgc-quast',
-                signatures: [
-                    [ match: 'was not found in the output',
-                      hint : 'The BiG-SCAPE cutoff you asked for is not in the results. The\n' +
-                             '  message above lists the cutoffs that are there. Pick one of\n' +
-                             '  them with --bgc_bigscape_cutoff.' ],
-                    [ match: 'No BiG-SCAPE clustering files',
-                      hint : 'The BiG-SCAPE folder is empty or is the wrong folder.\n' +
-                             '  --bgc_bigscape_dir should point at a parent holding per-tool\n' +
-                             '  subfolders (antismash/, gecco/, deepbgc/), each containing\n' +
-                             '  "output_files".' ],
-                ],
-                generic   : 'bgc-quast failed. Check that the prediction files, the query\n' +
-                            '  FASTA and the QUAST output folder all reached this step.',
-            ],
-        ]
-
-        def hit = tools.find { leaf == it.process || leaf.startsWith(it.process) }
-
-        def banner = "=".multiply(100)
-        def red    = params.monochrome_logs ? '' : "\033[1;31m"
-        def white  = params.monochrome_logs ? '' : "\033[97m"
-        def reset  = params.monochrome_logs ? '' : "\033[0m"
-        def hi     = params.monochrome_logs ? '' : "\033[4m"
-        def noh    = params.monochrome_logs ? '' : "\033[24m"
+        def hit = failureCatalogue().find {
+            leaf == it.process || leaf.startsWith(it.process)
+        }
 
         def title = hit
             ? "[bgc_quast_ppl] The ${hit.name} step failed."
-            : "[bgc_quast_ppl] The run stopped and the failing step could not be identified."
+            : "[bgc_quast_ppl] The run stopped and the failing step " +
+                "could not be identified."
 
         def detail = hit
-            ? (hit.signatures.find { report.contains(it.match) }?.hint ?: hit.generic)
-            : "Read the error printed above this banner.\n" +
-              "It names the failing task and its work folder; open " +
-              "${hi}.command.err${noh} there for the whole error output."
+            ? (hit.signatures.find { report.contains(it.key) }?.value ?: hit.generic)
+            : [
+                "Read the error printed above this banner.",
+                "It names the failing task and its work folder; open " +
+                    "${s.hi}.command.err${s.noh} there for the whole " +
+                    "error output.",
+            ]
+
+        def pad  = ' '.multiply(16)
+        def body = ["${s.red}${title}${s.reset}"]
+        detail.each { line ->
+            def text = line.replaceAll(/(?<![\w-])(--?[a-z][\w-]*)/,
+                "${s.hi}\$1${s.noh}")
+            body << "${s.red}${pad}${text}${s.reset}"
+        }
+        body << "${s.red}${pad}Troubleshooting: " +
+            "https://github.com/Seg0fieD/bgc_quast_ppl" +
+            "#14-troubleshooting${s.reset}"
 
         // log.error, not println, so it prints after Nextflow's error report.
-        def body = ["${red}${title}${reset}"]
-        detail.readLines().each { line ->
-            def text = line.replaceFirst(/^  /, '')
-                .replaceAll(/(?<![\w-])(--?[a-z][\w-]*)/, "${hi}\$1${noh}")
-            body << "${red}                ${text}${reset}"
-        }
-        body << "${red}                Troubleshooting: " +
-            "https://github.com/Seg0fieD/bgc_quast_ppl" +
-            "#14-troubleshooting${reset}"
-        log.error("\n${white}${banner}${reset}\n" + body.join('\n') +
-            "\n${white}${banner}${reset}")
+        def banner = "=".multiply(100)
+        log.error("\n${s.white}${banner}${s.reset}\n" + body.join('\n') +
+            "\n${s.white}${banner}${s.reset}")
 
         if (params.bgc_quast_debug && report.trim()) {
-            log.error(pink("[bgc_quast_ppl] ${hi}--bgc_quast_debug${noh}: " +
-                "full error report below:\n${report.trim()}"))
+            log.error("${s.pink}[bgc_quast_ppl] " +
+                "${s.hi}--bgc_quast_debug${s.noh}: " +
+                "full error report below:\n${report.trim()}${s.reset}")
         }
     }
     catch (Exception e) {
-        log.error(pink("[bgc_quast_ppl] error handler failed: ${e}"))
+        log.error("${s.pink}[bgc_quast_ppl] error handler failed: " +
+            "${e}${s.reset}")
     }
 }
 
-//
-// Notice printed when the run ended without error but bgc-quast produced no
-// comparison, which otherwise looks like success.
-//
-def reportNoComparison(monochrome_logs) {
-    def red    = monochrome_logs ? '' : "\033[1;31m"
-    def white  = monochrome_logs ? '' : "\033[97m"
-    def reset  = monochrome_logs ? '' : "\033[0m"
-    def hi     = monochrome_logs ? '' : "\033[4m"
-    def noh    = monochrome_logs ? '' : "\033[24m"
+/*
+    No-comparison notice: a run that ended without error but with no
+    bgc-quast result, which would otherwise look like success.
+*/
+def reportNoComparison() {
+    def s      = style()
+    def pad    = ' '.multiply(16)
     def banner = "=".multiply(100)
+    def lines  = [
+        "[bgc_quast_ppl] Pipeline did NOT complete successfully.",
+        "${pad}No BGC comparison was produced. " +
+            "bgc-quast never ran, usually",
+        "${pad}because every sample was dropped " +
+            "before prediction (for example",
+        "${pad}all contigs were shorter than " +
+            "${params.bgc_mincontiglength} bp, or annotation",
+        "${pad}produced no genes). Use longer or " +
+            "better assemblies, or lower",
+        "${pad}${s.hi}--bgc_mincontiglength${s.noh}, then run again.",
+    ]
     println ''
-    println "${white}${banner}${reset}"
-    println "${red}[bgc_quast_ppl] Pipeline did NOT complete " +
-            "successfully.${reset}"
-    println "${red}                No BGC comparison was produced. " +
-            "bgc-quast never ran, usually${reset}"
-    println "${red}                because every sample was dropped " +
-            "before prediction (for example${reset}"
-    println "${red}                all contigs were shorter than " +
-            "${params.bgc_mincontiglength} bp, or annotation${reset}"
-    println "${red}                produced no genes). Use longer or " +
-            "better assemblies, or lower${reset}"
-    println "${red}                ${hi}--bgc_mincontiglength${noh}, " +
-            "then run again.${reset}"
-    println "${white}${banner}${reset}"
+    println "${s.white}${banner}${s.reset}"
+    lines.each { line -> println "${s.red}${line}${s.reset}" }
+    println "${s.white}${banner}${s.reset}"
 }
-

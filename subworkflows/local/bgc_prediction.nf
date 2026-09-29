@@ -1,6 +1,6 @@
 /*
-    Run BGC prediction tools (antiSMASH, DeepBGC, GECCO).
-    Prediction only: no modes, no QUAST, no bgc-quast. Those live in the comparison subworkflow.
+    BGC prediction runs; antiSMASH, DeepBGC and GECCO, each unless skipped;
+    comparison modes, QUAST and bgc-quast run in BGCQUAST_COMPARISON under subworkflow.
 */
 
 include { UNTAR as UNTAR_ANTISMASHDB           } from '../../modules/nf-core/untar/main'
@@ -12,9 +12,9 @@ include { GECCO_RUN                            } from '../../modules/nf-core/gec
 
 workflow BGC_PREDICTION {
     take:
-    fastas // tuple val(meta), path(fasta) -- unused here; kept to match the caller signature
-    faas   // tuple val(meta), path(faa)   -- unused here; kept to match the caller signature
-    gbks   // tuple val(meta), path(gbk)   -- input read by all three tools
+    fastas // tuple val(meta), path(fasta): unused, kept for argument order
+    faas   // tuple val(meta), path(faa): unused, kept for argument order
+    gbks   // tuple val(meta), path(gbk): input to all three tools
 
     main:
     ch_versions       = Channel.empty()
@@ -80,11 +80,12 @@ workflow BGC_PREDICTION {
     }
 
     emit:
-    versions       = ch_versions            // channel: [ path(versions.yml) ]
-    antismash_json = ch_antismash_json      // channel: [ val(meta), path(*.json) ]
-    antismash_gbk  = ch_antismash_gbk       // channel: [ val(meta), [ path(*region*.gbk) ] ]  (optional per sample)
-    deepbgc_tsv    = ch_deepbgc_tsv         // channel: [ val(meta), path(*.bgc.tsv) ]   (optional per sample)
-    deepbgc_gbk    = ch_deepbgc_gbk         // channel: [ val(meta), path(*.bgc.gbk) ]   (optional per sample)
-    gecco_clusters = ch_gecco_clusters      // channel: [ val(meta), path(*.clusters.tsv) ] (optional per sample)
-    gecco_gbk      = ch_gecco_gbk           // channel: [ val(meta), [ path(*_cluster_*.gbk) ] ] (optional per sample)
+    // A sample with no BGCs is absent here, except from antismash_json.
+    versions       = ch_versions       // [ versions.yml ]
+    antismash_json = ch_antismash_json // [ meta, *.json ]
+    antismash_gbk  = ch_antismash_gbk  // [ meta, [ *region*.gbk ] ]
+    deepbgc_tsv    = ch_deepbgc_tsv    // [ meta, *.bgc.tsv ]
+    deepbgc_gbk    = ch_deepbgc_gbk    // [ meta, *.bgc.gbk ]
+    gecco_clusters = ch_gecco_clusters // [ meta, *.clusters.tsv ]
+    gecco_gbk      = ch_gecco_gbk      // [ meta, [ *_cluster_*.gbk ] ]
 }

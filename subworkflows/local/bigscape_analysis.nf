@@ -29,8 +29,8 @@ workflow BIGSCAPE_ANALYSIS {
     if (!params.bgc_skip_gecco)     { bs_tools << 'gecco' }
     if (!params.bgc_skip_deepbgc)   { bs_tools << 'deepbgc' }
 
-    // --bgc_bigscape_dir is a parent holding per-tool subfolders, mirroring the published
-    // bgc_quast/bigscape/ layout. Tools without a subfolder still run normally.
+    // --bgc_bigscape_dir holds one subfolder per tool, as bgc_quast/bigscape/ does; 
+    // BiG-SCAPE runs afresh for any tool without a subfolder.
     def given = [:]
 
     if (params.bgc_bigscape_dir) {
@@ -66,12 +66,12 @@ workflow BIGSCAPE_ANALYSIS {
         log.info("${orange}            [bgc_quast_ppl] BiG-SCAPE will run for: ${to_run.join(', ')}${creset}")
     }
 
-    // Bare map on purpose. It is wrapped once, at the end, before combine() sees it.
+    // Bare map; wrapped once at the end, since combine() unwraps one level.
     ch_bigscape_run = Channel.value([:])
 
     if (to_run) {
-        // Pfam: use the supplied pressed copy, otherwise download and press one.
-        // Resolved once and shared by every run.
+        // Pfam: the supplied pressed copy, else downloaded and pressed once,
+        // then shared by every BiG-SCAPE run.
         def ch_pfam_dir
         def ch_pfam_name
 
@@ -87,9 +87,8 @@ workflow BIGSCAPE_ANALYSIS {
             ch_pfam_name = Channel.value('Pfam-A.hmm')
         }
 
-        // Stage each GBK as "<sample_id>_<original_filename>" and sort, so the two lists
-        // the module receives stay index-aligned. bgc-quast reverses that prefix later,
-        // and ".region" or "_cluster_" must survive for BiG-SCAPE's --include-gbk.
+        // Named <sample_id>_<file>, sorted so names and files pair by index;
+        // bgc-quast needs the prefix, BiG-SCAPE needs '.region' or '_cluster_'.
         def stage_gbks = { ch ->
             ch.flatMap { meta, gbks ->
                     (gbks instanceof List ? gbks : [gbks]).collect { g ->
@@ -145,15 +144,14 @@ workflow BIGSCAPE_ANALYSIS {
             ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_DEEPBGC.out.results)
         }
 
-        // toList() always emits once, so a tool with an empty GBK channel simply leaves
-        // its key out of the map.
+        // toList() always emits once; a tool with no GBKs is left out of the map.
         ch_bigscape_run = ch_bigscape_results
             .toList()
             .map { rows -> rows.collectEntries { t, d -> [(t): d] } }
     }
 
     // Supplied folders and freshly run ones cannot overlap: to_run excludes the supplied.
-    // Wrapped in a list here, once, because combine() spreads one level.
+    // wrapped once in a list, since combine() unwraps one level.
     ch_bigscape_dir = ch_bigscape_run.map { ran -> [given + ran] }
 
     emit:

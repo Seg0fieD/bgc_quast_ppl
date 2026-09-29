@@ -2,10 +2,8 @@ process BIGSCAPE_DOWNLOAD_DB {
     tag "pfam"
     label 'process_single'
 
-    // Same image as BIGSCAPE. The hmmpress *binary* is not in this container, but
-    // pyhmmer and requests both are (bigscape depends on them), so the download and
-    // the press need nothing extra. This is the same press call BiG-SCAPE itself
-    // makes in big_scape/hmm/hmmer.py:78-82.
+    // BiG-SCAPE container: no hmmpress binary, so pyhmmer presses the
+    // database and requests downloads it; both ship with BiG-SCAPE.
     conda "bioconda::bigscape=2.0.3"
     container "quay.io/biocontainers/bigscape:2.0.3--pyhdfd78af_0"
 

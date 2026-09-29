@@ -9,20 +9,21 @@ include { BGCQUAST } from '../../modules/local/bgcquast'
 
 workflow BGCQUAST_COMPARISON {
     take:
-    antismash_json     // [ meta, json ]  query
-    deepbgc_tsv        // [ meta, tsv  ]  query (optional per sample)
-    gecco_clusters     // [ meta, tsv  ]  query (optional per sample)
-    genomes            // [ meta, fasta ] query contigs, QUAST input
-    genome_gbks        // [ meta, gbk ]   query annotation (--genome)
-    ref_antismash_json // [ meta, json ]  reference
-    ref_deepbgc_tsv    // [ meta, tsv  ]  reference
-    ref_gecco_clusters // [ meta, tsv  ]  reference
-    ref_genome         // [ meta, fasta ] reference contigs, QUAST input
-    ref_genome_gbk     // [ meta, gbk ]   reference annotation
-    ref_name           // val: reference display name (--ref-name)
-    antismash_gbk      // [ meta, [ gbk ] ] query antiSMASH region GBKs
-    bigscape_dir       // val: [ [ tool: dir ] ] BiG-SCAPE folder per tool, or [ [:] ]
-    ref_antismash_gbk  // [ meta, [ gbk ] ] reference antiSMASH region GBKs
+    // DeepBGC and GECCO query channels omit samples with no BGCs.
+    antismash_json     // [ meta, json ]     query antiSMASH results
+    deepbgc_tsv        // [ meta, tsv ]      query DeepBGC results
+    gecco_clusters     // [ meta, tsv ]      query GECCO results
+    genomes            // [ meta, fasta ]    query contigs, QUAST input
+    genome_gbks        // [ meta, gbk ]      query annotation, --genome
+    ref_antismash_json // [ meta, json ]     reference antiSMASH results
+    ref_deepbgc_tsv    // [ meta, tsv ]      reference DeepBGC results
+    ref_gecco_clusters // [ meta, tsv ]      reference GECCO results
+    ref_genome         // [ meta, fasta ]    reference contigs, QUAST input
+    ref_genome_gbk     // [ meta, gbk ]      reference annotation
+    ref_name           // val                reference name, --ref-name
+    antismash_gbk      // [ meta, [ gbk ] ]  query antiSMASH region GBKs
+    bigscape_dir       // [ [ tool: dir ] ]  BiG-SCAPE folders, or [ [:] ]
+    ref_antismash_gbk  // [ meta, [ gbk ] ]  reference antiSMASH region GBKs
 
     main:
     ch_versions    = Channel.empty()
@@ -46,7 +47,7 @@ workflow BGCQUAST_COMPARISON {
     def ch_antismash_json = antismash_json.join(antismash_gbk).map { meta, json, _gbks -> [meta, json] }
     def ch_ref_antismash_json = ref_antismash_json.join(ref_antismash_gbk).map { meta, json, _gbks -> [meta, json] }
 
-    // A skipped tool never ran, so it must not be reported as having found nothing.
+    // A skipped tool never ran, so it must not be reported.
     def active = []
     if (!params.bgc_skip_antismash) active << 'antiSMASH'
     if (!params.bgc_skip_deepbgc)   active << 'DeepBGC'
@@ -58,7 +59,7 @@ workflow BGCQUAST_COMPARISON {
         .toList()
         .map { rows -> [rows] }
 
-    // Samples that no active tool could predict a BGC for, repeated when the run ends.
+    // Samples with no BGC from any active tool, listed again at run end.
     def no_bgc_notes = []
 
     genomes.map { meta, _g -> meta.id }
@@ -185,8 +186,7 @@ workflow BGCQUAST_COMPARISON {
             ch_quast_dir = QUAST.out.results.map { meta, dir -> dir }.first()
         }
 
-        // One run per tool: ordered query predictions, the reference prediction and genome,
-        // and the QUAST folder.
+        // One run per tool: ordered query predictions, the reference prediction and genome, and the QUAST folder.
         def per_tool_ref = { qch, rch, tool ->
             qch.join(genome_gbks)
                 .map { meta, qfile, genome -> [meta.id, qfile, genome] }

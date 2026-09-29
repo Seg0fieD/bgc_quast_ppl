@@ -60,9 +60,9 @@ workflow BGC_QUAST_PPL {
         Exactly one reference (type r/R) runs the same prep -> annotation -> prediction
         lane as the queries and is predicted once.
     */
-    ch_reference_rows = Channel.empty() // [ meta(is_reference), [ ref_fasta, [], [] ] ]
-    ch_ref_name       = Channel.empty() // val: reference display name (--ref-name)
-    ch_query_samples  = ch_samplesheet  // default: every row is a query
+    ch_reference_rows = Channel.empty() // [ meta, [ ref_fasta, [], [] ] ]
+    ch_ref_name       = Channel.empty() // reference name, --ref-name
+    ch_query_samples  = ch_samplesheet  // all rows; reference removed below
 
     if (params.bgc_quast_mode == 'compare-to-reference') {
         // Split reference (r/R) from queries (q/Q). Shape validated in PIPELINE_INITIALISATION.
@@ -73,7 +73,7 @@ workflow BGC_QUAST_PPL {
 
         ch_query_samples = ch_split.query
 
-        // Pin the single reference row so it can be reused.
+        // Pin the single reference row to reuse it.
         def ch_ref  = ch_split.reference.first()
 
         ch_ref_name = ch_ref.map { meta, fasta, faa, gbk -> meta.id }
@@ -86,8 +86,9 @@ workflow BGC_QUAST_PPL {
 
     /*
         INPUT PREP
-        Queries and the reference share one lane; is_reference tags them so the
-        prediction outputs can be split apart again afterwards.
+        Queries and the reference share one lane;
+        'meta.is_reference' marks the reference, so prediction outputs split
+        back into query and reference channels.
     */
     ch_query_rows = ch_query_samples
         .map { meta, fasta, faa, gbk -> [meta + [category: 'all', is_reference: false], [fasta, faa, gbk]] }
@@ -122,7 +123,7 @@ workflow BGC_QUAST_PPL {
             fastas: true
         }
 
-    // Length-filter contigs for BGC screening (speeds up screening, avoids 'no hits' fails).
+    // Length-filter contigs for BGC screening.
     if (params.run_bgc_screening) {
         SEQKIT_SEQ_LENGTH(ch_intermediate_input.fastas.map { meta, fasta, faa, gbk -> [meta, fasta] })
         ch_input_for_annotation = SEQKIT_SEQ_LENGTH.out.fastx
@@ -202,7 +203,7 @@ workflow BGC_QUAST_PPL {
         ch_long_fastas = ch_prepped_input_long.fastas.branch      { meta, f -> reference: meta.is_reference; query: true }
         ch_long_gbks   = ch_prepped_input_long.gbks.branch        { meta, f -> reference: meta.is_reference; query: true }
 
-        // BiG-SCAPE runs on queries only, so these reference branches stay unused.
+        // BiG-SCAPE runs on queries only, reference branch not used.
         ch_pred_ge_gbk = BGC_PREDICTION.out.gecco_gbk.branch   { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_db_gbk = BGC_PREDICTION.out.deepbgc_gbk.branch { meta, f -> reference: meta.is_reference; query: true }
 
@@ -244,7 +245,6 @@ workflow BGC_QUAST_PPL {
     //
     // Collate and save software versions
     //
-    // TODO: QUAST reports its version via a `topic: versions` channel, not .out.versions.
     softwareVersionsToYAML(ch_versions)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
