@@ -48,12 +48,13 @@ workflow BIGSCAPE_ANALYSIS {
         if (!given) {
             error(
                 "\n${white}${banner}${creset}\n" +
-                "${pink}[bgc_quast_ppl] --bgc_bigscape_dir " +
+                "${pink}[bgc_quast_ppl] ERROR:   --bgc_bigscape_dir " +
                 "contains no per-tool subfolder.\n" +
-                "                Expected at least one of: " +
+                "                         Expected at least one of: " +
                 "${bs_tools.join(', ')}\n" +
-                "                Looked in: ${params.bgc_bigscape_dir}\n" +
-                "                Point it at a previous run's " +
+                "                         Looked in: " +
+                "${params.bgc_bigscape_dir}\n" +
+                "                         Point it at a previous run's " +
                 "bgc_quast/bigscape/ folder.${creset}\n" +
                 "${white}${banner}${creset}"
             )
@@ -65,13 +66,14 @@ workflow BIGSCAPE_ANALYSIS {
     def to_run = bs_tools.findAll { !given.containsKey(it) }
 
     if (to_run) {
-        notes << " BiG-SCAPE will run for tool(s): ${to_run.join(', ')}"
+        notes << "BiG-SCAPE will run for tool(s): ${to_run.join(', ')}"
     }
 
     if (notes) {
-        def pad = ' '.multiply(16)
+        def pad = ' '.multiply(25)
         log.info("\n${white}${banner}${creset}\n" +
-            "${orange}[bgc_quast_ppl] ${notes.join('\n' + pad)}${creset}\n" +
+            "${orange}[bgc_quast_ppl] NOTE:    " +
+            "${notes.join('\n' + pad)}${creset}\n" +
             "${white}${banner}${creset}")
     }
 
@@ -106,21 +108,21 @@ workflow BIGSCAPE_ANALYSIS {
                 }
                 .toSortedList { a, b -> a[0] <=> b[0] }
                 .map { rows ->
-                      def clashes = rows.groupBy { it[0] }
-                          .findAll { _n, r -> r.size() > 1 }
-                      if (clashes) {
-                          def pad   = ' '.multiply(16)
-                          def lines = clashes.collect { n, r ->
-                              def ids = r.collect { it[2] }.unique().join(', ')
-                              "${pad}${n} (samples: ${ids})"
-                          }
-                          error("\n${white}${banner}${creset}\n" +
-                              "${red}[bgc_quast_ppl] BiG-SCAPE input file " +
-                              "names clash for ${tool}:\n" +
-                              lines.join('\n') + "\n" +
-                              "${pad}Rename one of these samples in the " +
-                              "samplesheet and run again.${creset}\n" +
-                              "${white}${banner}${creset}")
+                    def clashes = rows.groupBy { it[0] }
+                        .findAll { _n, r -> r.size() > 1 }
+                    if (clashes) {
+                        def pad   = ' '.multiply(25)
+                        def lines = clashes.collect { n, r ->
+                            def ids = r.collect { it[2] }.unique().join(', ')
+                            "${pad}${n} (samples: ${ids})"
+                        }
+                        error("\n${white}${banner}${creset}\n" +
+                            "${red}[bgc_quast_ppl] ERROR:   BiG-SCAPE input " +
+                            "file names clash for ${tool}:\n" +
+                            lines.join('\n') + "\n" +
+                            "${pad}Rename one of these samples in the " +
+                            "samplesheet and run again.${creset}\n" +
+                            "${white}${banner}${creset}")
                     }
                     rows
                 }

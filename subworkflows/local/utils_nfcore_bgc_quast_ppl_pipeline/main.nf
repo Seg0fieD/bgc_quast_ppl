@@ -123,12 +123,13 @@ def style() {
 }
 
 /*
-    Message block: the first line prefixed with [bgc_quast_ppl], every later
-    line indented by the given number of spaces.
+    Message block: the first line prefixed with [bgc_quast_ppl] and the
+    label (ERROR, WARNING or NOTE), every later line aligned under its text.
 */
-def block(lines, indent) {
-    def pad = ' '.multiply(indent)
-    def out = ["[bgc_quast_ppl] ${lines[0]}"]
+def block(lines, label) {
+    def head = "[bgc_quast_ppl] ${(label + ':').padRight(9)}"
+    def pad  = ' '.multiply(head.length())
+    def out  = ["${head}${lines[0]}"]
     lines.drop(1).each { line -> out << "${pad}${line}" }
     return out.join('\n')
 }
@@ -140,7 +141,7 @@ def framed(lines) {
     def styl   = style()
     def banner = "=".multiply(100)
     return "\n${styl.white}${banner}${styl.reset}\n" +
-        "${styl.pink}${block(lines, 16)}${styl.reset}\n" +
+        "${styl.pink}${block(lines, 'ERROR')}${styl.reset}\n" +
         "${styl.white}${banner}${styl.reset}"
 }
 
@@ -224,7 +225,7 @@ def validateSamplesheetContent(input) {
             name      = cand
             cells[si] = name
             rewritten = true
-            log.info("[bgc_quast_ppl] No sample name given for ${path}; " +
+            log.info("[bgc_quast_ppl] NOTE:    No sample name given for  ${path}; " +
                 "using '${name}' from the file name.")
         }
 
@@ -615,19 +616,19 @@ def validatePreRunEnvironment(input) {
         def banner = "=".multiply(100)
         def lines  = warnings[0]
         if (warnings.size() > 1) {
-            lines = [" Please check:"]
+            lines = ["Please check:"]
             warnings.eachWithIndex { w, i ->
                 if (i > 0) { lines << "  &" }
                 lines.addAll(w.collect { "  ${it}" })
             }
         }
         warning_text = "${styl.white}${banner}${styl.reset}\n" +
-            "${styl.yellow}${block(lines, 16)}${styl.reset}\n" +
+            "${styl.yellow}${block(lines, 'WARNING')}${styl.reset}\n" +
             "${styl.white}${banner}${styl.reset}"
     }
 
     if (problems) {
-        def fix = [" Run cannot start. Please fix:"]
+        def fix = ["Run cannot start. Please fix:"]
         problems.each { lines -> fix.addAll(lines.collect { "  ${it}" }) }
         error(framed(fix))
     }
@@ -868,9 +869,9 @@ def explainPipelineError() {
         }
 
         def title = hit
-            ? "[bgc_quast_ppl] The ${hit.name} step failed."
-            : "[bgc_quast_ppl] The run stopped and the failing step " +
-                "could not be identified."
+            ? "[bgc_quast_ppl] ERROR:   The ${hit.name} step failed."
+            : "[bgc_quast_ppl] ERROR:   The run stopped and the " +
+                "failing step could not be identified."
 
         def detail = hit
             ? (hit.signatures.find { report.contains(it.key) }?.value ?: hit.generic)
@@ -881,7 +882,7 @@ def explainPipelineError() {
                     "error output.",
             ]
 
-        def pad  = ' '.multiply(16)
+        def pad  = ' '.multiply(25)
         def body = ["${styl.red}${title}${styl.reset}"]
         detail.each { line -> body << "${styl.red}${pad}${line}${styl.reset}" }
         body << "${styl.red}${pad}Troubleshooting: " +
@@ -894,13 +895,14 @@ def explainPipelineError() {
             "\n${styl.white}${banner}${styl.reset}")
 
         if (params.bgc_quast_debug && report.trim()) {
-            log.error("${styl.pink}[bgc_quast_ppl] " +
+            log.error("${styl.pink}[bgc_quast_ppl] ERROR:   " +
                 "--bgc_quast_debug: " +
                 "full error report below:\n${report.trim()}${styl.reset}")
         }
     }
     catch (Exception e) {
-        log.error("${styl.pink}[bgc_quast_ppl] error handler failed: " +
+        log.error("${styl.pink}[bgc_quast_ppl] ERROR:   " +
+               "error handler failed: " +
             "${e}${styl.reset}")
     }
 }
@@ -911,10 +913,10 @@ def explainPipelineError() {
 */
 def reportNoComparison() {
     def styl   = style()
-    def pad    = ' '.multiply(16)
+    def pad    = ' '.multiply(25)
     def banner = "=".multiply(100)
     def lines  = [
-        "[bgc_quast_ppl] Pipeline did NOT complete successfully.",
+        "[bgc_quast_ppl] ERROR:   Pipeline did NOT complete successfully.",
         "${pad}No BGC comparison was produced. " +
             "bgc-quast never ran, usually",
         "${pad}because every sample was dropped " +

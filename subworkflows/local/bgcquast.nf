@@ -118,14 +118,14 @@ workflow BGCQUAST_COMPARISON {
     // workflow is null inside onComplete, so it is held here.
     workflow.onComplete {
         if (no_bgc_notes && run_info.success) {
-            def pad   = ' '.multiply(16)
+            def pad   = ' '.multiply(25)
             def lines = []
             no_bgc_notes.eachWithIndex { note, i ->
                 if (i > 0) { lines << '&' }
                 lines.addAll(note)
             }
             println("${white}${banner}${creset}\n" +
-                "${orange_bold}[bgc_quast_ppl] " +
+                "${orange_bold}[bgc_quast_ppl] NOTE:    " +
                 lines.join('\n' + pad) + "${creset}\n" +
                 "${white}${banner}${creset}")
         }
@@ -232,26 +232,26 @@ workflow BGCQUAST_COMPARISON {
         // prediction.
         ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
             error(
-                "\n${white}${banner}${creset}\n" +
-                "${red}[bgc_quast_ppl] The reference '${ref_id}' has no " +
-                "predicted BGCs,\n" +
-                "                so bgc-quast did not run.\n" +
-                "                Check whether ${active.join(', ')} " +
-                "predicted any BGC\n" +
-                "                in that genome. The same message " +
-                "appears if no query\n" +
-                "                sample has a predicted BGC " +
-                "either.${creset}\n" +
-                "${white}${banner}${creset}"
+            "\n${white}${banner}${creset}\n" +
+            "${red}[bgc_quast_ppl] ERROR:   The reference " +
+            "'${ref_id}' has no predicted BGCs,\n" +
+            "                         so bgc-quast did not run.\n" +
+            "                         Check whether " +
+            "${active.join(', ')} predicted any BGC\n" +
+            "                         in that genome. The same message " +
+            "appears if no query\n" +
+            "                         sample has a predicted BGC " +
+            "either.${creset}\n" +
+            "${white}${banner}${creset}"
             )
         }
     }
     else {
         error(
             "\n${white}${banner}${creset}\n" +
-            "${pink}[bgc_quast_ppl] --bgc_quast_mode '${mode}' " +
+            "${pink}[bgc_quast_ppl] ERROR:   --bgc_quast_mode '${mode}' " +
             "is not supported.${creset}\n" +
-            "${pink}                Please use compare-tools, " +
+            "${pink}                         Please use compare-tools, " +
             "compare-samples or compare-to-reference.${creset}\n" +
             "${white}${banner}${creset}"
         )

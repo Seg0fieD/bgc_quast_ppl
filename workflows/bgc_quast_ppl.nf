@@ -40,8 +40,8 @@ workflow BGC_QUAST_PPL {
         ch_samplesheet.count().subscribe { n ->
             if (n == 1) {
                 log.info("${white}${banner}${reset}\n" +
-                    "${orange}[bgc_quast_ppl] Running compare-samples " +
-                    "mode with a single sample.${reset}\n" +
+                    "${orange}[bgc_quast_ppl] NOTE:    Running " +
+                    "compare-samples mode with a single sample.${reset}\n" +
                     "${white}${banner}${reset}")
             }
         }
@@ -115,11 +115,11 @@ workflow BGC_QUAST_PPL {
             .filter { meta, fasta ->
                 if (fasta != [] && fasta.isEmpty()) {
                     def msg = "${white}${banner}${reset}\n" +
-                        "${yellow}[bgc_quast_ppl] Sample ${meta.id} " +
+                        "${yellow}[bgc_quast_ppl] WARNING: Sample ${meta.id} " +
                         "has no contigs longer than " +
                         "${params.bgc_mincontiglength} bp.\n" +
-                        "                It will not be screened for BGCs." +
-                        "${reset}\n${white}${banner}${reset}"
+                        "                         It will not be screened " +
+                        "for BGCs.${reset}\n${white}${banner}${reset}"
                     sample_warnings << msg.toString()
                 }
                 !fasta.isEmpty()
@@ -161,10 +161,10 @@ workflow BGC_QUAST_PPL {
             ch_prepped_input_long.faas.filter { meta, file ->
                 if (file != [] && file.isEmpty()) {
                     def msg = "${white}${banner}${reset}\n" +
-                        "${yellow}[bgc_quast_ppl] Annotation of sample " +
-                        "${meta.id} produced an empty FAA file.\n" +
-                        "                BGC tools that need it will be " +
-                        "skipped.${reset}\n${white}${banner}${reset}"
+                        "${yellow}[bgc_quast_ppl] WARNING: Annotation " +
+                        "of sample ${meta.id} produced an empty FAA file.\n" +
+                        "                         BGC tools that need it " +
+                        "will be skipped.${reset}\n${white}${banner}${reset}"
                     sample_warnings << msg.toString()
                 }
                 !file.isEmpty()
@@ -172,10 +172,10 @@ workflow BGC_QUAST_PPL {
             ch_prepped_input_long.gbks.filter { meta, file ->
                 if (file != [] && file.isEmpty()) {
                     def msg = "${white}${banner}${reset}\n" +
-                        "${yellow}[bgc_quast_ppl] Annotation of sample " +
-                        "${meta.id} produced an empty GBK file.\n" +
-                        "                BGC tools that need it will be " +
-                        "skipped.${reset}\n${white}${banner}${reset}"
+                        "${yellow}[bgc_quast_ppl] WARNING: Annotation " +
+                        "of sample ${meta.id} produced an empty GBK file.\n" +
+                        "                         BGC tools that need it " +
+                        "will be skipped.${reset}\n${white}${banner}${reset}"
                     sample_warnings << msg.toString()
                 }
                 !file.isEmpty()
