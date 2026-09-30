@@ -538,6 +538,15 @@ def validatePreRunEnvironment(input) {
         ]
     }
 
+    def modes = ['compare-samples', 'compare-tools', 'compare-to-reference']
+    if (!(params.bgc_quast_mode in modes)) {
+        problems << [
+            "--bgc_quast_mode '${params.bgc_quast_mode}' is not supported.",
+            "Please use one of these modes: compare-tools, " +
+                "compare-samples or compare-to-reference.",
+        ]
+    }
+
     if (params.run_bigscape && params.bgc_quast_mode != 'compare-samples') {
         problems << [
             "BiG-SCAPE does not run in " +
