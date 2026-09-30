@@ -37,7 +37,8 @@ workflow PIPELINE_INITIALISATION {
     if (params.bgc_quast_mode == 'compare-to-reference') {
         validateReferenceSamplesheet(sheet)
     }
-    validatePreRunEnvironment(input)
+    
+    pre_run_text = validatePreRunEnvironment(input)
 
     UTILS_NFSCHEMA_PLUGIN(
         workflow,
@@ -53,8 +54,9 @@ workflow PIPELINE_INITIALISATION {
         .set { ch_samplesheet }
 
     emit:
-    samplesheet = ch_samplesheet
-    versions    = ch_versions
+    samplesheet     = ch_samplesheet
+    versions        = ch_versions
+    pre_run_warning = pre_run_text   // val: framed start-up warnings, or ''
 }
 
 workflow PIPELINE_COMPLETION {
@@ -489,7 +491,7 @@ def checkBigscape(input, problems, warnings) {
 /*
     Pre-run environment check: samplesheet, tool databases, BiG-SCAPE
     inputs, Docker and output folder. Problems halt the run together;
-    warnings print and the run continues.
+    warnings are returned as framed text, empty when there are none.
 */
 def validatePreRunEnvironment(input) {
     def styl     = style()
@@ -607,9 +609,21 @@ def validatePreRunEnvironment(input) {
         }
     }
 
-    // Nextflow prints "WARN: " before each warning, hence 22 spaces.
-    warnings.each { lines ->
-        log.warn("${styl.yellow}${block(lines, 22)}${styl.reset}")
+    // Start-up warnings as one framed text, '&' between two or more.
+    def warning_text = ''
+    if (warnings) {
+        def banner = "=".multiply(100)
+        def lines  = warnings[0]
+        if (warnings.size() > 1) {
+            lines = [" Please check:"]
+            warnings.eachWithIndex { w, i ->
+                if (i > 0) { lines << "  &" }
+                lines.addAll(w.collect { "  ${it}" })
+            }
+        }
+        warning_text = "${styl.white}${banner}${styl.reset}\n" +
+            "${styl.yellow}${block(lines, 16)}${styl.reset}\n" +
+            "${styl.white}${banner}${styl.reset}"
     }
 
     if (problems) {
@@ -617,6 +631,8 @@ def validatePreRunEnvironment(input) {
         problems.each { lines -> fix.addAll(lines.collect { "  ${it}" }) }
         error(framed(fix))
     }
+
+    return warning_text
 }
 
 /*

@@ -36,6 +36,12 @@ workflow {
         PIPELINE_INITIALISATION.out.samplesheet
     )
 
+    // Printed here, after the workflow is built, so it follows the step list.
+    def pre_run_warning = PIPELINE_INITIALISATION.out.pre_run_warning.val
+    if (pre_run_warning) {
+        log.info(pre_run_warning)
+    }
+
     PIPELINE_COMPLETION(
         params.email,
         params.email_on_fail,

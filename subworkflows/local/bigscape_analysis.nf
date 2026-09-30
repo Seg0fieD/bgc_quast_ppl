@@ -19,7 +19,7 @@ workflow BIGSCAPE_ANALYSIS {
     main:
     ch_versions = Channel.empty()
 
-    def orange = params.monochrome_logs ? '' : "\033[38;5;208m"
+    def orange = params.monochrome_logs ? '' : "\033[1;38;5;208m"
     def pink   = params.monochrome_logs ? '' : "\033[1;38;5;197m"
     def white  = params.monochrome_logs ? '' : "\033[97m"
     def creset = params.monochrome_logs ? '' : "\033[0m"
@@ -32,6 +32,7 @@ workflow BIGSCAPE_ANALYSIS {
 
     // BiG-SCAPE runs afresh for any tool without a subfolder.
     def given = [:]
+    def notes = []
 
     if (params.bgc_bigscape_dir) {
         file(params.bgc_bigscape_dir, checkIfExists: true)
@@ -57,13 +58,20 @@ workflow BIGSCAPE_ANALYSIS {
             )
         }
 
-        log.info("${orange}            [bgc_quast_ppl] BiG-SCAPE folder supplied for: ${given.keySet().join(', ')}${creset}")
+        notes << "BiG-SCAPE folder supplied for: ${given.keySet().join(', ')}"
     }
 
     def to_run = bs_tools.findAll { !given.containsKey(it) }
 
     if (to_run) {
-        log.info("${orange}            [bgc_quast_ppl] BiG-SCAPE will run for: ${to_run.join(', ')}${creset}")
+        notes << " BiG-SCAPE will run for tool(s): ${to_run.join(', ')}"
+    }
+
+    if (notes) {
+        def pad = ' '.multiply(16)
+        log.info("\n${white}${banner}${creset}\n" +
+            "${orange}[bgc_quast_ppl] ${notes.join('\n' + pad)}${creset}\n" +
+            "${white}${banner}${creset}")
     }
 
     // Bare map; wrapped once at the end, since combine() unwraps one level.
