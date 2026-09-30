@@ -251,9 +251,8 @@ For the full list of metrics, see the
 [bgc-quast metrics page](https://github.com/gurevichlab/bgc-quast/blob/main/docs/METRICS.md).
 
 > [!NOTE]
-> `auto` is listed as a mode but is not available yet. Choosing it stops 
+> `auto` is listed as a mode but is not available yet. Choosing it stops
 >  the run and an error is thrown at the start-up.
-
 ---
 
 ## 9. Running the pipeline
