@@ -417,10 +417,10 @@ are found, so they do not change the bgc-quast reports.
 
 ### 10.7 BiG-SCAPE (gene cluster families)
 
-BiG-SCAPE is **off** by default and runs **only in compare-samples mode**. In
-any other mode the flag is ignored, and a warning tells you so. BiG-SCAPE
-runs once for each prediction tool that is switched on, over all samples
-together.
+BiG-SCAPE is **off** by default and runs **only in compare-samples mode**.
+With any other mode, `--run_bigscape` stops the run at start-up with an
+error. BiG-SCAPE runs once for each prediction tool that is switched on,
+over all samples together.
 
 | Parameter | Default | What it does |
 |---|---|---|
