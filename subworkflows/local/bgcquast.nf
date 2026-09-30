@@ -1,7 +1,7 @@
 /*
-    Assemble per-mode inputs and run bgc-quast.
-    Modes: compare-tools, compare-samples, compare-to-reference.
-    QUAST runs only in compare-to-reference, unless --bgc_quast_quastdir is supplied.
+    Per-mode bgc-quast inputs and runs: compare-tools, compare-samples,
+    compare-to-reference; QUAST in compare-to-reference only, unless
+    --bgc_quast_quastdir supplies its output.
 */
 
 include { QUAST    } from '../../modules/nf-core/quast/main'
@@ -41,7 +41,8 @@ workflow BGCQUAST_COMPARISON {
     def creset      = params.monochrome_logs ? '' : "\033[0m"
     def banner      = "=".multiply(100)
 
-    // antiSMASH writes a JSON even with zero regions; GECCO and DeepBGC write no file at all.
+    // antiSMASH writes a JSON even with zero regions; GECCO and DeepBGC
+    // write no file at all.
     def ch_antismash_json = antismash_json.join(antismash_gbk).map { meta, json, _gbks -> [meta, json] }
     def ch_ref_antismash_json = ref_antismash_json.join(ref_antismash_gbk).map { meta, json, _gbks -> [meta, json] }
 
@@ -133,8 +134,8 @@ workflow BGCQUAST_COMPARISON {
             .mix(by_tool(deepbgc_tsv, 'deepbgc'))
             .mix(by_tool(gecco_clusters, 'gecco'))
             .groupTuple(by: 0)
-            // groupTuple keeps arrival order, which varies between tools and between runs.
-            // Reorder all three lists by sample id so every report has the same columns.
+            // Lists sorted by sample id, so every report has the same column
+            // order; groupTuple keeps arrival order, which differs per run.
             .map { tool, ids, files, gens ->
                 def idx = (0..<ids.size()).toList().sort { ids[it] }
                 [tool, idx.collect { ids[it] }, idx.collect { files[it] }, idx.collect { gens[it] }]
@@ -158,7 +159,8 @@ workflow BGCQUAST_COMPARISON {
             .toSortedList { a, b -> a[0] <=> b[0] }
             .map { rows -> [rows.collect { it[0] }, rows.collect { it[1] }] }
 
-        // One QUAST run over all queries against the reference, unless a folder is supplied.
+        // One QUAST run of all queries against the reference, unless a folder
+        // is supplied.
         if (params.bgc_quast_quastdir) {
             ch_quast_dir = Channel.value(file(params.bgc_quast_quastdir, checkIfExists: true))
         }
@@ -174,7 +176,8 @@ workflow BGCQUAST_COMPARISON {
             ch_quast_dir = QUAST.out.results.map { meta, dir -> dir }.first()
         }
 
-        // One run per tool: ordered query predictions, the reference prediction and genome, and the QUAST folder.
+        // One run per tool: sorted query predictions, the reference prediction
+        // and genome, and the QUAST folder.
         def per_tool_ref = { qch, rch, tool ->
             qch.join(genome_gbks)
                 .map { meta, qfile, genome -> [meta.id, qfile, genome] }
@@ -199,8 +202,8 @@ workflow BGCQUAST_COMPARISON {
             .mix(per_tool_ref(deepbgc_tsv,    ref_deepbgc_tsv,    'deepbgc'))
             .mix(per_tool_ref(gecco_clusters, ref_gecco_clusters, 'gecco'))
 
-        // Empty means neither the reference nor any query produced a usable prediction.
-
+        // Empty when neither the reference nor any query has a usable
+        // prediction.
         ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
             error(
                 "\n${white}${banner}${creset}\n" +

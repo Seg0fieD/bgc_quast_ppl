@@ -1,6 +1,6 @@
 /*
-    BGC prediction runs; antiSMASH, DeepBGC and GECCO, each unless skipped;
-    comparison modes, QUAST and bgc-quast run in BGCQUAST_COMPARISON under subworkflow.
+    BGC prediction with antiSMASH, DeepBGC and GECCO, each unless skipped;
+    the comparison modes, QUAST and bgc-quast run in a separate subworkflow.
 */
 
 include { UNTAR as UNTAR_ANTISMASHDB           } from '../../modules/nf-core/untar/main'
@@ -25,7 +25,6 @@ workflow BGC_PREDICTION {
     ch_gecco_clusters = Channel.empty()
     ch_gecco_gbk      = Channel.empty()
 
-    // ANTISMASH
     if (!params.bgc_skip_antismash) {
         // User-provided DB path, else download it.
         if (params.bgc_antismash_db && file(params.bgc_antismash_db, checkIfExists: true).extension == 'gz') {
@@ -48,7 +47,6 @@ workflow BGC_PREDICTION {
         ch_antismash_gbk  = ANTISMASH_ANTISMASH.out.gbk_results
     }
 
-    // DEEPBGC
     if (!params.bgc_skip_deepbgc) {
         if (params.bgc_deepbgc_db) {
             ch_deepbgc_database = Channel.fromPath(params.bgc_deepbgc_db, checkIfExists: true).first()
@@ -62,11 +60,10 @@ workflow BGC_PREDICTION {
         DEEPBGC_PIPELINE(gbks, ch_deepbgc_database)
         ch_versions    = ch_versions.mix(DEEPBGC_PIPELINE.out.versions)
         ch_deepbgc_tsv = DEEPBGC_PIPELINE.out.bgc_tsv
-        // One multi-record GBK per sample. DEEPBGC_SPLIT_GBK breaks it up before BiG-SCAPE.
+        // One multi-record GBK per sample; split per BGC before BiG-SCAPE.
         ch_deepbgc_gbk = DEEPBGC_PIPELINE.out.bgc_gbk
     }
 
-    // GECCO
     if (!params.bgc_skip_gecco) {
         ch_gecco_input = gbks
             .groupTuple()

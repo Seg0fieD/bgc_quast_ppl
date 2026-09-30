@@ -13,8 +13,8 @@ workflow BIGSCAPE_ANALYSIS {
     take:
     antismash_gbk // [ meta, [ gbk ] ] query antiSMASH region GBKs
     gecco_gbk     // [ meta, [ gbk ] ] query GECCO cluster GBKs
-    deepbgc_gbk   // [ meta, gbk ]     query DeepBGC multi-record GBK (split first)
-    deepbgc_tsv   // [ meta, tsv ]     query DeepBGC BGC table (numbers the split)
+    deepbgc_gbk   // [ meta, gbk ]     query DeepBGC multi-record GBK to split
+    deepbgc_tsv   // [ meta, tsv ]     query DeepBGC BGC table for the split
 
     main:
     ch_versions = Channel.empty()
@@ -88,7 +88,7 @@ workflow BIGSCAPE_ANALYSIS {
         }
 
         // Named <sample_id>_<file>, sorted so names and files pair by index;
-        // bgc-quast needs the prefix, BiG-SCAPE needs '.region' or '_cluster_'.
+        // bgc-quast reads the prefix, BiG-SCAPE the '.region' or '_cluster_'.
         def stage_gbks = { ch ->
             ch.flatMap { meta, gbks ->
                     (gbks instanceof List ? gbks : [gbks]).collect { g ->
@@ -128,7 +128,7 @@ workflow BIGSCAPE_ANALYSIS {
         }
 
         if ('deepbgc' in to_run) {
-            // The .bgc.tsv rides along because the BGC numbering comes from it, not the GBK.
+            // The .bgc.tsv is joined in; the BGC numbering comes from it.
             DEEPBGC_SPLIT_GBK(deepbgc_gbk.join(deepbgc_tsv, failOnDuplicate: true))
             ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
 
@@ -144,17 +144,17 @@ workflow BIGSCAPE_ANALYSIS {
             ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_DEEPBGC.out.results)
         }
 
-        // toList() always emits once; a tool with no GBKs is left out of the map.
+        // toList() always emits once; a tool with no GBKs gets no map entry.
         ch_bigscape_run = ch_bigscape_results
             .toList()
             .map { rows -> rows.collectEntries { t, d -> [(t): d] } }
     }
 
-    // Supplied folders and freshly run ones cannot overlap: to_run excludes the supplied.
-    // wrapped once in a list, since combine() unwraps one level.
+    // Supplied and freshly run folders cannot overlap: to_run excludes the
+    // supplied ones. Wrapped in a list, since combine() unwraps one level.
     ch_bigscape_dir = ch_bigscape_run.map { ran -> [given + ran] }
 
     emit:
-    dirs     = ch_bigscape_dir // val: [ [ tool: dir ] ] BiG-SCAPE folder per tool
+    dirs     = ch_bigscape_dir // val: [ [ tool: dir ] ] folder per tool
     versions = ch_versions     // [ path(versions.yml) ]
 }

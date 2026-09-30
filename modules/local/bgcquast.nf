@@ -32,7 +32,8 @@ process BGCQUAST {
     def bigscape_arg         = bigscape_dir     ? "--bigscape-output-dir \$WORKDIR/${bigscape_dir} --bigscape-cutoff ${params.bgc_bigscape_cutoff}" : ''
 
     """
-    # Run from bin/bgc-quast/ so `from bgc_quast.*` imports resolve; staged paths are passed as absolute.
+    # Runs from bin/bgc-quast/ so the bgc_quast.* imports resolve; staged
+    # paths are passed as absolute paths.
     WORKDIR=\$PWD
     mkdir -p \$WORKDIR/bgcquast_out
     mkdir -p \$WORKDIR/renamed
