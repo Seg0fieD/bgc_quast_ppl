@@ -1,40 +1,19 @@
 #!/usr/bin/env nextflow
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bgc_quast_ppl
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    BGC prediction and comparison: input -> contig preparation -> annotation
-    -> antiSMASH, DeepBGC and GECCO -> bgc-quast report
--------------------------------------------------------------------------------
-*/
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT FUNCTIONS / MODULES / SUBWORKFLOWS / WORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    bgc_quast_ppl: BGC prediction and comparison, from input contigs through
+    annotation and antiSMASH, DeepBGC and GECCO to the bgc-quast report.
 */
 
 include { BGC_QUAST_PPL           } from './workflows/bgc_quast_ppl'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_bgc_quast_ppl_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_bgc_quast_ppl_pipeline'
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    NAMED WORKFLOW FOR PIPELINE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-// WORKFLOW: Run main analysis pipeline
-//
 workflow NFCORE_BGC_QUAST_PPL {
-
     take:
     samplesheet // channel: samplesheet read in from --input
 
     main:
-
-    BGC_QUAST_PPL (
+    BGC_QUAST_PPL(
         samplesheet
     )
 
@@ -42,19 +21,9 @@ workflow NFCORE_BGC_QUAST_PPL {
     bgcquast_runs = BGC_QUAST_PPL.out.bgcquast_runs
 }
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
 workflow {
-
     main:
-    //
-    // SUBWORKFLOW: Run initialisation tasks
-    //
-    PIPELINE_INITIALISATION (
+    PIPELINE_INITIALISATION(
         params.version,
         params.validate_params,
         params.monochrome_logs,
@@ -63,17 +32,11 @@ workflow {
         params.input
     )
 
-    //
-    // WORKFLOW: Run main workflow
-    //
-    NFCORE_BGC_QUAST_PPL (
+    NFCORE_BGC_QUAST_PPL(
         PIPELINE_INITIALISATION.out.samplesheet
     )
 
-    //
-    // SUBWORKFLOW: Run completion tasks
-    //
-    PIPELINE_COMPLETION (
+    PIPELINE_COMPLETION(
         params.email,
         params.email_on_fail,
         params.plaintext_email,
@@ -83,9 +46,3 @@ workflow {
         NFCORE_BGC_QUAST_PPL.out.bgcquast_runs
     )
 }
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    THE END
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/

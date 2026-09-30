@@ -1,38 +1,20 @@
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Main workflow: input preparation, contig length filter, annotation, BGC
+    prediction, optional BiG-SCAPE and the bgc-quast comparison.
 */
 
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT LOCAL SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 
 include { ANNOTATION          } from '../subworkflows/local/annotation'
 include { BGC_PREDICTION      } from '../subworkflows/local/bgc_prediction'
 include { BGCQUAST_COMPARISON } from '../subworkflows/local/bgcquast'
 include { BIGSCAPE_ANALYSIS   } from '../subworkflows/local/bigscape_analysis'
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT NF-CORE MODULES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
 include { GUNZIP as GUNZIP_INPUT_PREP     } from '../modules/nf-core/gunzip/main'
 include { SEQKIT_SEQ as SEQKIT_SEQ_LENGTH } from '../modules/nf-core/seqkit/seq/main'
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
+// Main workflow
 workflow BGC_QUAST_PPL {
     take:
     ch_samplesheet // channel: [ meta, fasta, faa, gbk ] from --input
@@ -58,17 +40,13 @@ workflow BGC_QUAST_PPL {
         }
     }
 
-    /*
-        REFERENCE RESOLUTION (compare-to-reference only)
-        Exactly one reference (type r/R) runs the same prep -> annotation -> prediction
-        lane as the queries and is predicted once.
-    */
+    // The reference runs the same lane as the queries and is predicted once.
     ch_reference_rows = Channel.empty() // [ meta, [ ref_fasta, [], [] ] ]
     ch_ref_name       = Channel.empty() // reference name, --ref-name
     ch_query_samples  = ch_samplesheet  // all rows; reference removed below
 
     if (params.bgc_quast_mode == 'compare-to-reference') {
-        // Split reference (r/R) from queries (q/Q). Shape validated in PIPELINE_INITIALISATION.
+        // The samplesheet holds exactly one reference; checked at start-up.
         def ch_split = ch_samplesheet.branch { meta, fasta, faa, gbk ->
             reference: (meta.type ?: '').toLowerCase() == 'r'
             query: true
@@ -87,12 +65,8 @@ workflow BGC_QUAST_PPL {
 
     }
 
-    /*
-        INPUT PREP
-        Queries and the reference share one lane;
-        'meta.is_reference' marks the reference, so prediction outputs split
-        back into query and reference channels.
-    */
+    // One lane for queries and the reference; meta.is_reference splits the
+    // prediction outputs back into query and reference channels.
     ch_query_rows = ch_query_samples
         .map { meta, fasta, faa, gbk -> [meta + [category: 'all', is_reference: false], [fasta, faa, gbk]] }
 
@@ -146,9 +120,7 @@ workflow BGC_QUAST_PPL {
         ch_input_for_annotation = ch_intermediate_input.fastas.map { meta, fasta, protein, gbk -> [meta, fasta] }
     }
 
-    /*
-        ANNOTATION
-    */
+    // Annotation
     if (params.run_bgc_screening) {
         ANNOTATION(ch_input_for_annotation)
         ch_versions = ch_versions.mix(ANNOTATION.out.versions)
@@ -161,7 +133,6 @@ workflow BGC_QUAST_PPL {
         ch_new_annotation = ch_intermediate_input.fastas
     }
 
-
     if (params.run_bgc_screening) {
         ch_prepped_input_long = ch_new_annotation
             .filter { meta, fasta, faa, gbk -> meta.category == 'long' }
@@ -173,9 +144,7 @@ workflow BGC_QUAST_PPL {
             }
     }
 
-    /*
-        BGC PREDICTION + bgc-quast
-    */
+    // BGC Prediction and  bgc-quast
     if (params.run_bgc_screening) {
         BGC_PREDICTION(
             ch_prepped_input_long.fastas,
@@ -198,7 +167,6 @@ workflow BGC_QUAST_PPL {
         )
         ch_versions = ch_versions.mix(BGC_PREDICTION.out.versions)
 
-        // Split prediction outputs and prepped genomes into query vs reference lanes.
         ch_pred_as     = BGC_PREDICTION.out.antismash_json.branch { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_as_gbk = BGC_PREDICTION.out.antismash_gbk.branch  { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_db     = BGC_PREDICTION.out.deepbgc_tsv.branch    { meta, f -> reference: meta.is_reference; query: true }
@@ -210,7 +178,6 @@ workflow BGC_QUAST_PPL {
         ch_pred_ge_gbk = BGC_PREDICTION.out.gecco_gbk.branch   { meta, f -> reference: meta.is_reference; query: true }
         ch_pred_db_gbk = BGC_PREDICTION.out.deepbgc_gbk.branch { meta, f -> reference: meta.is_reference; query: true }
 
-        // BiG-SCAPE runs in compare-samples only; otherwise bgc-quast gets the empty map.
         ch_bigscape_dir = Channel.value([[:]])
 
         if (params.run_bigscape && params.bgc_quast_mode == 'compare-samples') {
@@ -245,9 +212,6 @@ workflow BGC_QUAST_PPL {
         ch_bgcquast_run_count = BGCQUAST_COMPARISON.out.results.count()
     }
 
-    //
-    // Collate and save software versions
-    //
     softwareVersionsToYAML(ch_versions)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
@@ -258,6 +222,7 @@ workflow BGC_QUAST_PPL {
         .set { ch_collated_versions }
 
     emit:
-    versions     = ch_versions           // channel: [ path(versions.yml) ]
-    bgcquast_runs = ch_bgcquast_run_count // channel: val(Integer) number of bgc-quast runs
+    versions      = ch_versions           // channel: [ path(versions.yml) ]
+    bgcquast_runs = ch_bgcquast_run_count // channel: bgc-quast run count
 }
+
