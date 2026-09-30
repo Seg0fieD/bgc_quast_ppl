@@ -74,11 +74,19 @@ workflow BGCQUAST_COMPARISON {
                     .each { id -> tools_missing_for.get(id, []) << t }
             }
             tools_missing_for.each { id, tools ->
-                no_bgc_notes << "${orange_bold}[bgc_quast_ppl] '${id}': no BGCs predicted, so ${tools.join(', ')} produced no result - this sample has no column in ${tools.size() > 1 ? 'those reports' : 'that report'}.${creset}".toString()
+                def what = tools.size() > 1 ? 'those reports' : 'that report'
+                no_bgc_notes << [
+                    "'${id}': no BGCs predicted, so ${tools.join(', ')} " +
+                        "produced no result;",
+                    "this sample has no column in ${what}.",
+                ]
             }
             active.each { t ->
                 if (ids.every { !(have[t] ?: [] as Set).contains(it) }) {
-                    no_bgc_notes << "${orange_bold}[bgc_quast_ppl] ${t} found no BGCs in any sample, so no ${t} report was produced.${creset}".toString()
+                    no_bgc_notes << [
+                        "${t} found no BGCs in any sample, so no ${t} " +
+                            "report was produced.",
+                    ]
                 }
             }
         }
@@ -92,17 +100,34 @@ workflow BGCQUAST_COMPARISON {
     ref_name.combine(ch_ref_found).subscribe { rid, found ->
         def tools = active.findAll { !found.contains(it) }
         if (tools) {
-            no_bgc_notes << "${orange_bold}[bgc_quast_ppl] reference '${rid}': no BGCs predicted, so ${tools.join(', ')} produced no result -- ${tools.size() > 1 ? 'those reports were' : 'that report was'} not produced.${creset}".toString()
+            def what = tools.size() > 1 ?
+                'those reports were' : 'that report was'
+            no_bgc_notes << [
+                "reference '${rid}': no BGCs predicted, so " +
+                    "${tools.join(', ')} produced no result;",
+                "${what} not produced.",
+            ]
         }
     }
     def ref_id = null
 
     ref_name.subscribe { rid -> ref_id = rid }
 
+    def run_info = workflow   
+
+    // workflow is null inside onComplete, so it is held here.
     workflow.onComplete {
-        if (no_bgc_notes) {
-            println ''
-            no_bgc_notes.each { println it }
+        if (no_bgc_notes && run_info.success) {
+            def pad   = ' '.multiply(16)
+            def lines = []
+            no_bgc_notes.eachWithIndex { note, i ->
+                if (i > 0) { lines << '&' }
+                lines.addAll(note)
+            }
+            println("${white}${banner}${creset}\n" +
+                "${orange_bold}[bgc_quast_ppl] " +
+                lines.join('\n' + pad) + "${creset}\n" +
+                "${white}${banner}${creset}")
         }
     }
 
