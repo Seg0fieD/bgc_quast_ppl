@@ -1,7 +1,6 @@
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    SUBWORKFLOW DEFINITION
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    nf-core pipeline utilities: config and profile checks, version strings,
+    completion email, summary and notification.
 */
 
 workflow UTILS_NFCORE_PIPELINE {
@@ -16,15 +15,7 @@ workflow UTILS_NFCORE_PIPELINE {
     valid_config
 }
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-//  Warn if a -profile or Nextflow config has not been provided to run the pipeline
-//
+// Config check: warning and false when no -profile or config file is set.
 def checkConfigProvided() {
     def valid_config = true as Boolean
     if (workflow.profile == 'standard' && workflow.configFiles.size() <= 1) {
@@ -36,9 +27,7 @@ def checkConfigProvided() {
     return valid_config
 }
 
-//
-// Exit pipeline if --profile contains spaces
-//
+// Profile check: error on a trailing comma, warning on positional arguments.
 def checkProfileProvided(nextflow_cli_args) {
     if (workflow.profile.endsWith(',')) {
         error(
@@ -52,9 +41,7 @@ def checkProfileProvided(nextflow_cli_args) {
     }
 }
 
-//
-// Generate workflow version string
-//
+// Workflow version string: manifest version and short commit id.
 def getWorkflowVersion() {
     def version_string = "" as String
     if (workflow.manifest.version) {
@@ -70,18 +57,14 @@ def getWorkflowVersion() {
     return version_string
 }
 
-//
-// Get software versions for pipeline
-//
+// Software versions from one versions.yml as YAML, process prefix removed.
 def processVersionsFromYAML(yaml_file) {
     def yaml = new org.yaml.snakeyaml.Yaml()
     def versions = yaml.load(yaml_file).collectEntries { k, v -> [k.tokenize(':')[-1], v] }
     return yaml.dumpAsMap(versions).trim()
 }
 
-//
-// Get workflow version for pipeline
-//
+// Pipeline and Nextflow versions as YAML.
 def workflowVersionToYAML() {
     return """
     Workflow:
@@ -90,16 +73,12 @@ def workflowVersionToYAML() {
     """.stripIndent().trim()
 }
 
-//
-// Get channel of software versions used in pipeline in YAML format
-//
+// Channel of unique software versions as YAML, plus the workflow versions.
 def softwareVersionsToYAML(ch_versions) {
     return ch_versions.unique().map { version -> processVersionsFromYAML(version) }.unique().mix(Channel.of(workflowVersionToYAML()))
 }
 
-//
-// Get workflow summary for MultiQC
-//
+// Parameter summary as a MultiQC custom-content YAML section.
 def paramsSummaryMultiqc(summary_params) {
     def summary_section = ''
     summary_params
@@ -131,9 +110,7 @@ def paramsSummaryMultiqc(summary_params) {
     return yaml_file_text
 }
 
-//
-// ANSII colours used for terminal logging
-//
+// ANSI colour codes for terminal logging; all empty under monochrome_logs.
 def logColours(monochrome_logs=true) {
     def colorcodes = [:] as Map
 
@@ -199,8 +176,7 @@ def logColours(monochrome_logs=true) {
     return colorcodes
 }
 
-// Return a single report from an object that may be a Path or List
-//
+// Single MultiQC report from a Path or a List; null when there is none.
 def getSingleReport(multiqc_reports) {
     if (multiqc_reports instanceof Path) {
         return multiqc_reports
@@ -219,12 +195,9 @@ def getSingleReport(multiqc_reports) {
     }
 }
 
-//
-// Construct and send completion email
-//
+// Completion email: sent with sendmail or mail, copied to pipeline_info.
 def completionEmail(summary_params, email, email_on_fail, plaintext_email, outdir, monochrome_logs=true, multiqc_report=null) {
 
-    // Set up the e-mail variables
     def subject = "[${workflow.manifest.name}] Successful: ${workflow.runName}"
     if (!workflow.success) {
         subject = "[${workflow.manifest.name}] FAILED: ${workflow.runName}"
@@ -269,41 +242,34 @@ def completionEmail(summary_params, email, email_on_fail, plaintext_email, outdi
     email_fields['projectDir']   = workflow.projectDir
     email_fields['summary']      = summary << misc_fields
 
-    // On success try attach the multiqc report
     def mqc_report = getSingleReport(multiqc_report)
 
-    // Check if we are only sending emails on failure
     def email_address = email
     if (!email && email_on_fail && !workflow.success) {
         email_address = email_on_fail
     }
 
-    // Render the TXT template
     def engine       = new groovy.text.GStringTemplateEngine()
     def tf           = new File("${workflow.projectDir}/assets/email_template.txt")
     def txt_template = engine.createTemplate(tf).make(email_fields)
     def email_txt    = txt_template.toString()
 
-    // Render the HTML template
     def hf            = new File("${workflow.projectDir}/assets/email_template.html")
     def html_template = engine.createTemplate(hf).make(email_fields)
     def email_html    = html_template.toString()
 
-    // Render the sendmail template
     def max_multiqc_email_size = (params.containsKey('max_multiqc_email_size') ? params.max_multiqc_email_size : 0) as MemoryUnit
     def smail_fields           = [email: email_address, subject: subject, email_txt: email_txt, email_html: email_html, projectDir: "${workflow.projectDir}", mqcFile: mqc_report, mqcMaxSize: max_multiqc_email_size.toBytes()]
     def sf                     = new File("${workflow.projectDir}/assets/sendmail_template.txt")
     def sendmail_template      = engine.createTemplate(sf).make(smail_fields)
     def sendmail_html          = sendmail_template.toString()
 
-    // Send the HTML e-mail
     def colors = logColours(monochrome_logs) as Map
     if (email_address) {
         try {
             if (plaintext_email) {
                 new org.codehaus.groovy.GroovyException('Send plaintext e-mail, not HTML')
             }
-            // Try to send HTML e-mail using sendmail
             def sendmail_tf = new File(workflow.launchDir.toString(), ".sendmail_tmp.html")
             sendmail_tf.withWriter { w -> w << sendmail_html }
             ['sendmail', '-t'].execute() << sendmail_html
@@ -312,29 +278,25 @@ def completionEmail(summary_params, email, email_on_fail, plaintext_email, outdi
         catch (Exception msg) {
             log.debug(msg.toString())
             log.debug("Trying with mail instead of sendmail")
-            // Catch failures and try with plaintext
+            // Catch failures
             def mail_cmd = ['mail', '-s', subject, '--content-type=text/html', email_address]
             mail_cmd.execute() << email_html
             log.info("-${colors.purple}[${workflow.manifest.name}]${colors.green} Sent summary e-mail to ${email_address} (mail)-")
         }
     }
 
-    // Write summary e-mail HTML to a file
     def output_hf = new File(workflow.launchDir.toString(), ".pipeline_report.html")
     output_hf.withWriter { w -> w << email_html }
     nextflow.extension.FilesEx.copyTo(output_hf.toPath(), "${outdir}/pipeline_info/pipeline_report.html")
     output_hf.delete()
 
-    // Write summary e-mail TXT to a file
     def output_tf = new File(workflow.launchDir.toString(), ".pipeline_report.txt")
     output_tf.withWriter { w -> w << email_txt }
     nextflow.extension.FilesEx.copyTo(output_tf.toPath(), "${outdir}/pipeline_info/pipeline_report.txt")
     output_tf.delete()
 }
 
-//
-// Print pipeline summary on completion
-//
+// Completion line: success, success with ignored errors, or failure.
 def completionSummary(monochrome_logs=true) {
     def colors = logColours(monochrome_logs) as Map
     if (workflow.success) {
@@ -350,9 +312,7 @@ def completionSummary(monochrome_logs=true) {
     }
 }
 
-//
-// Construct and send a notification to a web server as JSON e.g. Microsoft Teams and Slack
-//
+// Run notification as JSON to a web hook: Slack or Adaptive Card format.
 def imNotification(summary_params, hook_url) {
     def summary = [:]
     summary_params
@@ -395,14 +355,13 @@ def imNotification(summary_params, hook_url) {
 
     // Render the JSON template
     def engine       = new groovy.text.GStringTemplateEngine()
-    // Different JSON depending on the service provider
-    // Defaults to "Adaptive Cards" (https://adaptivecards.io), except Slack which has its own format
+    // Slack has its own format; every other service gets an Adaptive Card.
     def json_path     = hook_url.contains("hooks.slack.com") ? "slackreport.json" : "adaptivecard.json"
     def hf            = new File("${workflow.projectDir}/assets/${json_path}")
     def json_template = engine.createTemplate(hf).make(msg_fields)
     def json_message  = json_template.toString()
 
-    // POST
+    // Post
     def post = new URL(hook_url).openConnection()
     post.setRequestMethod("POST")
     post.setDoOutput(true)

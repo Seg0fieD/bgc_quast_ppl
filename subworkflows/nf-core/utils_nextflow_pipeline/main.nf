@@ -1,36 +1,28 @@
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    SUBWORKFLOW DEFINITION
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Nextflow pipeline utilities: version print, parameter dump to JSON and
+    the conda channel check.
 */
-
 workflow UTILS_NEXTFLOW_PIPELINE {
     take:
     print_version        // boolean: print version
     dump_parameters      // boolean: dump parameters
-    outdir               //    path: base directory used to publish pipeline results
     check_conda_channels // boolean: check conda channels
+    outdir               // path   : results directory
 
     main:
 
-    //
-    // Print workflow version and exit on --version
-    //
+    // Pipeline name and version on --version, then exit.
     if (print_version) {
         log.info("${workflow.manifest.name} ${getWorkflowVersion()}")
         System.exit(0)
     }
 
-    //
-    // Dump pipeline parameters to a JSON file
-    //
+    // Parameter dump to JSON in the output directory.
     if (dump_parameters && outdir) {
         dumpParametersToJSON(outdir)
     }
 
-    //
-    // When running with Conda, warn if channels have not been set-up appropriately
-    //
+    // Conda channel order check, warning on a missing or misordered channel.
     if (check_conda_channels) {
         checkCondaChannels()
     }
@@ -39,15 +31,8 @@ workflow UTILS_NEXTFLOW_PIPELINE {
     dummy_emit = true
 }
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 
-//
-// Generate version string
-//
+// Workflow version string: manifest version and short commit id.
 def getWorkflowVersion() {
     def version_string = "" as String
     if (workflow.manifest.version) {
@@ -63,9 +48,7 @@ def getWorkflowVersion() {
     return version_string
 }
 
-//
-// Dump pipeline parameters to a JSON file
-//
+// Run parameters as a timestamped JSON file in <outdir>/pipeline_info.
 def dumpParametersToJSON(outdir) {
     def timestamp = new java.util.Date().format('yyyy-MM-dd_HH-mm-ss')
     def filename  = "params_${timestamp}.json"
@@ -77,9 +60,7 @@ def dumpParametersToJSON(outdir) {
     temp_pf.delete()
 }
 
-//
-// When running with -profile conda, warn if channels have not been set-up appropriately
-//
+// Conda channel check: conda-forge then bioconda, else a warning.
 def checkCondaChannels() {
     def parser = new org.yaml.snakeyaml.Yaml()
     def channels = []
@@ -98,12 +79,11 @@ def checkCondaChannels() {
         return null
     }
 
-    // Check that all channels are present
-    // This channel list is ordered by required channel priority.
+    // Required channels, highest priority first; all must be present.
     def required_channels_in_order = ['conda-forge', 'bioconda']
     def channels_missing = ((required_channels_in_order as Set) - (channels as Set)) as Boolean
 
-    // Check that they are in the right order
+    // Check the right order 
     def channel_priority_violation = required_channels_in_order != channels.findAll { ch -> ch in required_channels_in_order }
 
     if (channels_missing | channel_priority_violation) {
