@@ -21,6 +21,7 @@ workflow BIGSCAPE_ANALYSIS {
 
     def orange = params.monochrome_logs ? '' : "\033[1;38;5;208m"
     def pink   = params.monochrome_logs ? '' : "\033[1;38;5;197m"
+    def red    = params.monochrome_logs ? '' : "\033[1;31m"
     def white  = params.monochrome_logs ? '' : "\033[97m"
     def creset = params.monochrome_logs ? '' : "\033[0m"
     def banner = "=".multiply(100)
@@ -97,20 +98,39 @@ workflow BIGSCAPE_ANALYSIS {
 
         // Named <sample_id>_<file>, sorted so names and files pair by index;
         // bgc-quast reads the prefix, BiG-SCAPE the '.region' or '_cluster_'.
-        def stage_gbks = { ch ->
+        def stage_gbks = { ch, tool ->
             ch.flatMap { meta, gbks ->
                     (gbks instanceof List ? gbks : [gbks]).collect { g ->
-                        ["${meta.id}_${g.name}".toString(), g]
+                        ["${meta.id}_${g.name}".toString(), g, meta.id]
                     }
                 }
                 .toSortedList { a, b -> a[0] <=> b[0] }
+                .map { rows ->
+                      def clashes = rows.groupBy { it[0] }
+                          .findAll { _n, r -> r.size() > 1 }
+                      if (clashes) {
+                          def pad   = ' '.multiply(16)
+                          def lines = clashes.collect { n, r ->
+                              def ids = r.collect { it[2] }.unique().join(', ')
+                              "${pad}${n} (samples: ${ids})"
+                          }
+                          error("\n${white}${banner}${creset}\n" +
+                              "${red}[bgc_quast_ppl] BiG-SCAPE input file " +
+                              "names clash for ${tool}:\n" +
+                              lines.join('\n') + "\n" +
+                              "${pad}Rename one of these samples in the " +
+                              "samplesheet and run again.${creset}\n" +
+                              "${white}${banner}${creset}")
+                    }
+                    rows
+                }                
                 .filter { rows -> rows.size() > 0 }
         }
 
         ch_bigscape_results = Channel.empty()
 
         if ('antismash' in to_run) {
-            def st = stage_gbks(antismash_gbk)
+            def st = stage_gbks(antismash_gbk, 'antiSMASH')
             BIGSCAPE_ANTISMASH(
                 'antismash',
                 st.map { rows -> rows.collect { it[0] } },
@@ -123,7 +143,7 @@ workflow BIGSCAPE_ANALYSIS {
         }
 
         if ('gecco' in to_run) {
-            def st = stage_gbks(gecco_gbk)
+            def st = stage_gbks(gecco_gbk, 'GECCO')
             BIGSCAPE_GECCO(
                 'gecco',
                 st.map { rows -> rows.collect { it[0] } },
@@ -140,7 +160,7 @@ workflow BIGSCAPE_ANALYSIS {
             DEEPBGC_SPLIT_GBK(deepbgc_gbk.join(deepbgc_tsv, failOnDuplicate: true))
             ch_versions = ch_versions.mix(DEEPBGC_SPLIT_GBK.out.versions)
 
-            def st = stage_gbks(DEEPBGC_SPLIT_GBK.out.gbk)
+            def st = stage_gbks(DEEPBGC_SPLIT_GBK.out.gbk, 'DeepBGC')
             BIGSCAPE_DEEPBGC(
                 'deepbgc',
                 st.map { rows -> rows.collect { it[0] } },

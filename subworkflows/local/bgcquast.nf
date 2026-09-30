@@ -36,6 +36,7 @@ workflow BGCQUAST_COMPARISON {
     def orange      = params.monochrome_logs ? '' : "\033[38;5;208m"
     def orange_bold = params.monochrome_logs ? '' : "\033[1;38;5;208m"
     def pink        = params.monochrome_logs ? '' : "\033[1;38;5;197m"
+    def red         = params.monochrome_logs ? '' : "\033[1;31m"
     def yellow      = params.monochrome_logs ? '' : "\033[1;93m"
     def white       = params.monochrome_logs ? '' : "\033[97m"
     def creset      = params.monochrome_logs ? '' : "\033[0m"
@@ -207,9 +208,15 @@ workflow BGCQUAST_COMPARISON {
         ch_bgcquast_in = ch_bgcquast_in.ifEmpty {
             error(
                 "\n${white}${banner}${creset}\n" +
-                "${pink}[bgc_quast_ppl] The reference '${ref_id}' has no predicted BGCs, so QUAST and bgc-quast did not run.${creset}\n\n" +
-                "${pink}  Check whether ${active.join(', ')} predicted any BGC in that genome.${creset}\n" +
-                "${pink}  The same message appears if no query sample has a predicted BGC either.${creset}\n" +
+                "${red}[bgc_quast_ppl] The reference '${ref_id}' has no " +
+                "predicted BGCs,\n" +
+                "                so bgc-quast did not run.\n" +
+                "                Check whether ${active.join(', ')} " +
+                "predicted any BGC\n" +
+                "                in that genome. The same message " +
+                "appears if no query\n" +
+                "                sample has a predicted BGC " +
+                "either.${creset}\n" +
                 "${white}${banner}${creset}"
             )
         }

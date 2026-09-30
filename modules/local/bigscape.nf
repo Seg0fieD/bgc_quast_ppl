@@ -27,21 +27,7 @@ process BIGSCAPE {
     def name_list = names instanceof List ? names : [names]
     def gbk_list  = gbks  instanceof List ? gbks  : [gbks]
 
-    if (name_list.size() != gbk_list.size()) {
-        def pink   = params.monochrome_logs ? '' : "\033[1;38;5;197m"
-        def white  = params.monochrome_logs ? '' : "\033[97m"
-        def creset = params.monochrome_logs ? '' : "\033[0m"
-        def banner = "=".multiply(100)
-        error(
-            "\n${white}${banner}${creset}\n" +
-            "${pink}[bgc_quast_ppl] BiG-SCAPE got ${name_list.size()} " +
-            "sample names for ${gbk_list.size()} GBK files.\n" +
-            "                Names and files must pair one to one. " +
-            "Please report this as a bug.${creset}\n" +
-            "${white}${banner}${creset}"
-        )
-    }
-
+    
     // GBKs symlinked under their paired names, sorted for a stable task hash.
     // Names keep <sample>_ for bgc-quast, .region/_cluster_ for BiG-SCAPE.
     def stage_cmds = (0..<gbk_list.size()).toList()
