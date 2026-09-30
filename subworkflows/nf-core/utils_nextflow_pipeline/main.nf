@@ -6,8 +6,8 @@ workflow UTILS_NEXTFLOW_PIPELINE {
     take:
     print_version        // boolean: print version
     dump_parameters      // boolean: dump parameters
-    check_conda_channels // boolean: check conda channels
     outdir               // path   : results directory
+    check_conda_channels // boolean: check conda channels
 
     main:
 
@@ -83,7 +83,7 @@ def checkCondaChannels() {
     def required_channels_in_order = ['conda-forge', 'bioconda']
     def channels_missing = ((required_channels_in_order as Set) - (channels as Set)) as Boolean
 
-    // Check the right order 
+    // Channel order check.
     def channel_priority_violation = required_channels_in_order != channels.findAll { ch -> ch in required_channels_in_order }
 
     if (channels_missing | channel_priority_violation) {
