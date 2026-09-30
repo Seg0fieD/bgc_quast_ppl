@@ -21,6 +21,7 @@ All notable changes to this pipeline are listed here, newest first.
 ### Added
 
 - A start-up header with the pipeline name and version.
+- Every message starts with its kind: ERROR, WARNING or NOTE.
 - Every error, warning and note now sits in a white frame. The colour shows
   the kind: pink for start-up errors, red for errors during the run, yellow
   for warnings, orange for notes.
