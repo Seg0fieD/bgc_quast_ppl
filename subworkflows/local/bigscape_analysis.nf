@@ -123,7 +123,7 @@ workflow BIGSCAPE_ANALYSIS {
                               "${white}${banner}${creset}")
                     }
                     rows
-                }                
+                }
                 .filter { rows -> rows.size() > 0 }
         }
 

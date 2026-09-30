@@ -113,7 +113,7 @@ workflow BGCQUAST_COMPARISON {
 
     ref_name.subscribe { rid -> ref_id = rid }
 
-    def run_info = workflow   
+    def run_info = workflow
 
     // workflow is null inside onComplete, so it is held here.
     workflow.onComplete {

@@ -4,6 +4,54 @@ All notable changes to this pipeline are listed here, newest first.
 
 ---
 
+## v2.1.0 - 2026-09-30
+
+### Changed behaviour
+
+- `--run_bigscape` with compare-tools or compare-to-reference now stops the
+  run at start-up with an error. Before, the run was accepted. BiG-SCAPE
+  works only in compare-samples mode.
+- `--bgc_quast_mode auto`, or any other unsupported mode, now stops the run
+  at start-up, before the parameter summary.
+- `--bgc_bigscape_classify` now accepts only `none`. Any other value stops
+  the run at start-up. The report reads only that one bin.
+- Only Nextflow 25.10.x runs (25.10.4 or newer). Other versions stop at
+  start-up.
+
+### Added
+
+- A start-up header with the pipeline name and version.
+- Every error, warning and note now sits in a white frame. The colour shows
+  the kind: pink for start-up errors, red for errors during the run, yellow
+  for warnings, orange for notes.
+- Start-up warnings are shown together in one frame, under the list of
+  steps, with `&` between them.
+- A note when compare-samples mode runs with a single sample.
+- A new check stops the run when two BiG-SCAPE input files would get the
+  same name, for example samples `a` and `a_b`. The error names the samples
+  to rename.
+
+### Fixed
+
+- A blank sample name in the samplesheet is now filled from the file name.
+  Before, the input check rejected it.
+- The "no BGCs predicted" notes no longer appear when a tool crashed. They
+  are shown only when the run succeeds.
+- Warnings about samples with no long contigs or an empty annotation no
+  longer vanish from the screen. They are shown at the end of the run.
+- The error for a reference with no BGCs now says that bgc-quast did not
+  run. It wrongly said QUAST did not run either.
+- Options in messages print as plain text, without underline.
+- One dashed line under the parameter summary instead of two.
+- Start-up errors now respect `--monochrome_logs`.
+
+### Other
+
+- Code comments and descriptions rewritten throughout. Results are
+  unchanged.
+
+---
+
 ## v2.0.1 - 2026-09-27
 
 ### Fixed

@@ -37,7 +37,7 @@ workflow PIPELINE_INITIALISATION {
     if (params.bgc_quast_mode == 'compare-to-reference') {
         validateReferenceSamplesheet(sheet)
     }
-    
+
     pre_run_text = validatePreRunEnvironment(input)
 
     UTILS_NFSCHEMA_PLUGIN(

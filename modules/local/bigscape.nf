@@ -27,7 +27,7 @@ process BIGSCAPE {
     def name_list = names instanceof List ? names : [names]
     def gbk_list  = gbks  instanceof List ? gbks  : [gbks]
 
-    
+
     // GBKs symlinked under their paired names, sorted for a stable task hash.
     // Names keep <sample>_ for bgc-quast, .region/_cluster_ for BiG-SCAPE.
     def stage_cmds = (0..<gbk_list.size()).toList()

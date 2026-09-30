@@ -537,10 +537,11 @@ interactive `index.html` page.
 
 ## 12. Important notes
 
-- **Samples without BGCs** are left out of that tool's report, and the run
-  names them. An empty reference gives no report for that tool.
+- **Samples without BGCs** are left out of that tool's report, and a note
+  at the end of the run names them. This note appears only when the run
+  succeeds. An empty reference gives no report for that tool.
 - **Short contigs** below `--bgc_mincontiglength` are removed. A sample with
-  none left is skipped, with a warning.
+  none left is skipped, with a warning at the end of the run.
 - **One annotation for all tools.** All three tools get the same Pyrodigal
   genes, so tool differences come from BGC finding, not gene finding.
 - **Gene counts** come from Pyrodigal. Compare them only within one run.
@@ -600,7 +601,7 @@ nextflow run . -profile docker --input samplesheet.csv --outdir results -resume
 If you use bgc_quast_ppl, please cite this repository and the version you
 used, for example:
 
-> bgc_quast_ppl, version 2.0.1. https://github.com/Seg0fieD/bgc_quast_ppl
+> bgc_quast_ppl, version 2.1.0. https://github.com/Seg0fieD/bgc_quast_ppl
 
 Results can change between versions. See [VERSION_LOG.md](VERSION_LOG.md) for
 what changed in each one.
