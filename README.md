@@ -252,7 +252,7 @@ For the full list of metrics, see the
 
 > [!NOTE]
 > `auto` is listed as a mode but is not available yet. Choosing it stops 
->  the run and an error is throw at the start-up.
+>  the run and an error is thrown at the start-up.
 
 ---
 
