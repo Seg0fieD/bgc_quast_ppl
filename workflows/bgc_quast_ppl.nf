@@ -41,16 +41,19 @@ workflow BGC_QUAST_PPL {
 
     ch_versions = Channel.empty()
     def yellow = params.monochrome_logs ? '' : "\033[1;93m"
+    def orange = params.monochrome_logs ? '' : "\033[1;38;5;208m"
     def reset  = params.monochrome_logs ? '' : "\033[0m"
-    def hi     = params.monochrome_logs ? '' : "\033[4m"
-    def noh    = params.monochrome_logs ? '' : "\033[24m"
+    def white  = params.monochrome_logs ? '' : "\033[97m"
+    def banner = "=".multiply(100)
     ch_bgcquast_run_count = Channel.value(0)
 
     if (params.bgc_quast_mode == 'compare-samples') {
         ch_samplesheet.count().subscribe { n ->
             if (n == 1) {
-                log.info("[bgc_quast_ppl] Running ${hi}compare-samples${noh}  mode" +
-                    "with a single sample.")
+                log.info("${white}${banner}${reset}\n" +
+                    "${orange}[bgc_quast_ppl] Running compare-samples " +
+                    "mode with a single sample.${reset}\n" +
+                    "${white}${banner}${reset}")
             }
         }
     }

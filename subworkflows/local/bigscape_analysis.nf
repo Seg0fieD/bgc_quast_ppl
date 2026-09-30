@@ -20,16 +20,16 @@ workflow BIGSCAPE_ANALYSIS {
     ch_versions = Channel.empty()
 
     def orange = params.monochrome_logs ? '' : "\033[38;5;208m"
+    def pink   = params.monochrome_logs ? '' : "\033[1;38;5;197m"
+    def white  = params.monochrome_logs ? '' : "\033[97m"
     def creset = params.monochrome_logs ? '' : "\033[0m"
-    def hi     = params.monochrome_logs ? '' : "\033[4m"
-    def noh    = params.monochrome_logs ? '' : "\033[24m"
+    def banner = "=".multiply(100)
 
     def bs_tools = []
     if (!params.bgc_skip_antismash) { bs_tools << 'antismash' }
     if (!params.bgc_skip_gecco)     { bs_tools << 'gecco' }
     if (!params.bgc_skip_deepbgc)   { bs_tools << 'deepbgc' }
 
-    // --bgc_bigscape_dir holds one subfolder per tool, as bgc_quast/bigscape/ does; 
     // BiG-SCAPE runs afresh for any tool without a subfolder.
     def given = [:]
 
@@ -46,7 +46,7 @@ workflow BIGSCAPE_ANALYSIS {
         if (!given) {
             error(
                 "\n${white}${banner}${creset}\n" +
-                "${pink}[bgc_quast_ppl] ${hi}--bgc_bigscape_dir${noh} " +
+                "${pink}[bgc_quast_ppl] --bgc_bigscape_dir " +
                 "contains no per-tool subfolder.\n" +
                 "                Expected at least one of: " +
                 "${bs_tools.join(', ')}\n" +

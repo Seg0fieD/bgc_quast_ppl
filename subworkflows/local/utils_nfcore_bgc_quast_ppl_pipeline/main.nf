@@ -106,8 +106,8 @@ workflow PIPELINE_COMPLETION {
 }
 
 /*
-    Terminal escape codes: colours, underline (hi/noh) and reset; all empty
-    under --monochrome_logs.
+    Terminal escape codes: colours and reset; all empty under
+    --monochrome_logs.
 */
 def style() {
     def on = !params.monochrome_logs
@@ -116,8 +116,6 @@ def style() {
         red   : on ? "\033[1;31m"       : '',
         yellow: on ? "\033[1;93m"       : '',
         white : on ? "\033[97m"         : '',
-        hi    : on ? "\033[4m"          : '',
-        noh   : on ? "\033[24m"         : '',
         reset : on ? "\033[0m"          : '',
     ]
 }
@@ -137,11 +135,11 @@ def block(lines, indent) {
     Start-up error text: message lines in pink between two white banners.
 */
 def framed(lines) {
-    def s      = style()
+    def styl   = style()
     def banner = "=".multiply(100)
-    return "\n${s.white}${banner}${s.reset}\n" +
-        "${s.pink}${block(lines, 16)}${s.reset}\n" +
-        "${s.white}${banner}${s.reset}"
+    return "\n${styl.white}${banner}${styl.reset}\n" +
+        "${styl.pink}${block(lines, 16)}${styl.reset}\n" +
+        "${styl.white}${banner}${styl.reset}"
 }
 
 /*
@@ -165,7 +163,6 @@ def readSheet(path) {
     a rewritten temporary copy when any name was filled in.
 */
 def validateSamplesheetContent(input) {
-    def s     = style()
     def sheet = readSheet(input)
     if (!sheet.rows) {
         error(framed([
@@ -182,7 +179,7 @@ def validateSamplesheetContent(input) {
             "Samplesheet columns are out of order or missing.",
             "Use: sample,fasta,type",
             "The type column belongs to " +
-                "${s.hi}compare-to-reference${s.noh} only.",
+                "compare-to-reference only.",
         ]))
     }
 
@@ -262,8 +259,7 @@ def validateSamplesheetContent(input) {
     and exactly one reference row.
 */
 def validateReferenceSamplesheet(input) {
-    def s     = style()
-    def mode  = "${s.hi}compare-to-reference${s.noh}"
+    def mode  = "compare-to-reference"
     def sheet = readSheet(input)
 
     if (!sheet.header.contains('type')) {
@@ -304,9 +300,8 @@ def validateReferenceSamplesheet(input) {
     are mutually exclusive.
 */
 def validateAntismashMode() {
-    def s    = style()
-    def mini = "${s.hi}--bgc_antismash_minimal${s.noh}"
-    def full = "${s.hi}--bgc_antismash_full${s.noh}"
+    def mini = "--bgc_antismash_minimal"
+    def full = "--bgc_antismash_full"
 
     if (params.bgc_antismash_minimal && params.bgc_antismash_full) {
         error(framed([
@@ -336,7 +331,6 @@ def cutoffsIn(dir) {
     null when the cutoff is present.
 */
 def cutoffProblem(cuts, whose) {
-    def s    = style()
     def want = params.bgc_bigscape_cutoff as Double
     if (cuts.any { Math.abs(it - want) < 1e-9 }) {
         return null
@@ -344,7 +338,7 @@ def cutoffProblem(cuts, whose) {
     return [
         "Cutoff ${params.bgc_bigscape_cutoff} is not available for ${whose}.",
         "Available cutoffs: ${cuts.join(', ')}",
-        "Choose one of those with ${s.hi}--bgc_bigscape_cutoff${s.noh}.",
+        "Choose one of those with --bgc_bigscape_cutoff.",
     ]
 }
 
@@ -354,11 +348,9 @@ def cutoffProblem(cuts, whose) {
     Appends to the given problem and warning lists.
 */
 def checkBigscape(input, problems, warnings) {
-    def s = style()
-
     if (params.bgc_skip_antismash && params.bgc_skip_deepbgc && params.bgc_skip_gecco) {
         problems << [
-            "${s.hi}--run_bigscape${s.noh} is set but every " +
+            "--run_bigscape is set but every " +
                 "BGC tool is skipped.",
             "BiG-SCAPE clusters the BGCs predicted from the tools, so it has",
             "nothing to work on. Enable at least one of tools: " +
@@ -367,13 +359,13 @@ def checkBigscape(input, problems, warnings) {
         ]
     }
 
-    def pfam_flag = "${s.hi}--bgc_bigscape_pfam${s.noh}"
+    def pfam_flag = "--bgc_bigscape_pfam"
 
     if (!params.bgc_bigscape_pfam && !params.bgc_bigscape_dir) {
         warnings << [
             "No ${pfam_flag} given. Pfam will be downloaded and pressed",
             "automatically (about 400 MB, one-off). " +
-                "Pass ${s.hi}--save_db${s.noh} to keep it, or",
+                "Pass --save_db to keep it, or",
             "${pfam_flag} to use a copy you already have.",
         ]
     }
@@ -400,7 +392,7 @@ def checkBigscape(input, problems, warnings) {
         }
     }
 
-    def dir_flag = "${s.hi}--bgc_bigscape_dir${s.noh}"
+    def dir_flag = "--bgc_bigscape_dir"
     def bs_dir   = params.bgc_bigscape_dir ? file(params.bgc_bigscape_dir) : null
 
     if (bs_dir && !bs_dir.exists()) {
@@ -500,7 +492,7 @@ def checkBigscape(input, problems, warnings) {
     warnings print and the run continues.
 */
 def validatePreRunEnvironment(input) {
-    def s        = style()
+    def styl     = style()
     def problems = []
     def warnings = []
 
@@ -512,7 +504,7 @@ def validatePreRunEnvironment(input) {
     if (!params.bgc_skip_antismash) {
         if (!params.bgc_antismash_db) {
             problems << ["antiSMASH is on but " +
-                "${s.hi}--bgc_antismash_db${s.noh} is not set."]
+                "--bgc_antismash_db is not set."]
         }
         else if (!file(params.bgc_antismash_db).exists()) {
             problems << ["antiSMASH database folder not found: " +
@@ -523,7 +515,7 @@ def validatePreRunEnvironment(input) {
     if (!params.bgc_skip_deepbgc) {
         if (!params.bgc_deepbgc_db) {
             problems << ["DeepBGC is on but " +
-                "${s.hi}--bgc_deepbgc_db${s.noh} is not set."]
+                "--bgc_deepbgc_db is not set."]
         }
         else if (!file(params.bgc_deepbgc_db).exists()) {
             problems << ["DeepBGC database folder not found: " +
@@ -532,17 +524,29 @@ def validatePreRunEnvironment(input) {
     }
 
     if (params.bgc_quast_quastdir && !file(params.bgc_quast_quastdir).exists()) {
-        problems << ["${s.hi}--bgc_quast_quastdir${s.noh} path not found: " +
-            "${params.bgc_quast_quastdir}"]
+        problems << ["--bgc_quast_quastdir " +
+            "path not found: ${params.bgc_quast_quastdir}"]
     }
 
     // bgc-quast reads only the mix bin, so no other binning mode is useful.
     if (params.bgc_bigscape_classify != 'none') {
         problems << [
-            "${s.hi}--bgc_bigscape_classify${s.noh} must be 'none', " +
+            "--bgc_bigscape_classify must be 'none', " +
                 "not '${params.bgc_bigscape_classify}'.",
             "bgc-quast reads the single mixed bin, so another binning",
             "mode would only add bins that the report never reads.",
+        ]
+    }
+
+    if (params.run_bigscape && params.bgc_quast_mode != 'compare-samples') {
+        problems << [
+            "BiG-SCAPE does not run in " +
+                "${params.bgc_quast_mode}.",
+            "'--run_bigscape' works only in " +
+                "compare-samples mode.",
+            "Remove --run_bigscape, or switch to " +
+                "--bgc_quast_mode " +
+                "compare-samples.",
         ]
     }
 
@@ -596,15 +600,12 @@ def validatePreRunEnvironment(input) {
 
     // Nextflow prints "WARN: " before each warning, hence 22 spaces.
     warnings.each { lines ->
-        log.warn("${s.yellow}${block(lines, 22)}${s.reset}")
+        log.warn("${styl.yellow}${block(lines, 22)}${styl.reset}")
     }
 
     if (problems) {
-        def fix = ["Cannot start. Please fix:"]
-        problems.each { lines ->
-            fix << "- ${lines[0]}"
-            lines.drop(1).each { line -> fix << "  ${line}" }
-        }
+        def fix = [" Run cannot start. Please fix:"]
+        problems.each { lines -> fix.addAll(lines.collect { "  ${it}" }) }
         error(framed(fix))
     }
 }
@@ -821,7 +822,7 @@ def failureCatalogue() {
     in red between white banners; the raw report only with --bgc_quast_debug.
 */
 def explainPipelineError() {
-    def s = style()
+    def styl = style()
     try {
         def report = (workflow.errorReport ?: '') + '\n' + (workflow.errorMessage ?: '')
 
@@ -851,35 +852,31 @@ def explainPipelineError() {
             : [
                 "Read the error printed above this banner.",
                 "It names the failing task and its work folder; open " +
-                    "${s.hi}.command.err${s.noh} there for the whole " +
+                    ".command.err there for the whole " +
                     "error output.",
             ]
 
         def pad  = ' '.multiply(16)
-        def body = ["${s.red}${title}${s.reset}"]
-        detail.each { line ->
-            def text = line.replaceAll(/(?<![\w-])(--?[a-z][\w-]*)/,
-                "${s.hi}\$1${s.noh}")
-            body << "${s.red}${pad}${text}${s.reset}"
-        }
-        body << "${s.red}${pad}Troubleshooting: " +
+        def body = ["${styl.red}${title}${styl.reset}"]
+        detail.each { line -> body << "${styl.red}${pad}${line}${styl.reset}" }
+        body << "${styl.red}${pad}Troubleshooting: " +
             "https://github.com/Seg0fieD/bgc_quast_ppl" +
-            "#14-troubleshooting${s.reset}"
+            "#14-troubleshooting${styl.reset}"
 
         // log.error, not println, so it prints after Nextflow's error report.
         def banner = "=".multiply(100)
-        log.error("\n${s.white}${banner}${s.reset}\n" + body.join('\n') +
-            "\n${s.white}${banner}${s.reset}")
+        log.error("\n${styl.white}${banner}${styl.reset}\n" + body.join('\n') +
+            "\n${styl.white}${banner}${styl.reset}")
 
         if (params.bgc_quast_debug && report.trim()) {
-            log.error("${s.pink}[bgc_quast_ppl] " +
-                "${s.hi}--bgc_quast_debug${s.noh}: " +
-                "full error report below:\n${report.trim()}${s.reset}")
+            log.error("${styl.pink}[bgc_quast_ppl] " +
+                "--bgc_quast_debug: " +
+                "full error report below:\n${report.trim()}${styl.reset}")
         }
     }
     catch (Exception e) {
-        log.error("${s.pink}[bgc_quast_ppl] error handler failed: " +
-            "${e}${s.reset}")
+        log.error("${styl.pink}[bgc_quast_ppl] error handler failed: " +
+            "${e}${styl.reset}")
     }
 }
 
@@ -888,7 +885,7 @@ def explainPipelineError() {
     bgc-quast result, which would otherwise look like success.
 */
 def reportNoComparison() {
-    def s      = style()
+    def styl   = style()
     def pad    = ' '.multiply(16)
     def banner = "=".multiply(100)
     def lines  = [
@@ -901,10 +898,10 @@ def reportNoComparison() {
             "${params.bgc_mincontiglength} bp, or annotation",
         "${pad}produced no genes). Use longer or " +
             "better assemblies, or lower",
-        "${pad}${s.hi}--bgc_mincontiglength${s.noh}, then run again.",
+        "${pad}--bgc_mincontiglength, then run again.",
     ]
     println ''
-    println "${s.white}${banner}${s.reset}"
-    lines.each { line -> println "${s.red}${line}${s.reset}" }
-    println "${s.white}${banner}${s.reset}"
+    println "${styl.white}${banner}${styl.reset}"
+    lines.each { line -> println "${styl.red}${line}${styl.reset}" }
+    println "${styl.white}${banner}${styl.reset}"
 }

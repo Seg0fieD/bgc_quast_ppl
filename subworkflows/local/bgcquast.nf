@@ -37,8 +37,6 @@ workflow BGCQUAST_COMPARISON {
     def orange_bold = params.monochrome_logs ? '' : "\033[1;38;5;208m"
     def pink        = params.monochrome_logs ? '' : "\033[1;38;5;197m"
     def yellow      = params.monochrome_logs ? '' : "\033[1;93m"
-    def hi          = params.monochrome_logs ? '' : "\033[4m"
-    def noh         = params.monochrome_logs ? '' : "\033[24m"
     def white       = params.monochrome_logs ? '' : "\033[97m"
     def creset      = params.monochrome_logs ? '' : "\033[0m"
     def banner      = "=".multiply(100)
@@ -104,16 +102,6 @@ workflow BGCQUAST_COMPARISON {
             println ''
             no_bgc_notes.each { println it }
         }
-    }
-
-    // The flag is never an error in another mode; the run just continues without it.
-    if (params.run_bigscape && mode != 'compare-samples') {
-        log.warn(
-            "${yellow}[bgc_quast_ppl] BiG-SCAPE does not run in ${mode} mode, \n" +
-            "       so BiG-SCAPE and its related steps are skipped. \n" +
-            "       For the gene cluster family analysis, run the pipeline in \n" +
-            "       ${hi}compare-samples${noh} mode with ${hi}--run_bigscape${noh}.${creset}"
-        )
     }
 
     if (mode == 'compare-tools') {
@@ -226,11 +214,10 @@ workflow BGCQUAST_COMPARISON {
     else {
         error(
             "\n${white}${banner}${creset}\n" +
-            "${pink}[bgc_quast_ppl] ${hi}--bgc_quast_mode${noh} " +
-            "'${mode}' is not supported.${creset}\n" +
-            "${pink}                Please use ${hi}compare-tools${noh}, " +
-            "${hi}compare-samples${noh} or " +
-            "${hi}compare-to-reference${noh}.${creset}\n" +
+            "${pink}[bgc_quast_ppl] --bgc_quast_mode '${mode}' " +
+            "is not supported.${creset}\n" +
+            "${pink}                Please use compare-tools, " +
+            "compare-samples or compare-to-reference.${creset}\n" +
             "${white}${banner}${creset}"
         )
     }
