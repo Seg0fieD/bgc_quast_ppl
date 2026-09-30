@@ -881,7 +881,7 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Run BiG-SCAPE on the predicted BGCs and add GCF rows to every bgc-quast report. compare-samples mode only.",
-                    "help_text": "Runs only in compare-samples mode. In any other mode the flag is ignored, the run continues, and a warning says so. Needs at least one of antiSMASH, DeepBGC or GECCO enabled; each enabled tool gets its own BiG-SCAPE run over every sample's BGC GBKs together. If neither --bgc_bigscape_pfam nor --bgc_bigscape_dir is given, Pfam is downloaded and pressed automatically.",
+                    "help_text": "Runs only in compare-samples mode. With compare-tools or compare-to-reference the run stops at start-up with an error. Needs at least one of the tools: antiSMASH, DeepBGC or GECCO enabled; each enabled tool gets its own BiG-SCAPE run over every sample's BGC GBKs together. If neither --bgc_bigscape_pfam nor --bgc_bigscape_dir is given, Pfam is downloaded and pressed automatically.",
                     "fa_icon": "fas fa-toggle-on"
                 },
                 "bgc_bigscape_pfam": {
