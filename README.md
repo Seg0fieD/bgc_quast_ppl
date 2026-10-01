@@ -35,7 +35,7 @@ them with three prediction tools: **antiSMASH**, **DeepBGC** and **GECCO**.
 It then passes the results to **bgc-quast**, which counts, measures and
 compares the predicted BGCs and writes one report per comparison.
 
-**bgc-quast** is a quality assessment tool for BGC prediction tools, made by the
+**BGC-QUAST** is a quality assessment tool for BGC prediction tools, made by the
 [Gurevich lab](https://github.com/gurevichlab/bgc-quast). This pipeline runs
 all the steps before bgc-quast for you, so you only need your genome files.
 
