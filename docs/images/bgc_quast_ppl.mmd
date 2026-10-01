@@ -1,0 +1,79 @@
+%%metro title: bgc_quast_ppl
+%%metro style: nfcore
+%%metro legend: bl
+%%metro grid: prepare | 0,0
+%%metro grid: predict | 1,0
+%%metro grid: compare | 0,1,1,2
+%%metro file: sheet_in | CSV | samplesheet.csv\n\nFASTA genome file
+%%metro file: report_out | HTML
+%%metro files: bs_gbk | GBK | BGC GenBank
+%%metro file: pfam_in | HMM | Pfam-A.hmm
+%%metro line: samples | compare-samples (default) | #2db572
+%%metro line: samples_bs | compare-samples with '--run_bigscape' | #0570b0
+%%metro line: tools | compare-tools | #f5c542
+%%metro line: reference | compare-to-reference | #e63946
+
+graph LR
+    subgraph prepare [Input Preparation and Annotation]
+        %%metro exit: right | samples, samples_bs, tools, reference
+        sheet_in[ ]
+        gunzip[GUNZIP-INPUT-PREP]
+        seqkit[SEQKIT-SEQ-LENGTH]
+        pyrodigal[ANNOTATION: PYRODIGAL]
+
+        sheet_in -->|samples,samples_bs,tools,reference| gunzip
+        gunzip -->|samples,samples_bs,tools,reference| seqkit
+        seqkit -->|samples,samples_bs,tools,reference| pyrodigal
+    end
+
+    subgraph predict [BGC PREDICTION]
+        %%metro entry: left | samples, samples_bs, tools, reference
+        %%metro exit: right | samples, samples_bs, tools, reference
+        antismash[ANTISMASH]
+        deepbgc[DEEPBGC]
+        gecco[GECCO]
+        merge[ ]
+
+        antismash -->|samples,samples_bs,tools,reference| merge
+        deepbgc -->|samples,samples_bs,tools,reference| merge
+        gecco -->|samples,samples_bs,tools,reference| merge
+    end
+
+    subgraph compare [BIGSCAPE ANALYSIS and BGC-QUAST COMPARISON]
+        %%metro entry: left | samples, samples_bs, tools, reference
+        bs_gbk[ ]
+        pfam_in[ ]
+        bs_in[ ]
+        bs_as[BIGSCAPE-ANTISMASH]
+        bs_split[DEEPBGC-SPLIT-GBK]
+        bs_db[BIGSCAPE-DEEPBGC]
+        bs_ge[BIGSCAPE-GECCO]
+        bs_out[ ]
+        quast[QUAST]
+        bq_parse[BGC-QUAST: parse input]
+        bq_stats[BGC-QUAST: compute stats]
+        bq_write[BGC-QUAST: write results]
+        report_out[ ]
+
+        bs_gbk -->|samples_bs| bs_in
+        pfam_in -->|samples_bs| bs_in
+        bs_in -->|samples_bs| bs_as
+        bs_in -->|samples_bs| bs_split
+        bs_in -->|samples_bs| bs_ge
+        bs_split -->|samples_bs| bs_db
+        bs_as -->|samples_bs| bs_out
+        bs_db -->|samples_bs| bs_out
+        bs_ge -->|samples_bs| bs_out
+        bs_out -->|samples_bs| bq_parse
+        quast -->|reference| bq_parse
+        bq_parse -->|samples,samples_bs,tools,reference| bq_stats
+        bq_stats -->|samples,samples_bs,tools,reference| bq_write
+        bq_write -->|samples,samples_bs,tools,reference| report_out
+    end
+
+    pyrodigal -->|samples,samples_bs,tools,reference| antismash
+    pyrodigal -->|samples,samples_bs,tools,reference| deepbgc
+    pyrodigal -->|samples,samples_bs,tools,reference| gecco
+    merge -->|samples_bs| bs_gbk
+    merge -->|reference| quast
+    merge -->|samples,tools,reference| bq_parse
