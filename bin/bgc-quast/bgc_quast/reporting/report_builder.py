@@ -172,9 +172,15 @@ class ReportBuilder:
                         r.display_label or r.input_file_label
                         for r in results
                     ]
+                    column_bgcs = {
+                        r.display_label or r.input_file_label:
+                            [b.bgc_id for b in r.bgcs]
+                        for r in results
+                    }
                     payload_args = {
                         "families": bigscape_families,
                         "column_labels": column_labels,
+                        "column_bgcs": column_bgcs,
                         "default_cutoff": normalize_cutoff(config.bigscape_cutoff),
                         "display_names": {m.name: m.display_name for m in mode_config.metrics},
                     }

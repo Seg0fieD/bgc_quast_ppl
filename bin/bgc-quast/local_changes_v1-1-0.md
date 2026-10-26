@@ -31,11 +31,27 @@ Three source files and two test files. None of them are upstream code.
   staged region GenBank file name; for antiSMASH it emits
   `<contig>.reg.<number>`, which is the form v1.1.0's
   `get_antismash_bgc_id` produces for the region level.
-- `bgc_quast/bigscape/metrics.py` (308 lines) - six GCF metrics, the
+- `bgc_quast/bigscape/metrics.py` (332 lines) - seven GCF metrics, the
   calculator that produces them, and the metadata payload the HTML panel
-  reads.
+  reads. See "BGCs not clustered" below.
 - `tests/test_bigscape_parser.py` (322 lines).
-- `tests/test_bigscape_metrics.py` (289 lines).
+- `tests/test_bigscape_metrics.py` (372 lines).
+
+### BGCs not clustered
+
+BiG-SCAPE leaves some input files out without a warning: regions of
+500 kb or more (`MAX_BGC_LENGTH` in its `config.yml`) and files
+byte-identical to one already loaded. Such a BGC is in the report but in no
+family, so families plus singletons fell short of `# BGCs`.
+
+`bgcs_not_clustered_count` counts the BGCs with no family. Unlike the other
+six metrics it is always reported, 0 included, so in every column and every
+product class `# BGCs in GCFs` + `# singleton BGCs` + `# BGCs not clustered`
+= `# BGCs`.
+
+The cutoff panel takes each column's BGC ids from the report and counts
+only those. A BGC removed by `--min-bgc-length` is then counted nowhere,
+matching the table; before, the panel still counted it.
 
 ## 2. Modified upstream files
 
@@ -66,11 +82,11 @@ Effect: none on its own; it supplies the default above.
 
 Two changes.
 
-Six GCF metric entries added under `compare_samples`: `gcf_count`,
-`bgcs_in_gcf_count`, `singleton_bgc_count`, `shared_gcf_count`,
-`unique_gcf_count` and `mean_bgcs_per_gcf`. A comment marks the metrics
-upstream declares but has not implemented, so the two groups are not
-confused.
+Seven GCF metric entries added under `compare_samples`: `gcf_count`,
+`bgcs_in_gcf_count`, `singleton_bgc_count`, `bgcs_not_clustered_count`,
+`shared_gcf_count`, `unique_gcf_count` and `mean_bgcs_per_gcf`. A comment
+marks the metrics upstream declares but has not implemented, so the two
+groups are not confused.
 
 The `sample_group` grouping dimension is commented out rather than deleted.
 Upstream ships it with placeholder group names (`group_A`, `group_B`,
@@ -123,7 +139,8 @@ metadata when family data is present.
 
 Column labels for the panel follow the order of `results`, which is the
 report's own column order. Sorting them here would break the match with the
-table.
+table. Each column's BGC ids are passed with them, so the panel counts only
+BGCs in the report.
 
 Upstream's `# TODO:` marker in the compare-samples branch reads `# TODO_:`.
 This is deliberate and carries no behaviour.
@@ -208,6 +225,7 @@ Neither carries behaviour. Both are kept.
 - `reporting/report_builder.py`: a pull restores the `# TODO:` marker.
 - The antiSMASH BGC identifier form. v1.1.0 changed it from
   `<contig>.<number>` to `<contig>.reg.<number>` and nothing errored - the
-  family rows simply vanished from one report. After any upgrade, compare
-  the per-tool assignment count in `bgc-quast.log` against that tool's
-  total BGC count in the report. They must be equal.
+  family rows simply vanished from one report. After any upgrade, check
+  `# BGCs not clustered` in each tool's report. It must be 0 unless
+  BiG-SCAPE's log shows a dropped file ("length constraint" or "Skipping
+  duplicate"); a mismatch in BGC identifiers shows up as a large count.

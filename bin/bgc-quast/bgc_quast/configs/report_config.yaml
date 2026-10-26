@@ -121,6 +121,10 @@ compare_samples:
     - name: "singleton_bgc_count"
       display_name: "# singleton BGCs"
       description: "Number of BGCs that are the only member of their family"
+    - name: "bgcs_not_clustered_count"
+      display_name: "# BGCs not clustered"
+      description: "Number of BGCs in no family because BiG-SCAPE left them
+        out, for example over its length limit or as a duplicate file"
     - name: "shared_gcf_count"
       display_name: "# shared GCFs"
       description: "Number of families in this sample that also occur in at least one other sample"

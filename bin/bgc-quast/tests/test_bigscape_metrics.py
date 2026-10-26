@@ -16,6 +16,7 @@ from bgc_quast.bigscape.metrics import (
     BigscapeMetricsCalculator,
     annotate_gcf_flags,
     bgcs_in_gcf_count,
+    bgcs_not_clustered_count,
     build_bigscape_metadata,
     gcf_count,
     mean_bgcs_per_gcf,
@@ -39,6 +40,11 @@ LAYOUT = {
     "reference": [("CONTIG_1.1", "F1"), ("CONTIG_2.1", "F2"), ("CONTIG_3.1", "F3")],
     "assembly_10": [("CONTIG_1.1", "F1"), ("CONTIG_4.1", "F2"), ("CONTIG_5.1", "F4")],
     "assembly_20": [("CONTIG_1.1", "F1"), ("CONTIG_6.1", "F5")],
+}
+
+# BGC ids per column, as the report holds them
+COLUMN_BGCS = {
+    label: [bgc_id for bgc_id, _ in rows] for label, rows in LAYOUT.items()
 }
 
 
@@ -153,6 +159,31 @@ def test_mean_counts_bgcs_not_families(results):
     assert mean_bgcs_per_gcf(doubled) == 4 / 3
 
 
+def test_not_clustered_counts_bgcs_without_a_family():
+    """Always a number, 0 included, unlike the other metrics."""
+    assert bgcs_not_clustered_count([make_bgc("CONTIG_1.1", "F1")]) == 0
+    assert bgcs_not_clustered_count(
+        [make_bgc("CONTIG_1.1", "F1"), make_bgc("CONTIG_2.1")]
+    ) == 1
+    assert bgcs_not_clustered_count([make_bgc("CONTIG_1.1")]) == 1
+    assert bgcs_not_clustered_count([]) == 0
+
+
+def test_families_singletons_and_not_clustered_add_up(results):
+    """A BGC BiG-SCAPE left out is counted once, in the not-clustered row."""
+    results[0].bgcs.append(make_bgc("CONTIG_9.1"))
+    annotate_gcf_flags(results)
+    for result in results:
+        bgcs = result.bgcs
+        total = (
+            (bgcs_in_gcf_count(bgcs) or 0)
+            + (singleton_bgc_count(bgcs) or 0)
+            + bgcs_not_clustered_count(bgcs)
+        )
+        assert total == len(bgcs)
+    assert bgcs_not_clustered_count(results[0].bgcs) == 1
+
+
 # --- calculator ------------------------------------------------------------
 
 
@@ -204,6 +235,23 @@ def test_calculator_groups_by_product_type(results, compare_samples_config):
     assert (("product_type", "PKS"),) in groups
 
 
+def test_calculator_counts_a_class_holding_only_a_left_out_bgc(
+    results, compare_samples_config
+):
+    """A class whose only BGC has no family still reports that BGC."""
+    results[0].bgcs.append(make_bgc("CONTIG_9.1", product="PKS"))
+    calculator = BigscapeMetricsCalculator(results, compare_samples_config)
+    values = calculator.calculate_metrics()
+
+    pks = [
+        v for v in values
+        if v.grouping == {"product_type": "PKS"}
+        and v.file_path == results[0].input_file
+    ]
+    by_name = {v.metric_name: v.value for v in pks}
+    assert by_name == {"bgcs_not_clustered_count": 1}
+
+
 # --- payload ---------------------------------------------------------------
 
 
@@ -211,6 +259,7 @@ DISPLAY = {
     "gcf_count": "# GCFs",
     "bgcs_in_gcf_count": "# BGCs in GCFs",
     "singleton_bgc_count": "# singleton BGCs",
+    "bgcs_not_clustered_count": "# BGCs not clustered",
     "shared_gcf_count": "# shared GCFs",
     "unique_gcf_count": "# unique GCFs",
     "mean_bgcs_per_gcf": "Mean BGCs per GCF",
@@ -220,7 +269,7 @@ DISPLAY = {
 def test_summarise_matches_the_metric_functions(results, families):
     """The table path and the dropdown path must not drift apart."""
     annotate_gcf_flags(results)
-    summary = summarise_cutoff(families, LABELS, DISPLAY)
+    summary = summarise_cutoff(families, LABELS, COLUMN_BGCS, DISPLAY)
 
     rows = {row[0]: row[1:] for row in summary["rows"]}
     assert rows["# GCFs"] == ["3", "3", "2"]
@@ -229,6 +278,7 @@ def test_summarise_matches_the_metric_functions(results, families):
     assert rows["# shared GCFs"] == ["2", "2", "1"]
     assert rows["# unique GCFs"] == ["1", "1", "1"]
     assert rows["Mean BGCs per GCF"] == ["1.0", "1.0", "1.0"]
+    assert rows["# BGCs not clustered"] == ["0", "0", "0"]
 
     # same numbers the registered metrics produce for the first column
     assert int(rows["# GCFs"][0]) == gcf_count(results[0].bgcs)
@@ -237,7 +287,7 @@ def test_summarise_matches_the_metric_functions(results, families):
 
 def test_summarise_keeps_the_given_column_order(families):
     reversed_order = list(reversed(LABELS))
-    summary = summarise_cutoff(families, reversed_order, DISPLAY)
+    summary = summarise_cutoff(families, reversed_order, COLUMN_BGCS, DISPLAY)
 
     assert list(summary["sets"]) == reversed_order
     gcf_row = next(r for r in summary["rows"] if r[0] == "# GCFs")
@@ -245,24 +295,50 @@ def test_summarise_keeps_the_given_column_order(families):
 
 
 def test_summarise_sets_hold_family_ids(families):
-    summary = summarise_cutoff(families, LABELS, DISPLAY)
+    summary = summarise_cutoff(families, LABELS, COLUMN_BGCS, DISPLAY)
 
     assert summary["sets"]["reference"] == ["F1", "F2", "F3"]
     assert summary["sets"]["assembly_20"] == ["F1", "F5"]
 
 
 def test_summarise_handles_a_column_with_no_families(families):
-    summary = summarise_cutoff(families, LABELS + ["empty_sample"], DISPLAY)
+    summary = summarise_cutoff(
+        families, LABELS + ["empty_sample"], COLUMN_BGCS, DISPLAY
+    )
 
     assert summary["sets"]["empty_sample"] == []
     gcf_row = next(r for r in summary["rows"] if r[0] == "# GCFs")
     assert gcf_row[-1] == "0"
 
 
+def test_summarise_counts_a_bgc_left_out_by_bigscape(families):
+    """A BGC in the report but in no family adds one to that column only."""
+    column_bgcs = {**COLUMN_BGCS}
+    column_bgcs["assembly_20"] = COLUMN_BGCS["assembly_20"] + ["CONTIG_9.1"]
+    summary = summarise_cutoff(families, LABELS, column_bgcs, DISPLAY)
+
+    rows = {row[0]: row[1:] for row in summary["rows"]}
+    assert rows["# BGCs not clustered"] == ["0", "0", "1"]
+    assert rows["# BGCs in GCFs"] == ["2", "2", "1"]
+
+
+def test_summarise_ignores_bgcs_missing_from_the_report(families):
+    """A BGC removed from the report, for example by length, is not counted."""
+    column_bgcs = {**COLUMN_BGCS}
+    column_bgcs["reference"] = ["CONTIG_1.1", "CONTIG_2.1"]
+    summary = summarise_cutoff(families, LABELS, column_bgcs, DISPLAY)
+
+    rows = {row[0]: row[1:] for row in summary["rows"]}
+    assert rows["# GCFs"] == ["2", "3", "2"]
+    assert rows["# singleton BGCs"] == ["0", "1", "1"]
+    assert rows["# BGCs not clustered"] == ["0", "0", "0"]
+    assert summary["sets"]["reference"] == ["F1", "F2"]
+
+
 def test_metadata_covers_every_cutoff(families):
     payload = build_bigscape_metadata(
         {"0.3": families, "0.5": families, "0.7": families},
-        LABELS, "0.5", DISPLAY,
+        LABELS, COLUMN_BGCS, "0.5", DISPLAY,
     )
 
     assert payload["cutoffs"] == ["0.3", "0.5", "0.7"]
@@ -275,16 +351,22 @@ def test_metadata_covers_every_cutoff(families):
 def test_metadata_sorts_cutoffs_numerically(families):
     payload = build_bigscape_metadata(
         {"0.7": families, "0.3": families, "0.15": families},
-        LABELS, "0.3", DISPLAY,
+        LABELS, COLUMN_BGCS, "0.3", DISPLAY,
     )
     assert payload["cutoffs"] == ["0.15", "0.3", "0.7"]
 
 
 def test_metadata_falls_back_when_default_cutoff_is_absent(families):
-    payload = build_bigscape_metadata({"0.5": families}, LABELS, "0.3", DISPLAY)
+    payload = build_bigscape_metadata(
+        {"0.5": families}, LABELS, COLUMN_BGCS, "0.3", DISPLAY
+    )
     assert payload["default_cutoff"] == "0.5"
 
 
 def test_metadata_is_none_when_there_is_nothing_to_show(families):
-    assert build_bigscape_metadata({}, LABELS, "0.3", DISPLAY) is None
-    assert build_bigscape_metadata({"0.3": families}, [], "0.3", DISPLAY) is None
+    assert build_bigscape_metadata(
+        {}, LABELS, COLUMN_BGCS, "0.3", DISPLAY
+    ) is None
+    assert build_bigscape_metadata(
+        {"0.3": families}, [], COLUMN_BGCS, "0.3", DISPLAY
+    ) is None

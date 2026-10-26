@@ -1,6 +1,6 @@
 """Gene cluster family (GCF) metrics built from BiG-SCAPE results.
 
-Six metrics are registered here. They read `bgc.gcf_id`, which
+Seven metrics are registered here. They read `bgc.gcf_id`, which
 `pipeline_helper.parse_input()` fills in for the cutoff the user selected.
 
 Three of them (shared, unique, singleton) need to see every column at once, so the
@@ -28,6 +28,7 @@ GCF_METRIC_NAMES = [
     "gcf_count",
     "bgcs_in_gcf_count",
     "singleton_bgc_count",
+    "bgcs_not_clustered_count",
     "shared_gcf_count",
     "unique_gcf_count",
     "mean_bgcs_per_gcf",
@@ -86,8 +87,8 @@ def _families_in_group(bgcs: Iterable[Bgc]) -> Dict[str, int]:
 # Metric functions
 #
 # Each returns None when no BGC in the group has a family, which drops the row
-# instead of printing a misleading 0 . This is the
-# same pattern as mean_gene_per_bgc 
+# instead of printing a misleading 0, the same pattern as mean_gene_per_bgc.
+# The not-clustered count is the exception: always reported, 0 included.
 # ---------------------------------------------------------------------------
 
 
@@ -116,6 +117,12 @@ def singleton_bgc_count(bgcs: Iterable[Bgc]) -> Optional[int]:
     if not items:
         return None
     return sum(1 for b in items if getattr(b, "gcf_is_singleton", False))
+
+
+@metric("bgcs_not_clustered_count")
+def bgcs_not_clustered_count(bgcs: Iterable[Bgc]) -> int:
+    """BGCs with no gene cluster family, 0 when every BGC has one."""
+    return sum(1 for b in bgcs if not b.gcf_id)
 
 
 @metric("shared_gcf_count")
@@ -229,6 +236,7 @@ def _index_cutoff(
 def summarise_cutoff(
     families_at_cutoff: Dict[Tuple[str, str], str],
     column_labels: List[str],
+    column_bgcs: Dict[str, List[str]],
     display_names: Dict[str, str],
 ) -> Dict[str, object]:
     """Build the `rows` and `sets` for one cutoff.
@@ -236,11 +244,22 @@ def summarise_cutoff(
     Args:
         families_at_cutoff: {(sample_label, bgc_id): family_id} for this cutoff.
         column_labels: the report's own column order. Never sort this.
+        column_bgcs: {sample_label: [bgc_id, ...]}, the BGCs in the report.
         display_names: {metric_name: row label}, taken from the report config.
 
     Returns:
         {"rows": [[row_label, cell, cell, ...], ...], "sets": {label: [family, ...]}}
     """
+    in_report = {
+        (label, bgc_id)
+        for label, bgc_ids in column_bgcs.items()
+        for bgc_id in bgc_ids
+    }
+    families_at_cutoff = {
+        key: family
+        for key, family in families_at_cutoff.items()
+        if key in in_report
+    }
     by_label, fam_columns, fam_sizes = _index_cutoff(families_at_cutoff)
 
     stats: Dict[str, Dict[str, float]] = {}
@@ -250,11 +269,13 @@ def summarise_cutoff(
         n_gcfs = len(counts)
         singletons = sum(c for f, c in counts.items() if fam_sizes.get(f, 0) == 1)
         shared = sum(1 for f in counts if len(fam_columns.get(f, ())) > 1)
+        not_clustered = len(column_bgcs.get(label, ())) - n_bgcs
 
         stats[label] = {
             "gcf_count": n_gcfs,
             "bgcs_in_gcf_count": n_bgcs - singletons,
             "singleton_bgc_count": singletons,
+            "bgcs_not_clustered_count": not_clustered,
             "shared_gcf_count": shared,
             "unique_gcf_count": n_gcfs - shared,
             "mean_bgcs_per_gcf": (n_bgcs / n_gcfs) if n_gcfs else 0.0,
@@ -277,6 +298,7 @@ def summarise_cutoff(
 def build_bigscape_metadata(
     families: Dict[str, Dict[Tuple[str, str], str]],
     column_labels: List[str],
+    column_bgcs: Dict[str, List[str]],
     default_cutoff: str,
     display_names: Dict[str, str],
     report_url: str = "../../bigscape/index.html",
@@ -294,7 +316,9 @@ def build_bigscape_metadata(
     sets: Dict[str, object] = {}
 
     for cutoff in cutoffs:
-        summary = summarise_cutoff(families[cutoff], column_labels, display_names)
+        summary = summarise_cutoff(
+            families[cutoff], column_labels, column_bgcs, display_names
+        )
         rows[cutoff] = summary["rows"]
         sets[cutoff] = summary["sets"]
 
