@@ -250,8 +250,9 @@ What each mode reports:
 - **compare-to-reference:** how many reference BGCs are fully recovered,
   partly recovered or missed in each draft. QUAST runs for you.
 - **compare-samples with BiG-SCAPE:** number of gene cluster families,
-  families shared between samples, and a Venn diagram.
-
+  families shared between samples, BGCs that BiG-SCAPE did not cluster, and
+  a Venn diagram.
+  
 For the full list of metrics, see the
 [bgc-quast metrics page](https://github.com/gurevichlab/bgc-quast/blob/main/docs/METRICS.md).
 
@@ -555,6 +556,11 @@ interactive `index.html` page.
 - **Tested setup:** `-profile docker` on Ubuntu 24.04 and macOS. Other
   profiles are untested.
 - **GECCO in BiG-SCAPE** uses BiG-SCAPE's experimental `--force-gbk` option.
+- **BiG-SCAPE skips some BGCs.** It does not accept BGCs of 500 kb or
+  longer (its own default limit, which the pipeline keeps), or a file that
+  is an exact copy of another input. These BGCs have no family; the report
+  counts them in "# BGCs not clustered", and a note at the end of the run
+  lists each one with its length and reason.
 - **Family numbers are reproducible.** The same input gives the same
   families. To reuse one result, pass it with `--bgc_bigscape_dir`.
 - **Pfam is pinned to release 38.2**, because other releases can change the
@@ -606,7 +612,7 @@ nextflow run . -profile docker --input samplesheet.csv --outdir results -resume
 If you use bgc_quast_ppl, please cite this repository and the version you
 used, for example:
 
-> bgc_quast_ppl, version 2.1.0. https://github.com/Seg0fieD/bgc_quast_ppl
+> bgc_quast_ppl, version 2.1.1. https://github.com/Seg0fieD/bgc_quast_ppl
 
 Results can change between versions. See [VERSION_LOG.md](VERSION_LOG.md) for
 what changed in each one.

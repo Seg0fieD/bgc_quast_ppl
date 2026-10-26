@@ -4,6 +4,35 @@ All notable changes to this pipeline are listed here, newest first.
 
 ---
 
+## v2.1.1 - 2026-10-26
+
+### Fixed
+
+- **BiG-SCAPE family rows now add up to the number of BGCs.** BiG-SCAPE
+  leaves some BGCs out of its families (see the next item). Before, the
+  report did not count them anywhere, so families and singletons fell short
+  of `# BGCs`. A new row, `# BGCs not clustered`, counts them in the report
+  table and in the cut-off panel. In every column and product class, the
+  BGCs in families, the singletons and the BGCs not clustered now add up to
+  `# BGCs`.
+- **Run-end note for BGCs that BiG-SCAPE skips.** BiG-SCAPE does not accept
+  BGCs of 500 kb or longer. This is BiG-SCAPE's own default limit, and the
+  pipeline does not change it. BiG-SCAPE also skips a file that is an exact
+  copy of another input. In both cases it gave no warning, so the skipped
+  BGCs went unnoticed. The pipeline now prints a note at the end of the run
+  listing every skipped BGC: the tool, the sample, the region name, its
+  length, and why it was skipped.
+- The cut-off panel in the HTML report now counts only the BGCs in the
+  report. Before, a BGC left out by `--bgc_quast_min_bgc_length` was still
+  counted there.
+
+### Other
+
+- The pipeline diagram in the README now has a light and a dark version,
+  and is animated.
+
+---
+
 ## v2.1.0 - 2026-09-30
 
 ### Changed behaviour
