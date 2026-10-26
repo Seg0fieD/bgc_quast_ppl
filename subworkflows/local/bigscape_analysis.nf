@@ -9,6 +9,69 @@ include { BIGSCAPE as BIGSCAPE_DEEPBGC   } from '../../modules/local/bigscape'
 include { BIGSCAPE_DOWNLOAD_DB           } from '../../modules/local/bigscape_download_db'
 include { DEEPBGC_SPLIT_GBK              } from '../../modules/local/deepbgc_split_gbk'
 
+// Input GBKs absent from the BiG-SCAPE clustering: sample, region, length.
+def bigscapeLeftOut(rows, tsvs) {
+    def all_tsv = tsvs instanceof List ? tsvs : [tsvs]
+    def mix_tsv = all_tsv.findAll { t -> t.toString().contains('/mix/') }
+    def tsv     = (mix_tsv ?: all_tsv).sort { t -> t.toString() }[0]
+    def lines   = tsv.readLines()
+    def col     = lines ? (lines[0].split('\t') as List).indexOf('GBK') : -1
+    if (col < 0) {
+        return []
+    }
+
+    def kept = lines.drop(1).collect { line ->
+        def cells = line.split('\t')
+        cells.size() > col ? cells[col] : ''
+    } as Set
+
+    return rows
+        .findAll { row -> !kept.contains(row[0].replaceFirst(/\.gbk$/, '')) }
+        .collect { row ->
+            def locus  = row[1].withReader { r -> r.readLine() } ?: ''
+            def length = locus =~ /\s(\d+)\s+bp\b/
+            [row[2], row[1].baseName, length.find() ? length.group(1) as Long : null]
+        }
+}
+
+// Run-end note lines for BGCs absent from the BiG-SCAPE clustering, by cause.
+def leftOutNote(items) {
+    def bigscape_max_len = 500000
+    def order  = ['antiSMASH', 'GECCO', 'DeepBGC']
+    def sorted = items.sort(false) { a, b ->
+        order.indexOf(a[0]) <=> order.indexOf(b[0]) ?:
+            a[1] <=> b[1] ?: a[2] <=> b[2]
+    }
+    def too_long = { r -> r[3] != null && r[3] >= bigscape_max_len }
+    def big      = sorted.findAll(too_long)
+    def other    = sorted.findAll { r -> !too_long(r) }
+    def entry    = { r ->
+        def size = r[3] == null ? 'length unknown' :
+            String.format(Locale.US, '%,d bp', r[3]) + ', which is ' +
+            (too_long(r) ? 'over' : 'under') + ' the 500 kb limit'
+        ["  ${r[0]}, ${r[1]}: ${r[2]}", "    ${size}"]
+    }
+
+    def one   = sorted.size() == 1
+    def lines = [
+        "BiG-SCAPE skipped ${sorted.size()} ${one ? 'BGC' : 'BGCs'}, so " +
+            "${one ? 'it has' : 'they have'} no gene cluster family.",
+        "The report counts ${one ? 'it' : 'them'} in " +
+            '"# BGCs not clustered".',
+        'BiG-SCAPE accepts only BGCs shorter than 500 kb (500,000 bp).',
+    ]
+    if (big) {
+        lines << 'Skipped for length:'
+        big.each { r -> lines.addAll(entry(r)) }
+    }
+    if (other) {
+        lines << 'Skipped for another reason, such as being identical to ' +
+            'another file:'
+        other.each { r -> lines.addAll(entry(r)) }
+    }
+    return lines*.toString()
+}
+
 workflow BIGSCAPE_ANALYSIS {
     take:
     antismash_gbk // [ meta, [ gbk ] ] query antiSMASH region GBKs
@@ -131,6 +194,29 @@ workflow BIGSCAPE_ANALYSIS {
 
         ch_bigscape_results = Channel.empty()
 
+        def left_out = []
+        def note_left_out = { st, ch_tsv, tool ->
+            st.map { rows -> [rows] }
+                .combine(ch_tsv.map { tsvs -> [tsvs] })
+                .subscribe { rows, tsvs ->
+                    bigscapeLeftOut(rows, tsvs).each { r ->
+                        left_out << [tool] + r
+                    }
+                }
+        }
+
+        def run_info = workflow
+
+        workflow.onComplete {
+            if (left_out && run_info.success) {
+                def pad = ' '.multiply(25)
+                println("${white}${banner}${creset}\n" +
+                    "${orange}[bgc_quast_ppl] NOTE:    " +
+                    leftOutNote(left_out).join('\n' + pad) + "${creset}\n" +
+                    "${white}${banner}${creset}")
+            }
+        }
+
         if ('antismash' in to_run) {
             def st = stage_gbks(antismash_gbk, 'antiSMASH')
             BIGSCAPE_ANTISMASH(
@@ -140,6 +226,7 @@ workflow BIGSCAPE_ANALYSIS {
                 ch_pfam_dir,
                 ch_pfam_name,
             )
+            note_left_out(st, BIGSCAPE_ANTISMASH.out.clustering, 'antiSMASH')
             ch_versions         = ch_versions.mix(BIGSCAPE_ANTISMASH.out.versions)
             ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_ANTISMASH.out.results)
         }
@@ -153,6 +240,7 @@ workflow BIGSCAPE_ANALYSIS {
                 ch_pfam_dir,
                 ch_pfam_name,
             )
+            note_left_out(st, BIGSCAPE_GECCO.out.clustering, 'GECCO')
             ch_versions         = ch_versions.mix(BIGSCAPE_GECCO.out.versions)
             ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_GECCO.out.results)
         }
@@ -170,6 +258,7 @@ workflow BIGSCAPE_ANALYSIS {
                 ch_pfam_dir,
                 ch_pfam_name,
             )
+            note_left_out(st, BIGSCAPE_DEEPBGC.out.clustering, 'DeepBGC')
             ch_versions         = ch_versions.mix(BIGSCAPE_DEEPBGC.out.versions)
             ch_bigscape_results = ch_bigscape_results.mix(BIGSCAPE_DEEPBGC.out.results)
         }
