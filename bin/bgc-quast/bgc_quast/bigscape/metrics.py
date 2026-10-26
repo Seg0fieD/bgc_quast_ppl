@@ -245,7 +245,7 @@ def summarise_cutoff(
         families_at_cutoff: {(sample_label, bgc_id): family_id} for this cutoff.
         column_labels: the report's own column order. Never sort this.
         column_bgcs: {sample_label: [bgc_id, ...]}, the BGCs in the report.
-        display_names: {metric_name: row label}, taken from the report config.
+        display_names: {metric_name: row label}, taken  from the report config.
 
     Returns:
         {"rows": [[row_label, cell, cell, ...], ...], "sets": {label: [family, ...]}}
