@@ -79,6 +79,12 @@ Mean BGC length in genes (unknown, complete)	43.0	43.0	43.0
 # singleton BGCs (RiPP)	0	0	0
 # singleton BGCs (terpene)	0	0	0
 # singleton BGCs (unknown)	0	0	0
+# BGCs not clustered	0	0	0
+# BGCs not clustered (NRPS)	0	0	0
+# BGCs not clustered (PKS)	0	0	0
+# BGCs not clustered (RiPP)	0	0	0
+# BGCs not clustered (terpene)	0	0	0
+# BGCs not clustered (unknown)	0	0	0
 # shared GCFs	6	6	6
 # shared GCFs (NRPS)	1	1	1
 # shared GCFs (PKS)	1	1	1

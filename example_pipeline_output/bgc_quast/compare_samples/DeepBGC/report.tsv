@@ -33,8 +33,8 @@ Total BGC span in bp (RiPP)	22925	24258	35570
 Total BGC span in bp (terpene)	29892	35385	22642
 Total BGC span in bp (saccharide)	27939	48434	33465
 Total BGC span in bp (hybrid)	13640	8104	6819
-Total BGC span in bp (other)	0	3111	0
 Total BGC span in bp (unknown)	190719	196281	116535
+Total BGC span in bp (other)	0	3111	0
 Total BGC span in bp (complete)	228054	209499	380937
 Total BGC span in bp (incomplete)	162261	212023	0
 Total BGC span in bp (NRPS, complete)	0	0	40138
@@ -74,8 +74,8 @@ Mean BGC length in bp (saccharide, complete)	27939.0	0.0	33465.0
 Mean BGC length in bp (saccharide, incomplete)	0.0	48434.0	0.0
 Mean BGC length in bp (hybrid, complete)	6820.0	8104.0	3409.5
 Mean BGC length in bp (unknown, complete)	7565.4	7461.8	5826.8
-Mean BGC length in bp (unknown, incomplete)	54542.0	17357.5	0.0
 Mean BGC length in bp (other, incomplete)	0.0	3111.0	0.0
+Mean BGC length in bp (unknown, incomplete)	54542.0	17357.5	0.0
 Mean BGC length in genes	9.4	10.2	8.6
 Mean BGC length in genes (NRPS)	25.0	22.0	28.0
 Mean BGC length in genes (PKS)	7.2	7.6	10.1
@@ -108,8 +108,8 @@ Mean BGC length in genes (other, incomplete)	0.0	4.0	0.0
 # GCFs (terpene)	2	2	2
 # GCFs (saccharide)	1	1	1
 # GCFs (hybrid)	2	1	2
-# GCFs (unknown)	15	18	16
 # GCFs (other)	0	1	0
+# GCFs (unknown)	15	18	16
 # BGCs in GCFs	37	31	37
 # BGCs in GCFs (NRPS)	1	1	1
 # BGCs in GCFs (PKS)	9	7	11
@@ -128,6 +128,15 @@ Mean BGC length in genes (other, incomplete)	0.0	4.0	0.0
 # singleton BGCs (hybrid)	0	0	0
 # singleton BGCs (unknown)	0	4	3
 # singleton BGCs (other)	0	1	0
+# BGCs not clustered	0	0	0
+# BGCs not clustered (NRPS)	0	0	0
+# BGCs not clustered (PKS)	0	0	0
+# BGCs not clustered (RiPP)	0	0	0
+# BGCs not clustered (terpene)	0	0	0
+# BGCs not clustered (saccharide)	0	0	0
+# BGCs not clustered (hybrid)	0	0	0
+# BGCs not clustered (other)	0	0	0
+# BGCs not clustered (unknown)	0	0	0
 # shared GCFs	29	27	28
 # shared GCFs (NRPS)	1	1	1
 # shared GCFs (PKS)	9	7	10
