@@ -252,7 +252,7 @@ What each mode reports:
 - **compare-samples with BiG-SCAPE:** number of gene cluster families,
   families shared between samples, BGCs that BiG-SCAPE did not cluster, and
   a Venn diagram.
-  
+
 For the full list of metrics, see the
 [bgc-quast metrics page](https://github.com/gurevichlab/bgc-quast/blob/main/docs/METRICS.md).
 
