@@ -10,7 +10,7 @@
 [![QUAST](https://img.shields.io/badge/QUAST-5.3.0-blue)](https://quast.sourceforge.net/)
 [![BiG-SCAPE](https://img.shields.io/badge/BiG--SCAPE-2.0.3-blue)](https://github.com/medema-group/BiG-SCAPE)
 [![bgc-quast](https://img.shields.io/badge/bgc--quast-1.1.0-blue)](https://github.com/gurevichlab/bgc-quast)
-[![nf-core/funcscan](https://img.shields.io/badge/based%20on-nf--core%2Ffuncscan%203.0.0-23aa62)](https://nf-co.re/funcscan/3.0.0)
+
 
 A Nextflow pipeline that predicts **biosynthetic gene clusters (BGCs)** in
 genome assemblies and compares the predictions in one report.
