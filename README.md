@@ -2,8 +2,15 @@
 
 [![Nextflow](https://img.shields.io/badge/nextflow-25.10.x-23aa62.svg)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
-[![bgc-quast](https://img.shields.io/badge/bgc--quast-1.1.0-blue)](https://github.com/gurevichlab/bgc-quast)
+[![SeqKit](https://img.shields.io/badge/SeqKit-2.9.0-blue)](https://bioinf.shenwei.me/seqkit/)
+[![Pyrodigal](https://img.shields.io/badge/Pyrodigal-3.6.3-blue)](https://github.com/althonos/pyrodigal)
+[![antiSMASH](https://img.shields.io/badge/antiSMASH-8.0.1-blue)](https://antismash.secondarymetabolites.org)
+[![DeepBGC](https://img.shields.io/badge/DeepBGC-0.1.31-blue)](https://github.com/Merck/deepbgc)
+[![GECCO](https://img.shields.io/badge/GECCO-0.9.10-blue)](https://gecco.embl.de/)
+[![QUAST](https://img.shields.io/badge/QUAST-5.3.0-blue)](https://quast.sourceforge.net/)
 [![BiG-SCAPE](https://img.shields.io/badge/BiG--SCAPE-2.0.3-blue)](https://github.com/medema-group/BiG-SCAPE)
+[![bgc-quast](https://img.shields.io/badge/bgc--quast-1.1.0-blue)](https://github.com/gurevichlab/bgc-quast)
+[![nf-core/funcscan](https://img.shields.io/badge/based%20on-nf--core%2Ffuncscan%203.0.0-23aa62)](https://nf-co.re/funcscan/3.0.0)
 
 A Nextflow pipeline that predicts **biosynthetic gene clusters (BGCs)** in
 genome assemblies and compares the predictions in one report.
